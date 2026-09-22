@@ -17,9 +17,14 @@ From the menu you can:
 - for `work`, also pick a mode: `full` assumes sudo access and does everything below;
   `lite` assumes no sudo access, so it only loads the prompt (`ps1.sh`) and aliases and
   skips package installs entirely
-- link `shell/init.sh` into your `~/.bashrc` / `~/.zshrc`, which loads shared config plus
-  the active profile's overlay
+- link `shell/init.sh` into your rc file, which loads shared config plus the active
+  profile's overlay
 - install the packages listed for `common` + the active profile (skipped for `work` lite)
+
+The `home` profile assumes the machine is yours to configure fully: linking installs zsh
+and [oh-my-zsh](https://ohmyz.sh) if they're missing, offers to make zsh your login shell,
+and then wires `shell/init.sh` into `~/.zshrc`. The `work` profile stays on bash and wires
+`shell/init.sh` into `~/.bashrc`.
 
 `setup.sh` will try to install `gum` itself (via `brew` or `go install`) if it isn't found.
 

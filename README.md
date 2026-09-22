@@ -14,9 +14,14 @@ cd ~/envsetup
 From the menu you can:
 
 - pick a machine profile (`work` or `home`)
-- link `shell/init.sh` into your `~/.bashrc` / `~/.zshrc`, which loads shared config plus
-  the active profile's overlay
+- link `shell/init.sh` into your rc file, which loads shared config plus the active
+  profile's overlay
 - install the packages listed for `common` + the active profile
+
+The `home` profile assumes the machine is yours to configure fully: linking installs zsh
+and [oh-my-zsh](https://ohmyz.sh) if they're missing, offers to make zsh your login shell,
+and then wires `shell/init.sh` into `~/.zshrc`. The `work` profile stays on bash and wires
+`shell/init.sh` into `~/.bashrc`.
 
 `setup.sh` will try to install `gum` itself (via `brew` or `go install`) if it isn't found.
 

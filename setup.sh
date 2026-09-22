@@ -4,6 +4,7 @@ set -euo pipefail
 
 ENVSETUP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$ENVSETUP_ROOT/lib/common.sh"
+source "$ENVSETUP_ROOT/lib/zsh.sh"
 
 CONFIG_DIR="$HOME/.config/envsetup"
 PROFILE_FILE="$CONFIG_DIR/profile"
@@ -21,16 +22,16 @@ envsetup::set_profile() {
 	echo "$1" >"$PROFILE_FILE"
 }
 
-envsetup::detect_rc_file() {
-	case "${SHELL:-}" in
-	*/zsh) echo "$HOME/.zshrc" ;;
-	*) echo "$HOME/.bashrc" ;;
-	esac
-}
-
 envsetup::link_shell_config() {
-	local rc_file
-	rc_file="$(envsetup::detect_rc_file)"
+	local profile rc_file
+	profile="$(envsetup::current_profile)"
+
+	if [[ "$profile" == home ]]; then
+		envsetup::setup_zsh || return 1
+		rc_file="$HOME/.zshrc"
+	else
+		rc_file="$HOME/.bashrc"
+	fi
 
 	if [[ -f "$rc_file" ]] && grep -qF "$RC_MARKER_BEGIN" "$rc_file"; then
 		gum style --foreground 3 "Already linked in $rc_file"

@@ -8,6 +8,7 @@ source "$ENVSETUP_ROOT/lib/zsh.sh"
 
 CONFIG_DIR="$HOME/.config/envsetup"
 PROFILE_FILE="$CONFIG_DIR/profile"
+MODE_FILE="$CONFIG_DIR/mode"
 RC_MARKER_BEGIN="# >>> envsetup >>>"
 RC_MARKER_END="# <<< envsetup <<<"
 
@@ -20,6 +21,21 @@ envsetup::current_profile() {
 envsetup::set_profile() {
 	mkdir -p "$CONFIG_DIR"
 	echo "$1" >"$PROFILE_FILE"
+}
+
+# Mode only applies to the work profile: "lite" assumes no sudo access and
+# skips package installs; "full" (the default) assumes sudo and does everything.
+envsetup::current_mode() {
+	[[ -f "$MODE_FILE" ]] && cat "$MODE_FILE" || echo full
+}
+
+envsetup::set_mode() {
+	mkdir -p "$CONFIG_DIR"
+	echo "$1" >"$MODE_FILE"
+}
+
+envsetup::clear_mode() {
+	rm -f "$MODE_FILE"
 }
 
 envsetup::link_shell_config() {
@@ -50,6 +66,11 @@ envsetup::link_shell_config() {
 
 envsetup::install_packages_for_profile() {
 	local profile=$1 manager
+	if [[ "$profile" == work && "$(envsetup::current_mode)" == lite ]]; then
+		gum style --foreground 3 "work (lite) assumes no sudo access, so package installs are skipped."
+		return 0
+	fi
+
 	manager="$(envsetup::pkg_manager)"
 	if [[ -z "$manager" ]]; then
 		gum style --foreground 1 "No supported package manager found."
@@ -70,11 +91,13 @@ envsetup::install_packages_for_profile() {
 }
 
 envsetup::main_menu() {
-	local profile choice
+	local profile label choice
 	while true; do
 		profile="$(envsetup::current_profile)"
+		label="${profile:-none}"
+		[[ "$profile" == work ]] && label+=" ($(envsetup::current_mode))"
 		choice="$(gum choose \
-			"Select profile (current: ${profile:-none})" \
+			"Select profile (current: $label)" \
 			"Link shell config" \
 			"Install packages" \
 			"Link + install" \
@@ -84,6 +107,11 @@ envsetup::main_menu() {
 		"Select profile"*)
 			profile="$(gum choose work home)"
 			envsetup::set_profile "$profile"
+			if [[ "$profile" == work ]]; then
+				envsetup::set_mode "$(gum choose lite full)"
+			else
+				envsetup::clear_mode
+			fi
 			;;
 		"Link shell config")
 			envsetup::link_shell_config

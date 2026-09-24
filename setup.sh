@@ -2,9 +2,10 @@
 # Entry point: gum-driven menu to link shell config and install packages.
 set -euo pipefail
 
-ENVSETUP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export ENVSETUP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$ENVSETUP_ROOT/lib/common.sh"
 source "$ENVSETUP_ROOT/lib/zsh.sh"
+source "$ENVSETUP_ROOT/lib/installers.sh"
 
 CONFIG_DIR="$HOME/.config/envsetup"
 PROFILE_FILE="$CONFIG_DIR/profile"
@@ -100,7 +101,8 @@ envsetup::main_menu() {
 			"Select profile (current: $label)" \
 			"Link shell config" \
 			"Install packages" \
-			"Link + install" \
+			"Run installers" \
+			"Run everything" \
 			"Quit")"
 
 		case "$choice" in
@@ -120,10 +122,15 @@ envsetup::main_menu() {
 			[[ -z "$profile" ]] && { gum style --foreground 1 "Select a profile first."; continue; }
 			envsetup::install_packages_for_profile "$profile"
 			;;
-		"Link + install")
+		"Run installers")
+			[[ -z "$profile" ]] && { gum style --foreground 1 "Select a profile first."; continue; }
+			envsetup::run_installers "$profile"
+			;;
+		"Run everything")
 			[[ -z "$profile" ]] && { gum style --foreground 1 "Select a profile first."; continue; }
 			envsetup::link_shell_config
 			envsetup::install_packages_for_profile "$profile"
+			envsetup::run_installers "$profile"
 			;;
 		"Quit" | "")
 			break

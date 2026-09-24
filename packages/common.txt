@@ -1,7 +1,14 @@
 # One package name per line, as known to your package manager (apt/dnf/brew/pacman).
-# Lines starting with # are ignored.
+# Lines starting with # are ignored. Installed on every profile (home, work/full).
 git
 tmux
+vim
+curl
+wget
+htop
+tree
+unzip
+jq
 fzf
 ripgrep
 bat

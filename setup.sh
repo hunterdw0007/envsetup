@@ -9,6 +9,7 @@ source "$ENVSETUP_ROOT/lib/config.sh"
 source "$ENVSETUP_ROOT/lib/zsh.sh"
 source "$ENVSETUP_ROOT/lib/installers.sh"
 source "$ENVSETUP_ROOT/lib/git.sh"
+source "$ENVSETUP_ROOT/lib/uninstall.sh"
 
 CONFIG_DIR="$HOME/.config/envsetup"
 PROFILE_FILE="$CONFIG_DIR/profile"
@@ -33,16 +34,21 @@ Your own changes go in ~/.config/envsetup/config.sh ("Edit config" in the menu,
 template: config.example.sh), outside this repo, so updates never conflict.
 
 To see what it would do first, use --dry-run, or "Preview everything" in the menu.
+To take it all back out, use --uninstall, or "Uninstall" in the menu.
 
 Options:
-  -n, --dry-run  walk through the menu without changing anything: every step says
-                 what it would do instead; profile picks and "Edit config" work
-                 but only last until you quit
-  -h, --help     show this help and exit
+  -n, --dry-run    walk through the menu without changing anything: every step says
+                   what it would do instead; profile picks and "Edit config" work
+                   but only last until you quit
+      --uninstall  remove what envsetup added (rc-file block, git include, saved
+                   state), asking before anything that might be yours; packages
+                   and tools stay. Combine with --dry-run to preview it
+  -h, --help       show this help and exit
 EOF
 }
 
 ENVSETUP_DRY_RUN=0
+UNINSTALL=0
 while (($#)); do
 	case $1 in
 	-h | --help)
@@ -50,6 +56,7 @@ while (($#)); do
 		exit 0
 		;;
 	-n | --dry-run) ENVSETUP_DRY_RUN=1 ;;
+	--uninstall) UNINSTALL=1 ;;
 	*)
 		printf 'setup.sh: unknown option: %s\n\n' "$1" >&2
 		envsetup::usage >&2
@@ -211,7 +218,7 @@ envsetup::run_everything() {
 }
 
 envsetup::main_menu() {
-	local profile mode label choice was labels=()
+	local profile mode label choice was result labels=()
 	[[ -n "$(envsetup::current_profile)" ]] || envsetup::welcome
 	while true; do
 		profile="$(envsetup::current_profile)"
@@ -227,6 +234,7 @@ envsetup::main_menu() {
 			"Run installers" \
 			"Preview everything" \
 			"Run everything" \
+			"Uninstall" \
 			"Quit")" || break # esc/ctrl+c: gum exits non-zero with no selection
 
 		case "$choice" in
@@ -276,6 +284,12 @@ envsetup::main_menu() {
 			envsetup::dry_run && gum style --bold "Dry run: what Run everything would do for $label:"
 			envsetup::run_everything "$profile"
 			;;
+		"Uninstall")
+			result=0
+			envsetup::uninstall || result=$?
+			# Done for real: nothing left for the menu to act on.
+			[[ "$result" == 0 ]] && ! envsetup::dry_run && break
+			;;
 		"Quit" | "")
 			break
 			;;
@@ -285,4 +299,12 @@ envsetup::main_menu() {
 
 gum style --border rounded --padding "1 2" --bold "envsetup"
 envsetup::dry_run && gum style --foreground 6 "Dry run: nothing is saved, installed or linked. Picks and config edits last until you quit."
+if ((UNINSTALL)); then
+	# Loaded so it knows which shell envsetup would have set up for your profile.
+	envsetup::load_config "$(envsetup::current_profile)" "$(envsetup::current_mode)"
+	result=0
+	envsetup::uninstall || result=$?
+	((result == 2)) && result=0 # backing out isn't an error
+	exit "$result"
+fi
 envsetup::main_menu

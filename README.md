@@ -77,6 +77,7 @@ From the menu you can:
 - run the installer scripts under `installers/common` + the active profile — anything that
   isn't a plain package-manager package: vendor installers, manual binary downloads, or any
   other custom setup step (also skipped for `work` lite)
+- take it all back out again (see [Uninstalling](#uninstalling))
 
 "Run everything" does all four in one shot; each is also available individually from the
 menu if you just want to re-run one piece.
@@ -125,6 +126,22 @@ Shell settings take effect in the next new shell. The `ENVSETUP_*` settings take
 next time you run the matching menu action (or "Run everything"). To carry your setup to
 another machine, keep `config.sh` in your own dotfiles and symlink it into place before
 running `install.sh`.
+
+## Uninstalling
+
+```sh
+./setup.sh --uninstall            # or "Uninstall" in the menu
+./setup.sh --dry-run --uninstall  # see what it would remove first
+```
+
+This takes out everything envsetup added: its block in `~/.bashrc`/`~/.zshrc` (the rest of
+the file is left byte-for-byte as it was), its include in `~/.gitconfig` and the generated
+file behind it, and its saved profile/mode. It asks before removing anything that might
+be yours: your `config.sh`, and, if it would have set you up on zsh, switching your login
+shell back to bash. Packages and tools stay, since they may have been there before
+envsetup, as do your git `user.name`/`user.email` and oh-my-zsh (it has its own
+`uninstall_oh_my_zsh`). It lists all of that at the end, along with how to delete the
+checkout itself.
 
 ## Layout
 

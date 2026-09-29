@@ -16,7 +16,7 @@ CLONE=/root/envsetup
 W=/tmp/smoke
 STUBS=$W/stubs     # gum + sudo: on PATH for every run
 OFFLINE=$W/offline # package manager, curl, chsh, "already installed" vendor tools
-export SMOKE_LOG=$W/calls.log SMOKE_CHOICES=$W/choices
+export SMOKE_LOG=$W/calls.log SMOKE_CHOICES=$W/choices SMOKE_CONFIRMS=$W/confirms
 failures=0
 
 pass() { printf '  ok    %s\n' "$1"; }
@@ -44,9 +44,11 @@ same_commit() { # both must resolve, so two failed lookups can't compare equal
 }
 
 mkdir -p "$STUBS" "$OFFLINE"
+: >"$SMOKE_CONFIRMS"
 
 # gum: answers `choose` from $SMOKE_CHOICES (one per line; "ESC", or running out,
-# cancels), declines `confirm`, fills `input`, and logs every call.
+# cancels), `confirm` from $SMOKE_CONFIRMS (only "yes" accepts; running out declines),
+# fills `input`, and logs every call.
 cat >"$STUBS/gum" <<'EOF'
 #!/usr/bin/env bash
 echo "gum $*" >>"$SMOKE_LOG"
@@ -58,7 +60,11 @@ case $1 in
 		[[ $answer == ESC ]] && exit 1
 		echo "$answer" ;;
 	input) [[ $* == *@* ]] && echo smoke@example.com || echo "Smoke Test" ;;
-	confirm) exit 1 ;;
+	confirm)
+		answer=no
+		read -r answer <"$SMOKE_CONFIRMS" || true
+		sed -i 1d "$SMOKE_CONFIRMS"
+		[[ $answer == yes ]] ;;
 	style) echo "${*: -1}" ;;
 esac
 EOF
@@ -83,12 +89,13 @@ for tool in kubectl helm gh terraform aws; do printf '#!/bin/sh\n' >"$OFFLINE/$t
 chmod +x "$STUBS"/* "$OFFLINE"/*
 
 # run_menu <home> <answers...>: runs the cloned setup.sh offline, answering the menu.
-# Options for setup.sh itself go in SETUP_ARGS.
-SETUP_ARGS=()
+# Options for setup.sh itself go in SETUP_ARGS, answers to gum confirm in CONFIRMS.
+SETUP_ARGS=() CONFIRMS=()
 run_menu() {
 	local home=$1
 	shift
 	printf '%s\n' "$@" >"$SMOKE_CHOICES"
+	printf '%s\n' "${CONFIRMS[@]}" >"$SMOKE_CONFIRMS"
 	: >"$SMOKE_LOG"
 	HOME=$home PATH="$OFFLINE:$STUBS:$PATH" "$CLONE/setup.sh" "${SETUP_ARGS[@]}" >"$home/setup.out" 2>&1 </dev/tty
 }
@@ -124,6 +131,7 @@ rejects_unknown() {
 	HOME=$1 PATH=/usr/bin:/bin "$CLONE/setup.sh" --bogus >"$1/bogus.out" 2>&1 || rc=$?
 	[ "$rc" = 2 ] && grep -qF 'unknown option: --bogus' "$1/bogus.out"
 }
+includes() { git config --file "$1/.gitconfig" --get-all include.path || true; }
 # in_shell <home> <bash|zsh> <cmd>: runs cmd in a real interactive shell that loads
 # the linked rc file; stderr (minus no-TTY job-control notices) goes to <home>/shell.err.
 in_shell() {
@@ -261,6 +269,66 @@ else
 	show $W/install2.out
 fi
 check "  ...and printed setup.sh's help" grep -qF -- '--dry-run' $W/install2.out
+
+echo "== --uninstall: work/full"
+h=$(new_home)
+run_menu "$h" "Select profile" work full "Run everything" Quit
+gc=$h/.config/envsetup/gitconfig
+check "(before: git includes envsetup's file)" [ "$(includes "$h")" = "$gc" ]
+check "(before: a profile is saved)" [ -f "$h/.config/envsetup/profile" ]
+SETUP_ARGS=(--uninstall) CONFIRMS=(yes)
+if run_menu "$h"; then pass "exited 0"; else fail "exited non-zero"; fi
+check ".bashrc is byte-for-byte what it was" cmp -s /etc/skel/.bashrc "$h/.bashrc"
+check "removed the git include" [ -z "$(includes "$h")" ]
+check "kept the git identity" [ "$(git config --file "$h/.gitconfig" user.name)" = "Smoke Test" ]
+check "removed envsetup's saved state" [ ! -e "$h/.config/envsetup" ]
+check "bash is back to the distro's aliases" [ "$(in_shell "$h" bash 'alias ll')" = "alias ll='ls -alF'" ]
+check "didn't touch the login shell" not_grep '^chsh ' "$SMOKE_LOG"
+before=$(snapshot "$h")
+check "a second --uninstall exits 0" run_menu "$h"
+check "  ...and changes nothing" [ "$(snapshot "$h")" = "$before" ]
+SETUP_ARGS=() CONFIRMS=()
+((failures)) && show "$h/setup.out"
+
+echo "== --uninstall: declining, and with --dry-run"
+h=$(new_home)
+run_menu "$h" "Select profile" work full "Run everything" Quit
+before=$(snapshot "$h")
+SETUP_ARGS=(--uninstall)
+check "declining exits 0" run_menu "$h"
+check "  ...and changes nothing" [ "$(snapshot "$h")" = "$before" ]
+SETUP_ARGS=(--dry-run --uninstall) CONFIRMS=(yes)
+check "--dry-run --uninstall exits 0" run_menu "$h"
+SETUP_ARGS=() CONFIRMS=()
+check "said it would remove the ~/.bashrc block" grep -qF "would remove the envsetup block from $h/.bashrc" "$SMOKE_LOG"
+check "said it would remove the git include" grep -qF "would remove the include of $h/.config/envsetup/gitconfig" "$SMOKE_LOG"
+check "  ...and changes nothing" [ "$(snapshot "$h")" = "$before" ]
+
+echo "== Uninstall from the menu: home on zsh, with a config.sh"
+h=$(new_home)
+mkdir -p "$h/.config/envsetup"
+echo 'alias smoke=true' >"$h/.config/envsetup/config.sh"
+run_menu "$h" "Select profile" home "Run everything" Quit
+check "(before: ~/.zshrc is linked)" grep -qF '# >>> envsetup >>>' "$h/.zshrc"
+# Remove? yes; keep config.sh? no; keep zsh as login shell? no.
+CONFIRMS=(yes no no)
+if SHELL=/usr/bin/zsh run_menu "$h" Uninstall; then pass "exited 0"; else fail "exited non-zero"; fi
+CONFIRMS=()
+check "unlinked ~/.zshrc" not_grep '# >>> envsetup >>>' "$h/.zshrc"
+check "  ...keeping the rest of it" grep -qF 'stand-in for the oh-my-zsh theme' "$h/.zshrc"
+check "deleted config.sh when told to" [ ! -e "$h/.config/envsetup/config.sh" ]
+check "switched the login shell back to bash" grep -q '^chsh -s .*/bash$' "$SMOKE_LOG"
+check "said how to remove oh-my-zsh" grep -qF 'uninstall_oh_my_zsh' "$SMOKE_LOG"
+check "closed the menu afterwards" [ "$(count 'gum choose' "$SMOKE_LOG")" = 1 ]
+h=$(new_home)
+mkdir -p "$h/.config/envsetup"
+echo 'alias smoke=true' >"$h/.config/envsetup/config.sh"
+run_menu "$h" "Select profile" work lite Quit
+SETUP_ARGS=(--uninstall) CONFIRMS=(yes yes)
+run_menu "$h" || true
+SETUP_ARGS=() CONFIRMS=()
+check "kept config.sh by default" [ -f "$h/.config/envsetup/config.sh" ]
+check "  ...but removed the saved profile" [ ! -e "$h/.config/envsetup/profile" ]
 
 echo "== cancelling"
 h=$(new_home)

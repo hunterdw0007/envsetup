@@ -1,16 +1,21 @@
 #!/usr/bin/env bash
-# Gets a machine onto zsh + oh-my-zsh (used for the home profile).
+# Gets a machine onto zsh + oh-my-zsh (used for the home profile). Called as
+# `envsetup::setup_zsh || return 1`, which disables set -e in here, so every
+# failure that matters has an explicit return.
 
 envsetup::setup_zsh() {
-	if ! envsetup::has_cmd zsh; then
-		local manager
+	local missing=() manager installer
+	envsetup::has_cmd zsh || missing+=(zsh)
+	# The oh-my-zsh installer is fetched with curl, which a fresh desktop may not have yet.
+	envsetup::has_cmd curl || missing+=(curl)
+	if ((${#missing[@]} > 0)); then
 		manager="$(envsetup::pkg_manager)"
 		if [[ -z "$manager" ]]; then
-			gum style --foreground 1 "No supported package manager found to install zsh."
+			gum style --foreground 1 "No supported package manager found to install ${missing[*]}."
 			return 1
 		fi
-		gum style --bold "Installing zsh..."
-		envsetup::install_packages "$manager" zsh
+		gum style --bold "Installing ${missing[*]}..."
+		envsetup::install_packages "$manager" "${missing[@]}" || return 1
 	fi
 
 	if [[ "$SHELL" != */zsh ]] && gum confirm "Set zsh as your default login shell?"; then
@@ -19,7 +24,12 @@ envsetup::setup_zsh() {
 
 	if [[ ! -d "$HOME/.oh-my-zsh" ]]; then
 		gum style --bold "Installing oh-my-zsh..."
-		RUNZSH=no KEEP_ZSHRC=yes sh -c \
-			"$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+		# Not `sh -c "$(curl ...)"`: that runs an empty script and "succeeds" when the
+		# download fails, leaving a ~/.zshrc that the next install attempt then keeps.
+		if ! installer="$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"; then
+			gum style --foreground 1 "Couldn't download the oh-my-zsh installer."
+			return 1
+		fi
+		RUNZSH=no KEEP_ZSHRC=yes sh -c "$installer" || return 1
 	fi
 }

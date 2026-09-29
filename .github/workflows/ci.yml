@@ -16,3 +16,14 @@ jobs:
 
       - name: shellcheck
         run: find . -name '*.sh' -not -path './.git/*' -print0 | xargs -0 shellcheck
+
+  smoke:
+    # Runs the real tool on a bare Ubuntu box (install.sh -> setup.sh -> real bash/zsh);
+    # only gum's UI, package installs and vendor downloads are stubbed. See tests/smoke.sh.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: smoke test (ubuntu:24.04)
+        run: docker run --rm -t -v "$PWD:/src:ro" ubuntu:24.04 bash /src/tests/smoke.sh

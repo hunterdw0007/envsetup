@@ -44,11 +44,13 @@ From the menu you can:
 - for `work`, also pick a mode: `full` assumes sudo access and does everything below;
   `lite` assumes no sudo access, so it only loads the prompt (`ps1.sh`) and aliases and
   skips package installs entirely
+- edit your personal config (see [Customizing without forking](#customizing-without-forking))
 - link `shell/init.sh` into your rc file, which loads shared config plus the active
   profile's overlay
-- configure git: includes `git/gitconfig` (shared aliases/settings) into `~/.gitconfig`,
-  and prompts for `user.name`/`user.email` if they aren't already set. Runs regardless of
-  profile/mode — it never needs sudo
+- configure git: writes `git/gitconfig` plus your config's git entries to
+  `~/.config/envsetup/gitconfig`, includes that from `~/.gitconfig`, and prompts for
+  `user.name`/`user.email` if nothing set them. Runs regardless of profile/mode — it never
+  needs sudo
 - install the packages listed for `common` + the active profile (skipped for `work` lite)
 - run the installer scripts under `installers/common` + the active profile — anything that
   isn't a plain package-manager package: vendor installers, manual binary downloads, or any
@@ -60,15 +62,54 @@ menu if you just want to re-run one piece.
 The `home` profile assumes the machine is yours to configure fully: linking installs zsh
 and [oh-my-zsh](https://ohmyz.sh) if they're missing, offers to make zsh your login shell,
 and then wires `shell/init.sh` into `~/.zshrc`. The `work` profile stays on bash and wires
-`shell/init.sh` into `~/.bashrc`.
+`shell/init.sh` into `~/.bashrc`. Either default can be flipped with `ENVSETUP_SHELL`.
 
 `setup.sh` will try to install `gum` itself (via `brew` or `go install`) if it isn't found.
+
+## Customizing without forking
+
+Everything shipped here (packages, installers, aliases, git settings) is a *default*. To
+change any of it for yourself, put your changes in one file,
+`~/.config/envsetup/config.sh`, instead of editing this repo. It lives outside the
+checkout, so `git pull` and re-running `install.sh` never conflict with it — editing
+tracked files, by contrast, makes the next update abort.
+
+Pick **Edit config** in the menu to create it from [`config.example.sh`](config.example.sh)
+(every option, all commented out) and open it in `$EDITOR`. It's plain bash, sourced
+after the defaults, so `+=` extends a default, `=` replaces it, and you can branch on
+`$ENVSETUP_PROFILE` / `$ENVSETUP_MODE` for per-machine tweaks:
+
+```sh
+ENVSETUP_PACKAGES+=(neovim)                        # add to the default package list
+ENVSETUP_SKIP=(docker.io terraform)                # drop a default package or installer
+ENVSETUP_SHELL=bash                                # stay on bash on the home profile
+ENVSETUP_INSTALLER_DIRS+=("$HOME/dotfiles/envsetup-installers")
+ENVSETUP_GIT_CONFIG+=("user.email=me@example.com" "alias.sw=switch")
+[[ $ENVSETUP_PROFILE == work ]] && ENVSETUP_PACKAGES+=(kubectx)
+
+alias k=kubectl                                    # anything else is ordinary shell config
+```
+
+| Setting | Default | Applied |
+| --- | --- | --- |
+| `ENVSETUP_PACKAGES` | `packages/common.txt` + `packages/<profile>.txt` | Install packages |
+| `ENVSETUP_INSTALLER_DIRS` | `installers/common` + `installers/<profile>` | Run installers |
+| `ENVSETUP_SKIP` | empty — names of packages/installers to leave out | Install packages, Run installers |
+| `ENVSETUP_SHELL` | `zsh` on home, `bash` otherwise | Link shell config |
+| `ENVSETUP_GIT_CONFIG` | `git/gitconfig`, as `key=value` (later entries win) | Configure git |
+| aliases, exports, functions, `PS1` | `shell/` | every new shell, after the defaults |
+
+Shell settings take effect in the next new shell. The `ENVSETUP_*` settings take effect the
+next time you run the matching menu action (or "Run everything"). To carry your setup to
+another machine, keep `config.sh` in your own dotfiles and symlink it into place before
+running `install.sh`.
 
 ## Layout
 
 ```
 install.sh           # curl | bash entry point: clones/updates the repo, then runs setup.sh
 setup.sh             # gum TUI: profile/mode selection, linking, package installs
+config.example.sh    # template for your ~/.config/envsetup/config.sh overrides
 shell/
   shared/            # ps1, aliases, exports, functions loaded on every machine
                       # (work/lite only loads ps1 + aliases)
@@ -85,12 +126,12 @@ installers/
   work/              # scripts run only for profile = work (full mode only)
   home/              # scripts run only for profile = home
 git/
-  gitconfig          # shared aliases/settings, included into ~/.gitconfig (no identity)
+  gitconfig          # default git aliases/settings (no identity)
 ```
 
-Edit the files under `shell/` and `packages/` to match what you actually use — the shipped
-content is just a starting point. Package names are passed straight to whichever of
-`apt`/`dnf`/`brew`/`pacman` is detected on the machine.
+Package names are passed straight to whichever of `apt`/`dnf`/`brew`/`pacman` is detected on
+the machine. To change what's installed or loaded for yourself, use `config.sh` (above)
+rather than editing these files.
 
 ### Adding a third-party or custom installer
 
@@ -105,8 +146,11 @@ file, whatever). Either kind goes in `installers/`:
 3. It runs as its own `bash` process, so source `$ENVSETUP_ROOT/lib/common.sh` yourself if you
    want helpers like `envsetup::has_cmd`.
 
-Scripts run in alphabetical order. One failing script doesn't stop the others — failures are
-collected and reported at the end.
+To add your own installers without touching this repo, keep them in a directory of your own
+and add it via `ENVSETUP_INSTALLER_DIRS` in `config.sh`.
+
+Scripts run directory by directory, alphabetically within each. One failing script doesn't
+stop the others — failures are collected and reported at the end.
 
 ## Contributing
 

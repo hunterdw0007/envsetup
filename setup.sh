@@ -5,6 +5,7 @@ set -euo pipefail
 ENVSETUP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export ENVSETUP_ROOT
 source "$ENVSETUP_ROOT/lib/common.sh"
+source "$ENVSETUP_ROOT/lib/config.sh"
 source "$ENVSETUP_ROOT/lib/zsh.sh"
 source "$ENVSETUP_ROOT/lib/installers.sh"
 source "$ENVSETUP_ROOT/lib/git.sh"
@@ -42,10 +43,8 @@ envsetup::clear_mode() {
 }
 
 envsetup::link_shell_config() {
-	local profile rc_file
-	profile="$(envsetup::current_profile)"
-
-	if [[ "$profile" == home ]]; then
+	local rc_file
+	if [[ "$ENVSETUP_SHELL" == zsh ]]; then
 		envsetup::setup_zsh || return 1
 		rc_file="$HOME/.zshrc"
 	else
@@ -81,9 +80,13 @@ envsetup::install_packages_for_profile() {
 		return 1
 	fi
 
-	local pkgs=()
-	readarray -t pkgs < <(cat "$ENVSETUP_ROOT/packages/common.txt" "$ENVSETUP_ROOT/packages/$profile.txt" 2>/dev/null |
-		grep -vE '^\s*(#|$)' | sort -u)
+	local pkg pkgs=()
+	local -A seen=()
+	for pkg in "${ENVSETUP_PACKAGES[@]}"; do
+		[[ -z "$pkg" || -n "${seen[$pkg]:-}" ]] && continue
+		seen[$pkg]=1
+		envsetup::skipped "$pkg" || pkgs+=("$pkg")
+	done
 
 	if ((${#pkgs[@]} == 0)); then
 		gum style --foreground 3 "No packages listed for $profile."
@@ -100,8 +103,10 @@ envsetup::main_menu() {
 		profile="$(envsetup::current_profile)"
 		label="${profile:-none}"
 		[[ "$profile" == work ]] && label+=" ($(envsetup::current_mode))"
+		envsetup::load_config "$profile" "$(envsetup::current_mode)"
 		choice="$(gum choose \
 			"Select profile (current: $label)" \
+			"Edit config" \
 			"Link shell config" \
 			"Configure git" \
 			"Install packages" \
@@ -118,6 +123,9 @@ envsetup::main_menu() {
 			else
 				envsetup::clear_mode
 			fi
+			;;
+		"Edit config")
+			envsetup::edit_config
 			;;
 		"Link shell config")
 			envsetup::link_shell_config

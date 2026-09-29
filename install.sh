@@ -3,8 +3,9 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | bash
 #
-# Clones (or updates) the repo, then hands off into setup.sh's TUI. See README.md
-# for how to run this while the repo is still private.
+# Clones (or updates) the repo, then hands off into setup.sh's TUI. Arguments go to
+# setup.sh, e.g. `... | bash -s -- --dry-run` to look around without changing anything
+# beyond the clone. See README.md for how to run this while the repo is still private.
 set -euo pipefail
 
 REPO_URL="${ENVSETUP_REPO_URL:-https://github.com/hunterdw0007/envsetup.git}"
@@ -46,4 +47,4 @@ fi
 # Reopen stdin from the controlling terminal: when this script is run via
 # `curl ... | bash`, stdin is the pipe from curl, not the terminal, which would
 # otherwise starve setup.sh's interactive gum prompts.
-exec "$ENVSETUP_DIR/setup.sh" </dev/tty
+exec "$ENVSETUP_DIR/setup.sh" "$@" </dev/tty

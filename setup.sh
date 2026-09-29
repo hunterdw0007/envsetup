@@ -32,25 +32,50 @@ Profiles (pick one from the menu; switch any time):
 Your own changes go in ~/.config/envsetup/config.sh ("Edit config" in the menu,
 template: config.example.sh), outside this repo, so updates never conflict.
 
+To see what it would do first, use --dry-run, or "Preview everything" in the menu.
+
 Options:
-  -h, --help  show this help and exit
+  -n, --dry-run  walk through the menu without changing anything: every step says
+                 what it would do instead; profile picks and "Edit config" work
+                 but only last until you quit
+  -h, --help     show this help and exit
 EOF
 }
 
+ENVSETUP_DRY_RUN=0
 while (($#)); do
 	case $1 in
 	-h | --help)
 		envsetup::usage
 		exit 0
 		;;
+	-n | --dry-run) ENVSETUP_DRY_RUN=1 ;;
 	*)
 		printf 'setup.sh: unknown option: %s\n\n' "$1" >&2
 		envsetup::usage >&2
 		exit 2
 		;;
 	esac
+	shift
 done
 
+if envsetup::dry_run; then
+	# Profile picks and config edits go to a throwaway copy, so the menu behaves as
+	# usual for the session while ~/.config/envsetup stays untouched.
+	DRY_RUN_DIR=$(mktemp -d)
+	trap 'rm -rf "$DRY_RUN_DIR"' EXIT
+	cp -r "$CONFIG_DIR/." "$DRY_RUN_DIR/" 2>/dev/null || true
+	CONFIG_DIR=$DRY_RUN_DIR
+	PROFILE_FILE=$CONFIG_DIR/profile
+	MODE_FILE=$CONFIG_DIR/mode
+	ENVSETUP_USER_CONFIG=$CONFIG_DIR/config.sh
+fi
+
+if envsetup::dry_run && ! envsetup::has_cmd gum; then
+	reply=
+	read -rp "The dry run's menu needs gum, which isn't installed. Install it? That's the only change a dry run makes. [y/N] " reply || true
+	[[ "$reply" == [yY]* ]] || exit 1
+fi
 envsetup::ensure_gum || exit 1
 
 envsetup::current_profile() {
@@ -90,6 +115,10 @@ envsetup::link_shell_config() {
 		gum style --foreground 3 "Already linked in $rc_file"
 		return 0
 	fi
+	if envsetup::dry_run; then
+		envsetup::would "add a 4-line block to $rc_file that loads shell/ from $ENVSETUP_ROOT"
+		return 0
+	fi
 
 	{
 		echo "$RC_MARKER_BEGIN"
@@ -120,6 +149,12 @@ envsetup::install_packages_for_profile() {
 
 	if ((${#pkgs[@]} == 0)); then
 		gum style --foreground 3 "No packages listed for $profile."
+		return 0
+	fi
+	if envsetup::dry_run; then
+		local how=$manager
+		[[ "$manager" == brew ]] || how="sudo $manager"
+		envsetup::would "install ${#pkgs[@]} packages with $how (ones already installed are left alone): ${pkgs[*]}"
 		return 0
 	fi
 
@@ -163,12 +198,20 @@ envsetup::welcome() {
 	gum style --border normal --padding "0 1" \
 		"Welcome to envsetup. Nothing changes until you pick an action." \
 		"1. Select profile: what kind of machine this is (switch any time)." \
-		"2. Run everything, or run the steps one at a time." \
+		"2. Preview everything shows what would change, without changing it." \
+		"3. Run everything, or run the steps one at a time." \
 		"Your own tweaks go in Edit config. More: ./setup.sh --help"
 }
 
+envsetup::run_everything() {
+	envsetup::link_shell_config
+	envsetup::setup_git
+	envsetup::install_packages_for_profile "$1"
+	envsetup::run_installers "$1"
+}
+
 envsetup::main_menu() {
-	local profile mode label choice labels=()
+	local profile mode label choice was labels=()
 	[[ -n "$(envsetup::current_profile)" ]] || envsetup::welcome
 	while true; do
 		profile="$(envsetup::current_profile)"
@@ -182,6 +225,7 @@ envsetup::main_menu() {
 			"Configure git" \
 			"Install packages" \
 			"Run installers" \
+			"Preview everything" \
 			"Run everything" \
 			"Quit")" || break # esc/ctrl+c: gum exits non-zero with no selection
 
@@ -202,6 +246,7 @@ envsetup::main_menu() {
 			envsetup::set_profile "$profile"
 			;;
 		"Edit config")
+			envsetup::dry_run && gum style --foreground 6 "Dry run: editing a copy of your config; changes last until you quit."
 			envsetup::edit_config
 			;;
 		"Link shell config")
@@ -218,12 +263,18 @@ envsetup::main_menu() {
 			[[ -z "$profile" ]] && { gum style --foreground 1 "Select a profile first."; continue; }
 			envsetup::run_installers "$profile"
 			;;
+		"Preview everything")
+			[[ -z "$profile" ]] && { gum style --foreground 1 "Select a profile first."; continue; }
+			gum style --bold "What Run everything would do for $label (nothing is changed):"
+			was=$ENVSETUP_DRY_RUN
+			ENVSETUP_DRY_RUN=1
+			envsetup::run_everything "$profile"
+			ENVSETUP_DRY_RUN=$was
+			;;
 		"Run everything")
 			[[ -z "$profile" ]] && { gum style --foreground 1 "Select a profile first."; continue; }
-			envsetup::link_shell_config
-			envsetup::setup_git
-			envsetup::install_packages_for_profile "$profile"
-			envsetup::run_installers "$profile"
+			envsetup::dry_run && gum style --bold "Dry run: what Run everything would do for $label:"
+			envsetup::run_everything "$profile"
 			;;
 		"Quit" | "")
 			break
@@ -233,4 +284,5 @@ envsetup::main_menu() {
 }
 
 gum style --border rounded --padding "1 2" --bold "envsetup"
+envsetup::dry_run && gum style --foreground 6 "Dry run: nothing is saved, installed or linked. Picks and config edits last until you quit."
 envsetup::main_menu

@@ -83,12 +83,22 @@ for tool in kubectl helm gh terraform aws; do printf '#!/bin/sh\n' >"$OFFLINE/$t
 chmod +x "$STUBS"/* "$OFFLINE"/*
 
 # run_menu <home> <answers...>: runs the cloned setup.sh offline, answering the menu.
+# Options for setup.sh itself go in SETUP_ARGS.
+SETUP_ARGS=()
 run_menu() {
 	local home=$1
 	shift
 	printf '%s\n' "$@" >"$SMOKE_CHOICES"
 	: >"$SMOKE_LOG"
-	HOME=$home PATH="$OFFLINE:$STUBS:$PATH" "$CLONE/setup.sh" >"$home/setup.out" 2>&1 </dev/tty
+	HOME=$home PATH="$OFFLINE:$STUBS:$PATH" "$CLONE/setup.sh" "${SETUP_ARGS[@]}" >"$home/setup.out" 2>&1 </dev/tty
+}
+# Everything under a home (paths + file contents), minus the test's own output files.
+snapshot() {
+	(
+		cd "$1" || exit 1
+		find . ! -name setup.out ! -name 'shell.*' | sort
+		find . -type f ! -name setup.out ! -name 'shell.*' -exec md5sum {} + | sort
+	) | md5sum
 }
 new_home() {
 	local h
@@ -202,6 +212,55 @@ mkdir -p "$h/.config/envsetup"
 printf 'ENVSETUP_SHELL=bash\nENVSETUP_SKIP=(%s)\n' "$(expected home | head -1)" >"$h/.config/envsetup/config.sh"
 run_menu "$h" "Select profile" ESC
 check "descriptions follow the user's config.sh" described "$hm" "home  bash · $((hm - 1)) packages"
+
+echo "== --dry-run: home, Run everything"
+h=$(new_home)
+before=$(snapshot "$h")
+SETUP_ARGS=(--dry-run)
+if run_menu "$h" "Select profile" home "Run everything" Quit; then pass "exited 0"; else fail "exited non-zero"; fi
+SETUP_ARGS=()
+check "said it would install oh-my-zsh" grep -qF 'would install oh-my-zsh' "$SMOKE_LOG"
+check "said it would link ~/.zshrc" grep -qF "would add a 4-line block to $h/.zshrc" "$SMOKE_LOG"
+check "said it would ask for a git identity" grep -qF 'would ask for your git user.name' "$SMOKE_LOG"
+check "said it would install common + home packages" described "$hm" "would install $hm packages"
+check "ran nothing that changes the machine" not_grep '^\(apt-get\|curl\|chsh\) ' "$SMOKE_LOG"
+check "left \$HOME exactly as it was" [ "$(snapshot "$h")" = "$before" ]
+touch "$h/.bashrc"
+echo "# control" >>"$h/.bashrc"
+check "  ...(control: the snapshot does notice a change)" [ "$(snapshot "$h")" != "$before" ]
+((failures)) && show "$h/setup.out"
+
+echo "== --dry-run: config edits last only for the session"
+h=$(new_home)
+before=$(snapshot "$h")
+printf '#!/bin/sh\necho ENVSETUP_SHELL=bash >>"$1"\n' >$W/editor
+chmod +x $W/editor
+export EDITOR=$W/editor
+SETUP_ARGS=(--dry-run)
+run_menu "$h" "Edit config" "Select profile" ESC Quit || true
+SETUP_ARGS=()
+unset EDITOR
+check "the edit applied within the session" described "$hm" "home  bash · $hm packages"
+check "  ...and nothing was saved" [ "$(snapshot "$h")" = "$before" ]
+
+echo "== Preview everything (normal session): work/full"
+h=$(new_home)
+if run_menu "$h" "Select profile" work full "Preview everything" Quit; then pass "exited 0"; else fail "exited non-zero"; fi
+check "said it would install common + work packages" described "$w" "would install $w packages"
+check "said it would run the work installers" described "$wi" "would run $wi installer scripts"
+check "ran nothing that changes the machine" not_grep '^\(apt-get\|curl\|chsh\) ' "$SMOKE_LOG"
+check "left ~/.bashrc as it was" cmp -s /etc/skel/.bashrc "$h/.bashrc"
+check "still saved the profile you picked" [ "$(cat "$h/.config/envsetup/profile" 2>/dev/null)" = work ]
+
+echo "== install.sh passes options to setup.sh"
+: >"$SMOKE_LOG"
+if PATH="$STUBS:$PATH" ENVSETUP_REPO_URL=$SRC ENVSETUP_DIR=$W/clone2 bash "$SRC/install.sh" --help >$W/install2.out 2>&1 </dev/null; then
+	pass "install.sh --help exited 0"
+else
+	fail "install.sh --help exited non-zero"
+	show $W/install2.out
+fi
+check "  ...and printed setup.sh's help" grep -qF -- '--dry-run' $W/install2.out
 
 echo "== cancelling"
 h=$(new_home)

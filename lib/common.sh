@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # Shared helpers for envsetup scripts.
 
+# Dry run (--dry-run, or "Preview everything"): every step that would change the
+# machine checks this first and describes the change instead of making it.
+envsetup::dry_run() { [[ "${ENVSETUP_DRY_RUN:-0}" == 1 ]]; }
+envsetup::would() { gum style --foreground 6 "  would $*"; }
+
 envsetup::has_cmd() {
 	command -v "$1" &>/dev/null
 }

@@ -87,6 +87,12 @@ Edit the files under `shell/` and `packages/` to match what you actually use —
 content is just a starting point. Package names are passed straight to whichever of
 `apt`/`dnf`/`brew`/`pacman` is detected on the machine.
 
+## Contributing
+
+See `AGENTS.md` for commit/branch conventions and code standards. CI
+(`.github/workflows/ci.yml`) runs `bash -n` and `shellcheck` on every shell script for
+every push and PR.
+
 ### Adding a third-party or custom installer
 
 Some tools don't come from a package manager (`terraform`, `kubectl`, `awscli`, ...), and

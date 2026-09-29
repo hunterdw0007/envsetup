@@ -23,11 +23,13 @@ fi
 
 for c in "${components[@]}"; do
 	f="$ENVSETUP_ROOT/shell/shared/$c.sh"
+	# shellcheck disable=SC1090 # dynamic by design: the whole point is to source whatever's dropped here
 	[[ -f "$f" ]] && source "$f"
 done
 
 if [[ -n "$profile" ]]; then
 	for f in "$ENVSETUP_ROOT/shell/profiles/$profile"/*.sh; do
+		# shellcheck disable=SC1090
 		[[ -f "$f" ]] && source "$f"
 	done
 fi

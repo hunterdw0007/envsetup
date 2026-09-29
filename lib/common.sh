@@ -25,7 +25,9 @@ envsetup::ensure_gum() {
 		brew install gum
 	elif envsetup::has_cmd go; then
 		go install github.com/charmbracelet/gum@latest
-		export PATH="$(go env GOPATH)/bin:$PATH"
+		local gopath
+		gopath="$(go env GOPATH)"
+		export PATH="$gopath/bin:$PATH"
 	else
 		echo "Could not auto-install gum. See https://github.com/charmbracelet/gum#installation" >&2
 		return 1

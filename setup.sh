@@ -18,7 +18,7 @@ RC_MARKER_END="# <<< envsetup <<<"
 envsetup::ensure_gum || exit 1
 
 envsetup::current_profile() {
-	[[ -f "$PROFILE_FILE" ]] && cat "$PROFILE_FILE"
+	if [[ -f "$PROFILE_FILE" ]]; then cat "$PROFILE_FILE"; fi
 }
 
 envsetup::set_profile() {

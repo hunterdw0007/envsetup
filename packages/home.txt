@@ -1,1 +1,14 @@
-# Home-only packages, installed in addition to packages/common.txt.
+# Home profile: general use + light dev work on Linux.
+# Installed in addition to packages/common.txt.
+python3
+python3-pip
+nodejs
+npm
+neovim
+direnv
+shellcheck
+tig
+ncdu
+
+# Docker: package is "docker.io" on Debian/Ubuntu, "docker" on Fedora/Arch — adjust for your distro.
+docker.io

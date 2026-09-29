@@ -1,1 +1,20 @@
-# Work-only packages, installed in addition to packages/common.txt.
+# Work profile, full mode only (lite skips package installs entirely).
+# SRE-focused tools available from standard repos. Installed in addition to
+# packages/common.txt.
+nmap
+tcpdump
+strace
+lsof
+sysstat
+mtr
+iotop
+iftop
+net-tools
+rsync
+
+# dig/nslookup: package is "dnsutils" on Debian/Ubuntu, "bind-utils" on Fedora, "bind" on Arch.
+dnsutils
+
+# Tools below need a vendor install script or third-party repo, so they're left out
+# of this list to avoid breaking the batch install — add them yourself if wanted:
+#   terraform, kubectl, helm, awscli v2, gh (GitHub CLI)

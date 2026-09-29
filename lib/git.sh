@@ -4,8 +4,29 @@
 # then prompts for identity (user.name/user.email) if nothing set it. Runs
 # regardless of profile/mode — it only ever writes under $HOME, no sudo.
 
+# For the dry run: true if <key> would still be unset after a real run, i.e. it isn't
+# in ENVSETUP_GIT_CONFIG and nothing ~/.gitconfig reaches sets it yet.
+envsetup::git_unset() {
+	local kv key
+	for kv in "${ENVSETUP_GIT_CONFIG[@]}"; do
+		key=${kv%%=*}
+		[[ "${key,,}" == "${1,,}" ]] && return 1
+	done
+	[[ -z "$(git config --global --includes "$1" 2>/dev/null)" ]]
+}
+
 envsetup::setup_git() {
 	local generated="$HOME/.config/envsetup/gitconfig" kv
+	if envsetup::dry_run; then
+		if git config --global --get-all include.path 2>/dev/null | grep -qxF "$generated"; then
+			envsetup::would "rewrite $generated (${#ENVSETUP_GIT_CONFIG[@]} git settings)"
+		else
+			envsetup::would "write ${#ENVSETUP_GIT_CONFIG[@]} git settings to $generated and include it from ~/.gitconfig"
+		fi
+		if envsetup::git_unset user.name; then envsetup::would "ask for your git user.name"; fi
+		if envsetup::git_unset user.email; then envsetup::would "ask for your git user.email"; fi
+		return 0
+	fi
 	mkdir -p "${generated%/*}"
 
 	# Rebuilt from scratch so entries removed from config.sh actually go away, via a

@@ -20,6 +20,15 @@ envsetup::run_installers() {
 		gum style --foreground 3 "No installers for $profile."
 		return 0
 	fi
+	if envsetup::dry_run; then
+		local names=()
+		for script in "${scripts[@]}"; do
+			name=${script##*/}
+			names+=("${name%.sh}")
+		done
+		envsetup::would "run ${#scripts[@]} installer scripts, each a no-op if its tool is already there: ${names[*]}"
+		return 0
+	fi
 
 	local failed=()
 	for script in "${scripts[@]}"; do

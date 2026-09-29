@@ -46,6 +46,10 @@ Conventional Commits, always: `<type>(<scope>)?: <summary>`.
   that can drift. Picker lines are `"<value>  <description>"` and the caller keeps
   `${choice%% *}`: `gum choose --label-delimiter` would do the same, but only on newer
   gum releases, and an older one would reject the flag and silently break the picker.
+- Every step that changes the machine (writes a file, installs, runs sudo/chsh, calls
+  out to the network) checks `envsetup::dry_run` *before its first write* and describes
+  the change with `envsetup::would` instead. The smoke test's dry-run scenarios snapshot
+  `$HOME` and fail on any write, so a missed guard doesn't go unnoticed.
 - Options are parsed before `envsetup::ensure_gum`, so anything that doesn't need the TUI
   (`--help`, rejecting an unknown option) works on a machine that doesn't have gum yet.
 - Under `set -e`, a function whose last command is `[[ ... ]] && x` returns non-zero

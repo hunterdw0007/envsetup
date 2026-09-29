@@ -16,6 +16,22 @@ curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.
 just fast-forwards the existing checkout instead of re-cloning. Point it at a different
 remote (e.g. an SSH URL) with `ENVSETUP_REPO_URL`.
 
+### Try it without changing anything
+
+```sh
+./setup.sh --dry-run
+# or, straight from curl (this still clones the repo into ~/envsetup, nothing else):
+curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | bash -s -- --dry-run
+```
+
+A dry run is the real menu, but every step says what it *would* do instead of doing it:
+which rc file it would edit, whether it would switch your login shell, which packages it
+would install and whether that needs sudo, which installers it would run. Profile picks
+and "Edit config" still work, so you can try different setups, but they're forgotten when
+you quit. The menu needs `gum`, so if it isn't installed yet the dry run asks before
+installing it; that's the only change it can make. In a normal session, **Preview
+everything** does the same for "Run everything".
+
 ### While the repo is private
 
 `raw.githubusercontent.com` won't serve a private repo to an anonymous request, so until

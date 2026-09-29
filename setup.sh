@@ -7,6 +7,7 @@ export ENVSETUP_ROOT
 source "$ENVSETUP_ROOT/lib/common.sh"
 source "$ENVSETUP_ROOT/lib/zsh.sh"
 source "$ENVSETUP_ROOT/lib/installers.sh"
+source "$ENVSETUP_ROOT/lib/git.sh"
 
 CONFIG_DIR="$HOME/.config/envsetup"
 PROFILE_FILE="$CONFIG_DIR/profile"
@@ -102,6 +103,7 @@ envsetup::main_menu() {
 		choice="$(gum choose \
 			"Select profile (current: $label)" \
 			"Link shell config" \
+			"Configure git" \
 			"Install packages" \
 			"Run installers" \
 			"Run everything" \
@@ -122,6 +124,9 @@ envsetup::main_menu() {
 		"Link shell config")
 			envsetup::link_shell_config
 			;;
+		"Configure git")
+			envsetup::setup_git
+			;;
 		"Install packages")
 			[[ -z "$profile" ]] && { gum style --foreground 1 "Select a profile first."; continue; }
 			envsetup::install_packages_for_profile "$profile"
@@ -133,6 +138,7 @@ envsetup::main_menu() {
 		"Run everything")
 			[[ -z "$profile" ]] && { gum style --foreground 1 "Select a profile first."; continue; }
 			envsetup::link_shell_config
+			envsetup::setup_git
 			envsetup::install_packages_for_profile "$profile"
 			envsetup::run_installers "$profile"
 			;;

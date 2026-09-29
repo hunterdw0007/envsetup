@@ -72,9 +72,13 @@ Conventional Commits, always: `<type>(<scope>)?: <summary>`.
   or `packages/<profile>.txt`.
 - Anything else — a vendor installer script, a manual binary download, an arbitrary
   custom setup step → `installers/common/` or `installers/<profile>/`.
+- A shared, non-identity git setting or alias → `git/gitconfig` (included into
+  `~/.gitconfig` by `lib/git.sh`). Identity (`user.name`/`user.email`) is prompted for
+  at runtime and never committed to this repo.
 - `work`'s `lite` mode skips both `packages/work.txt` and `installers/work/` entirely
   (no sudo assumed) — don't add something to either that `lite` actually needs; it
-  belongs in `shell/shared/` or `shell/profiles/work/` instead.
+  belongs in `shell/shared/` or `shell/profiles/work/` instead. `lib/git.sh` is not
+  gated by `lite`: it only ever writes to `$HOME/.gitconfig`, no sudo required.
 
 ## Testing
 

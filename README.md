@@ -46,12 +46,15 @@ From the menu you can:
   skips package installs entirely
 - link `shell/init.sh` into your rc file, which loads shared config plus the active
   profile's overlay
+- configure git: includes `git/gitconfig` (shared aliases/settings) into `~/.gitconfig`,
+  and prompts for `user.name`/`user.email` if they aren't already set. Runs regardless of
+  profile/mode — it never needs sudo
 - install the packages listed for `common` + the active profile (skipped for `work` lite)
 - run the installer scripts under `installers/common` + the active profile — anything that
   isn't a plain package-manager package: vendor installers, manual binary downloads, or any
   other custom setup step (also skipped for `work` lite)
 
-"Run everything" does all three in one shot; each is also available individually from the
+"Run everything" does all four in one shot; each is also available individually from the
 menu if you just want to re-run one piece.
 
 The `home` profile assumes the machine is yours to configure fully: linking installs zsh
@@ -81,17 +84,13 @@ installers/
   common/            # scripts run for every profile
   work/              # scripts run only for profile = work (full mode only)
   home/              # scripts run only for profile = home
+git/
+  gitconfig          # shared aliases/settings, included into ~/.gitconfig (no identity)
 ```
 
 Edit the files under `shell/` and `packages/` to match what you actually use — the shipped
 content is just a starting point. Package names are passed straight to whichever of
 `apt`/`dnf`/`brew`/`pacman` is detected on the machine.
-
-## Contributing
-
-See `AGENTS.md` for commit/branch conventions and code standards. CI
-(`.github/workflows/ci.yml`) runs `bash -n` and `shellcheck` on every shell script for
-every push and PR.
 
 ### Adding a third-party or custom installer
 
@@ -108,3 +107,9 @@ file, whatever). Either kind goes in `installers/`:
 
 Scripts run in alphabetical order. One failing script doesn't stop the others — failures are
 collected and reported at the end.
+
+## Contributing
+
+See `AGENTS.md` for commit/branch conventions and code standards. CI
+(`.github/workflows/ci.yml`) runs `bash -n` and `shellcheck` on every shell script for
+every push and PR.

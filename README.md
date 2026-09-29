@@ -3,10 +3,37 @@
 A [gum](https://github.com/charmbracelet/gum)-powered TUI for getting a new or wiped machine
 back to a working shell: aliases, exports, functions, and your usual CLI tools.
 
-## Usage
+## Quick install
+
+Once this repo is public, one line gets you from a bare machine into the setup menu:
 
 ```sh
-git clone <this repo> ~/envsetup
+curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | bash
+```
+
+`install.sh` installs `git` if it's missing, clones this repo into `~/envsetup` (or
+`$ENVSETUP_DIR` if set), and hands off straight into `./setup.sh`. Running it again later
+just fast-forwards the existing checkout instead of re-cloning. Point it at a different
+remote (e.g. an SSH URL) with `ENVSETUP_REPO_URL`.
+
+### While the repo is private
+
+`raw.githubusercontent.com` won't serve a private repo to an anonymous request, so until
+this repo is made public, use one of these instead:
+
+```sh
+# authenticate the fetch with a token that can read this repo
+curl -fsSL -H "Authorization: token $GITHUB_TOKEN" \
+  https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | bash
+
+# or just clone over SSH and run it locally
+git clone git@github.com:hunterdw0007/envsetup.git ~/envsetup && ~/envsetup/install.sh
+```
+
+## Manual install
+
+```sh
+git clone git@github.com:hunterdw0007/envsetup.git ~/envsetup
 cd ~/envsetup
 ./setup.sh
 ```
@@ -37,6 +64,8 @@ and then wires `shell/init.sh` into `~/.zshrc`. The `work` profile stays on bash
 ## Layout
 
 ```
+install.sh           # curl | bash entry point: clones/updates the repo, then runs setup.sh
+setup.sh             # gum TUI: profile/mode selection, linking, package installs
 shell/
   shared/            # ps1, aliases, exports, functions loaded on every machine
                       # (work/lite only loads ps1 + aliases)

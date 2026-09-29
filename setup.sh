@@ -94,7 +94,7 @@ envsetup::install_packages_for_profile() {
 }
 
 envsetup::main_menu() {
-	local profile label choice
+	local profile mode label choice
 	while true; do
 		profile="$(envsetup::current_profile)"
 		label="${profile:-none}"
@@ -105,17 +105,19 @@ envsetup::main_menu() {
 			"Install packages" \
 			"Run installers" \
 			"Run everything" \
-			"Quit")"
+			"Quit")" || break # esc/ctrl+c: gum exits non-zero with no selection
 
 		case "$choice" in
 		"Select profile"*)
-			profile="$(gum choose work home)"
-			envsetup::set_profile "$profile"
+			# Nothing is saved until both choices are made, so cancelling either is a no-op.
+			profile="$(gum choose work home)" || continue
 			if [[ "$profile" == work ]]; then
-				envsetup::set_mode "$(gum choose lite full)"
+				mode="$(gum choose lite full)" || continue
+				envsetup::set_mode "$mode"
 			else
 				envsetup::clear_mode
 			fi
+			envsetup::set_profile "$profile"
 			;;
 		"Link shell config")
 			envsetup::link_shell_config

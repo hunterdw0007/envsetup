@@ -20,6 +20,12 @@ From the menu you can:
 - link `shell/init.sh` into your rc file, which loads shared config plus the active
   profile's overlay
 - install the packages listed for `common` + the active profile (skipped for `work` lite)
+- run the installer scripts under `installers/common` + the active profile — anything that
+  isn't a plain package-manager package: vendor installers, manual binary downloads, or any
+  other custom setup step (also skipped for `work` lite)
+
+"Run everything" does all three in one shot; each is also available individually from the
+menu if you just want to re-run one piece.
 
 The `home` profile assumes the machine is yours to configure fully: linking installs zsh
 and [oh-my-zsh](https://ohmyz.sh) if they're missing, offers to make zsh your login shell,
@@ -42,8 +48,28 @@ packages/
   common.txt         # packages installed everywhere
   work.txt           # extra packages for the work profile
   home.txt           # extra packages for the home profile
+installers/
+  common/            # scripts run for every profile
+  work/              # scripts run only for profile = work (full mode only)
+  home/              # scripts run only for profile = home
 ```
 
 Edit the files under `shell/` and `packages/` to match what you actually use — the shipped
 content is just a starting point. Package names are passed straight to whichever of
 `apt`/`dnf`/`brew`/`pacman` is detected on the machine.
+
+### Adding a third-party or custom installer
+
+Some tools don't come from a package manager (`terraform`, `kubectl`, `awscli`, ...), and
+sometimes you just want an arbitrary setup step to run (cloning a repo, writing a config
+file, whatever). Either kind goes in `installers/`:
+
+1. Drop a script in `installers/common/<name>.sh` (every profile) or
+   `installers/<profile>/<name>.sh` (that profile only), e.g. `installers/work/terraform.sh`.
+2. Make it idempotent — check whether the thing is already done and exit early if so, since
+   "Run installers" may run again later. `installers/work/kubectl.sh` is a working example.
+3. It runs as its own `bash` process, so source `$ENVSETUP_ROOT/lib/common.sh` yourself if you
+   want helpers like `envsetup::has_cmd`.
+
+Scripts run in alphabetical order. One failing script doesn't stop the others — failures are
+collected and reported at the end.

@@ -96,9 +96,20 @@ Conventional Commits, always: `<type>(<scope>)?: <summary>`.
 
 ## Testing
 
-CI (`.github/workflows/ci.yml`) runs `bash -n` and `shellcheck` over every `*.sh` file
-on every push and PR — that catches syntax errors and style/correctness issues, but
-not behavior. Behavior is still verified manually and must be described in the PR:
+CI (`.github/workflows/ci.yml`) runs two jobs on every push and PR:
+
+- `shell-checks`: `bash -n` and `shellcheck` over every `*.sh` file.
+- `smoke`: `tests/smoke.sh` in a bare `ubuntu:24.04` container — `install.sh` on a box
+  with no git, then every profile's "Run everything", then a real bash and zsh loading
+  the result. Only gum's UI, package installs and vendor downloads are stubbed, so it
+  takes about 20s. Run it locally the same way CI does:
+  `docker run --rm -t -v "$PWD:/src:ro" ubuntu:24.04 bash /src/tests/smoke.sh`.
+  A new menu action, profile or mode needs a scenario there, and every check must be
+  able to fail: compare against a non-empty expected value, never two things that
+  could both come back empty.
+
+The smoke test proves the flows run; it doesn't prove every branch. Behavior is still
+verified and described in the PR:
 
 - `bash -n` and `shellcheck` every changed/added script (CI re-checks this, but catch
   it before pushing).
@@ -107,9 +118,8 @@ not behavior. Behavior is still verified manually and must be described in the P
   don't hit real networks, install real system packages, or change real shell/system
   state as part of verifying a PR. Cover both the "already installed / already linked"
   no-op path and the "needs to run" path for anything idempotent.
-- For anything touching `setup.sh` or the menu, also run the real `./setup.sh` end to
-  end from a fresh, empty `$HOME`, with a `gum` stub on `PATH` that answers `choose`/
-  `input`/`confirm` from a queue and stubs for `sudo`/package managers/`curl`.
+- For anything touching `setup.sh` or the menu, also run `tests/smoke.sh` locally
+  (command above), which drives the real `./setup.sh` end to end from fresh `$HOME`s.
   Function-level tests alone missed that `setup.sh` exited before the menu on every
   first run.
 - Never make PR- or commit-related state changes (or GitHub API calls) as a *side

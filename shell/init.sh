@@ -1,35 +1,38 @@
 #!/usr/bin/env bash
-# Sourced from your shell rc file (added by setup.sh). Loads shared config,
-# then the config for the active profile (set via `setup.sh`).
+# Sourced from your shell rc file (added by setup.sh). Loads shared config, then
+# the config for the active profile (set via `setup.sh`), then your own
+# ~/.config/envsetup/config.sh last so anything in it wins.
 
 [[ -n "${ENVSETUP_ROOT:-}" ]] || return 0
 
-profile_file="$HOME/.config/envsetup/profile"
-mode_file="$HOME/.config/envsetup/mode"
-
-profile=""
-[[ -f "$profile_file" ]] && profile="$(<"$profile_file")"
+ENVSETUP_PROFILE=""
+[[ -f "$HOME/.config/envsetup/profile" ]] && ENVSETUP_PROFILE="$(<"$HOME/.config/envsetup/profile")"
 
 # The work profile's "lite" mode assumes no sudo access, so it only gets a
 # prompt and aliases; everything else (home, work/full) loads the full set.
-mode="full"
-[[ "$profile" == work && -f "$mode_file" ]] && mode="$(<"$mode_file")"
+ENVSETUP_MODE="full"
+[[ "$ENVSETUP_PROFILE" == work && -f "$HOME/.config/envsetup/mode" ]] && ENVSETUP_MODE="$(<"$HOME/.config/envsetup/mode")"
 
-if [[ "$mode" == lite ]]; then
-	components=(ps1 aliases)
+if [[ "$ENVSETUP_MODE" == lite ]]; then
+	_envsetup_files=(ps1 aliases)
 else
-	components=(ps1 aliases exports functions)
+	_envsetup_files=(ps1 aliases exports functions)
 fi
 
-for c in "${components[@]}"; do
-	f="$ENVSETUP_ROOT/shell/shared/$c.sh"
+for _envsetup_f in "${_envsetup_files[@]}"; do
+	_envsetup_f="$ENVSETUP_ROOT/shell/shared/$_envsetup_f.sh"
 	# shellcheck disable=SC1090 # dynamic by design: the whole point is to source whatever's dropped here
-	[[ -f "$f" ]] && source "$f"
+	[[ -f "$_envsetup_f" ]] && source "$_envsetup_f"
 done
 
-if [[ -n "$profile" ]]; then
-	for f in "$ENVSETUP_ROOT/shell/profiles/$profile"/*.sh; do
+if [[ -n "$ENVSETUP_PROFILE" ]]; then
+	for _envsetup_f in "$ENVSETUP_ROOT/shell/profiles/$ENVSETUP_PROFILE"/*.sh; do
 		# shellcheck disable=SC1090
-		[[ -f "$f" ]] && source "$f"
+		[[ -f "$_envsetup_f" ]] && source "$_envsetup_f"
 	done
 fi
+
+# shellcheck source=/dev/null # user-supplied file
+[[ -f "$HOME/.config/envsetup/config.sh" ]] && source "$HOME/.config/envsetup/config.sh"
+
+unset _envsetup_files _envsetup_f

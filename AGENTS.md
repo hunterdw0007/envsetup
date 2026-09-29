@@ -37,7 +37,12 @@ Conventional Commits, always: `<type>(<scope>)?: <summary>`.
   a builtin does the job.
 - Namespace functions as `envsetup::<name>` (see `lib/common.sh`, `lib/zsh.sh`,
   `lib/installers.sh`) — this is a flat function namespace, not real modules, so the
-  prefix is what keeps names from colliding.
+  prefix is what keeps names from colliding. Variables shared across files use
+  `ENVSETUP_*`; temporaries in a sourced file (e.g. `shell/init.sh`, which runs inside
+  the user's interactive shell) use a `_envsetup_` prefix and are `unset` afterwards.
+- Under `set -e`, a function whose last command is `[[ ... ]] && x` returns non-zero
+  when the test is false, and `var=$(that_function)` then kills the script. End such
+  functions with `if ...; then ...; fi` instead.
 - Every shell script must pass `bash -n <file>` and `shellcheck <file>` before it's
   committed — CI (`.github/workflows/ci.yml`) enforces both on every push/PR, so a
   script that doesn't pass locally will fail there too. Prefer an inline
@@ -72,9 +77,18 @@ Conventional Commits, always: `<type>(<scope>)?: <summary>`.
   or `packages/<profile>.txt`.
 - Anything else — a vendor installer script, a manual binary download, an arbitrary
   custom setup step → `installers/common/` or `installers/<profile>/`.
-- A shared, non-identity git setting or alias → `git/gitconfig` (included into
-  `~/.gitconfig` by `lib/git.sh`). Identity (`user.name`/`user.email`) is prompted for
-  at runtime and never committed to this repo.
+- A shared, non-identity git setting or alias → `git/gitconfig` (merged with the user's
+  `ENVSETUP_GIT_CONFIG` into `~/.config/envsetup/gitconfig` by `lib/git.sh`). Identity
+  (`user.name`/`user.email`) is prompted for at runtime or set in the user's own
+  `config.sh` — never committed to this repo.
+- Anything specific to one *user* rather than to the repo's defaults never goes in a
+  tracked file: it belongs in their `~/.config/envsetup/config.sh` (template:
+  `config.example.sh`). Editing tracked files to customize is exactly what makes
+  `git pull` / `install.sh` fail for someone who didn't fork.
+- The `ENVSETUP_*` variables read from `config.sh` are a user-facing API. A new
+  overridable setting gets its default in `envsetup::load_config` (`lib/config.sh`) and
+  is documented in both `config.example.sh` and the README's settings table. Renaming
+  one or changing its meaning breaks existing users' configs, so it's a `!` change.
 - `work`'s `lite` mode skips both `packages/work.txt` and `installers/work/` entirely
   (no sudo assumed) — don't add something to either that `lite` actually needs; it
   belongs in `shell/shared/` or `shell/profiles/work/` instead. `lib/git.sh` is not
@@ -104,5 +118,9 @@ verified and described in the PR:
   don't hit real networks, install real system packages, or change real shell/system
   state as part of verifying a PR. Cover both the "already installed / already linked"
   no-op path and the "needs to run" path for anything idempotent.
+- For anything touching `setup.sh` or the menu, also run `tests/smoke.sh` locally
+  (command above), which drives the real `./setup.sh` end to end from fresh `$HOME`s.
+  Function-level tests alone missed that `setup.sh` exited before the menu on every
+  first run.
 - Never make PR- or commit-related state changes (or GitHub API calls) as a *side
   effect* of testing — testing is local and disposable.

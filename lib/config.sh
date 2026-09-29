@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Resolves what setup.sh acts on: repo defaults first, then the user's config.sh
+# (if present) on top, so anyone can extend (+=), replace (=), or skip defaults
+# without editing tracked files. config.example.sh documents every ENVSETUP_* knob.
+# shellcheck disable=SC2034 # the ENVSETUP_* vars are read by setup.sh, lib/*.sh and the user's config
+
+ENVSETUP_USER_CONFIG="$HOME/.config/envsetup/config.sh"
+
+envsetup::load_config() {
+	ENVSETUP_PROFILE=$1
+	ENVSETUP_MODE=$2
+
+	readarray -t ENVSETUP_PACKAGES < <(grep -hvE '^\s*(#|$)' \
+		"$ENVSETUP_ROOT/packages/common.txt" "$ENVSETUP_ROOT/packages/$ENVSETUP_PROFILE.txt" 2>/dev/null)
+	readarray -t ENVSETUP_GIT_CONFIG < <(git config --file "$ENVSETUP_ROOT/git/gitconfig" --list)
+	ENVSETUP_INSTALLER_DIRS=("$ENVSETUP_ROOT/installers/common" "$ENVSETUP_ROOT/installers/$ENVSETUP_PROFILE")
+	ENVSETUP_SKIP=()
+	if [[ "$ENVSETUP_PROFILE" == home ]]; then ENVSETUP_SHELL=zsh; else ENVSETUP_SHELL=bash; fi
+
+	[[ -f "$ENVSETUP_USER_CONFIG" ]] || return 0
+	# Every interactive shell sources this file too, so it may not be strict-mode
+	# clean; don't let that abort setup.
+	set +eu
+	# shellcheck source=/dev/null # user-supplied file
+	source "$ENVSETUP_USER_CONFIG"
+	set -eu
+}
+
+envsetup::skipped() {
+	[[ " ${ENVSETUP_SKIP[*]:-} " == *" $1 "* ]]
+}
+
+envsetup::edit_config() {
+	if [[ ! -f "$ENVSETUP_USER_CONFIG" ]]; then
+		mkdir -p "${ENVSETUP_USER_CONFIG%/*}"
+		cp "$ENVSETUP_ROOT/config.example.sh" "$ENVSETUP_USER_CONFIG"
+	fi
+	local editor
+	read -ra editor <<<"${EDITOR:-vi}"
+	"${editor[@]}" "$ENVSETUP_USER_CONFIG"
+}

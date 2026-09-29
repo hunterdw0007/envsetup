@@ -15,7 +15,9 @@ envsetup::bootstrap_git() {
 
 	echo "git not found, attempting to install it..." >&2
 	if command -v apt-get &>/dev/null; then
-		sudo apt-get update && sudo apt-get install -y git
+		# See envsetup::install_packages: a single broken source fails update, not the install.
+		sudo apt-get update || echo "apt-get update reported errors; installing anyway." >&2
+		sudo apt-get install -y git
 	elif command -v dnf &>/dev/null; then
 		sudo dnf install -y git
 	elif command -v pacman &>/dev/null; then

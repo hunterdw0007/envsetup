@@ -44,7 +44,12 @@ envsetup::install_packages() {
 
 	case "$manager" in
 	brew) brew install "${pkgs[@]}" ;;
-	apt) sudo apt-get update && sudo apt-get install -y "${pkgs[@]}" ;;
+	apt)
+		# One broken source (e.g. a dead PPA) makes update exit non-zero even though the
+		# rest refreshed; install anyway; it still fails loudly if the lists are unusable.
+		sudo apt-get update || echo "apt-get update reported errors; installing anyway." >&2
+		sudo apt-get install -y "${pkgs[@]}"
+		;;
 	dnf) sudo dnf install -y "${pkgs[@]}" ;;
 	pacman) sudo pacman -S --noconfirm "${pkgs[@]}" ;;
 	*)

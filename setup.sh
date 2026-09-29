@@ -16,6 +16,41 @@ MODE_FILE="$CONFIG_DIR/mode"
 RC_MARKER_BEGIN="# >>> envsetup >>>"
 RC_MARKER_END="# <<< envsetup <<<"
 
+envsetup::usage() {
+	cat <<'EOF'
+Usage: ./setup.sh [options]
+
+Sets up this machine's shell (aliases, prompt), git, packages and tools, from an
+interactive menu. Nothing changes until you pick an action in it.
+
+Profiles (pick one from the menu; switch any time):
+  home  zsh + oh-my-zsh, general-use and light-dev packages
+  work  bash, SRE tools (kubectl, terraform, helm, ...), in one of two modes:
+          full  uses sudo: installs packages and runs vendor installers
+          lite  no sudo: only the prompt, aliases and git config; installs nothing
+
+Your own changes go in ~/.config/envsetup/config.sh ("Edit config" in the menu,
+template: config.example.sh), outside this repo, so updates never conflict.
+
+Options:
+  -h, --help  show this help and exit
+EOF
+}
+
+while (($#)); do
+	case $1 in
+	-h | --help)
+		envsetup::usage
+		exit 0
+		;;
+	*)
+		printf 'setup.sh: unknown option: %s\n\n' "$1" >&2
+		envsetup::usage >&2
+		exit 2
+		;;
+	esac
+done
+
 envsetup::ensure_gum || exit 1
 
 envsetup::current_profile() {
@@ -80,13 +115,8 @@ envsetup::install_packages_for_profile() {
 		return 1
 	fi
 
-	local pkg pkgs=()
-	local -A seen=()
-	for pkg in "${ENVSETUP_PACKAGES[@]}"; do
-		[[ -z "$pkg" || -n "${seen[$pkg]:-}" ]] && continue
-		seen[$pkg]=1
-		envsetup::skipped "$pkg" || pkgs+=("$pkg")
-	done
+	local pkgs=()
+	readarray -t pkgs < <(envsetup::resolved_packages)
 
 	if ((${#pkgs[@]} == 0)); then
 		gum style --foreground 3 "No packages listed for $profile."
@@ -97,8 +127,49 @@ envsetup::install_packages_for_profile() {
 	envsetup::install_packages "$manager" "${pkgs[@]}"
 }
 
+# Picker lines: "<value>  <what it does>". The summary comes from the same resolved
+# config the actions use, so config.sh overrides show up in it. gum hands back the
+# whole line and the caller keeps the first word, which works on any gum version.
+envsetup::profile_label() {
+	local profile=$1 summary list pkgs=() scripts=() names=() s
+	envsetup::load_config "$profile" full >/dev/null 2>&1
+	readarray -t pkgs < <(envsetup::resolved_packages)
+	readarray -t scripts < <(envsetup::resolved_installers)
+	for s in "${scripts[@]}"; do
+		s=${s##*/}
+		names+=("${s%.sh}")
+	done
+	if [[ "$ENVSETUP_SHELL" == zsh ]]; then summary="zsh + oh-my-zsh"; else summary=bash; fi
+	summary+=" · ${#pkgs[@]} packages"
+	if ((${#names[@]} > 0)); then
+		printf -v list '%s, ' "${names[@]}"
+		summary+=" · ${#names[@]} installers (${list%, })"
+	else
+		summary+=" · no installers"
+	fi
+	printf '%s  %s\n' "$profile" "$summary"
+}
+
+envsetup::mode_labels() {
+	local pkgs=() scripts=()
+	envsetup::load_config work full >/dev/null 2>&1
+	readarray -t pkgs < <(envsetup::resolved_packages)
+	readarray -t scripts < <(envsetup::resolved_installers)
+	echo "full  uses sudo: installs ${#pkgs[@]} packages and runs ${#scripts[@]} installers"
+	echo "lite  no sudo: only the prompt, aliases and git config; installs nothing"
+}
+
+envsetup::welcome() {
+	gum style --border normal --padding "0 1" \
+		"Welcome to envsetup. Nothing changes until you pick an action." \
+		"1. Select profile: what kind of machine this is (switch any time)." \
+		"2. Run everything, or run the steps one at a time." \
+		"Your own tweaks go in Edit config. More: ./setup.sh --help"
+}
+
 envsetup::main_menu() {
-	local profile mode label choice
+	local profile mode label choice labels=()
+	[[ -n "$(envsetup::current_profile)" ]] || envsetup::welcome
 	while true; do
 		profile="$(envsetup::current_profile)"
 		label="${profile:-none}"
@@ -117,10 +188,14 @@ envsetup::main_menu() {
 		case "$choice" in
 		"Select profile"*)
 			# Nothing is saved until both choices are made, so cancelling either is a no-op.
-			profile="$(gum choose work home)" || continue
+			gum style --foreground 4 "What kind of machine is this?"
+			profile="$(gum choose "$(envsetup::profile_label work)" "$(envsetup::profile_label home)")" || continue
+			profile=${profile%% *}
 			if [[ "$profile" == work ]]; then
-				mode="$(gum choose lite full)" || continue
-				envsetup::set_mode "$mode"
+				gum style --foreground 4 "Do you have sudo on this machine?"
+				readarray -t labels < <(envsetup::mode_labels)
+				mode="$(gum choose "${labels[@]}")" || continue
+				envsetup::set_mode "${mode%% *}"
 			else
 				envsetup::clear_mode
 			fi

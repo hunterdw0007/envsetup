@@ -99,6 +99,21 @@ new_home() {
 show() { sed 's/^/        | /' "$1"; }
 installed() { sed -n 's/^apt-get install -y //p' "$SMOKE_LOG" | tr ' ' '\n' | sort -u; }
 expected() { grep -hvE '^\s*(#|$)' "$CLONE/packages/common.txt" "$CLONE/packages/$1.txt" | sort -u; }
+n_expected() { expected "$1" | wc -l; }
+n_installers() {
+	local s n=0
+	for s in "$CLONE/installers/$1"/*.sh; do [ -f "$s" ] && n=$((n + 1)); done
+	echo "$n"
+}
+# described <count> <text>: the count behind a label must be real, then the menu must show it.
+described() { [ "$1" -gt 0 ] && grep -qF -- "$2" "$SMOKE_LOG"; }
+# Both run with no gum anywhere on PATH, so they fail if they go anywhere near it.
+help_ok() { HOME=$1 PATH=/usr/bin:/bin "$CLONE/setup.sh" --help >"$1/help.out" 2>&1 && grep -q '^Usage: ' "$1/help.out"; }
+rejects_unknown() {
+	local rc=0
+	HOME=$1 PATH=/usr/bin:/bin "$CLONE/setup.sh" --bogus >"$1/bogus.out" 2>&1 || rc=$?
+	[ "$rc" = 2 ] && grep -qF 'unknown option: --bogus' "$1/bogus.out"
+}
 # in_shell <home> <bash|zsh> <cmd>: runs cmd in a real interactive shell that loads
 # the linked rc file; stderr (minus no-TTY job-control notices) goes to <home>/shell.err.
 in_shell() {
@@ -165,6 +180,28 @@ check "zsh loads the aliases" [ "$(in_shell "$h" zsh 'alias ll')" = "ll='ls -la'
 check "zsh keeps the theme prompt" [ "$(in_shell "$h" zsh 'print -r -- $PS1')" = '%n@%m %# ' ]
 check "zsh starts without errors" [ ! -s "$h/shell.err" ]
 [ -s "$h/shell.err" ] && show "$h/shell.err"
+
+echo "== explaining itself"
+h=$(new_home)
+check "--help works before gum is installed" help_ok "$h"
+check "an unknown option is rejected, not ignored" rejects_unknown "$h"
+check "  ...without writing anything" [ ! -e "$h/.config" ]
+run_menu "$h" Quit
+check "a first run shows a welcome" grep -qF 'Welcome to envsetup' "$SMOKE_LOG"
+w=$(n_expected work) wi=$(n_installers work) hm=$(n_expected home)
+# Answer with whole lines, the way gum returns a picked label.
+run_menu "$h" "Select profile" "work  bash · (as gum returns it)" "lite  no sudo: (as gum returns it)" Quit
+check "work is described from its config" described "$w" "work  bash · $w packages · $wi installers ("
+check "home is described from its config" described "$hm" "home  zsh + oh-my-zsh · $hm packages · no installers"
+check "modes say what needs sudo" described "$w" "full  uses sudo: installs $w packages and runs $wi installers"
+check "a picked line is saved as just its name" [ "$(cat "$h/.config/envsetup/profile")/$(cat "$h/.config/envsetup/mode")" = work/lite ]
+run_menu "$h" Quit
+check "no welcome once a profile is saved" not_grep 'Welcome to envsetup' "$SMOKE_LOG"
+h=$(new_home)
+mkdir -p "$h/.config/envsetup"
+printf 'ENVSETUP_SHELL=bash\nENVSETUP_SKIP=(%s)\n' "$(expected home | head -1)" >"$h/.config/envsetup/config.sh"
+run_menu "$h" "Select profile" ESC
+check "descriptions follow the user's config.sh" described "$hm" "home  bash · $((hm - 1)) packages"
 
 echo "== cancelling"
 h=$(new_home)

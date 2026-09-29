@@ -40,6 +40,14 @@ Conventional Commits, always: `<type>(<scope>)?: <summary>`.
   prefix is what keeps names from colliding. Variables shared across files use
   `ENVSETUP_*`; temporaries in a sourced file (e.g. `shell/init.sh`, which runs inside
   the user's interactive shell) use a `_envsetup_` prefix and are `unset` afterwards.
+- Anything a user picks from should say what it does. Build that text from the resolved
+  config (`envsetup::resolved_packages` / `envsetup::resolved_installers` in
+  `lib/config.sh`, the same functions the actions run on), never a hand-written count
+  that can drift. Picker lines are `"<value>  <description>"` and the caller keeps
+  `${choice%% *}`: `gum choose --label-delimiter` would do the same, but only on newer
+  gum releases, and an older one would reject the flag and silently break the picker.
+- Options are parsed before `envsetup::ensure_gum`, so anything that doesn't need the TUI
+  (`--help`, rejecting an unknown option) works on a machine that doesn't have gum yet.
 - Under `set -e`, a function whose last command is `[[ ... ]] && x` returns non-zero
   when the test is false, and `var=$(that_function)` then kills the script. End such
   functions with `if ...; then ...; fi` instead.

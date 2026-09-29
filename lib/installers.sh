@@ -13,14 +13,8 @@ envsetup::run_installers() {
 		return 0
 	fi
 
-	local dir script name scripts=()
-	for dir in "${ENVSETUP_INSTALLER_DIRS[@]}"; do
-		for script in "$dir"/*.sh; do
-			[[ -f "$script" ]] || continue
-			name=${script##*/}
-			envsetup::skipped "${name%.sh}" || scripts+=("$script")
-		done
-	done
+	local script name scripts=()
+	readarray -t scripts < <(envsetup::resolved_installers)
 
 	if ((${#scripts[@]} == 0)); then
 		gum style --foreground 3 "No installers for $profile."

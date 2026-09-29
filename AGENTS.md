@@ -38,8 +38,15 @@ Conventional Commits, always: `<type>(<scope>)?: <summary>`.
 - Namespace functions as `envsetup::<name>` (see `lib/common.sh`, `lib/zsh.sh`,
   `lib/installers.sh`) — this is a flat function namespace, not real modules, so the
   prefix is what keeps names from colliding.
-- Every shell script must pass `bash -n <file>` before it's committed; run
-  `shellcheck` on it too if available locally.
+- Every shell script must pass `bash -n <file>` and `shellcheck <file>` before it's
+  committed — CI (`.github/workflows/ci.yml`) enforces both on every push/PR, so a
+  script that doesn't pass locally will fail there too. Prefer an inline
+  `# shellcheck disable=SC____` with a comment explaining why over silencing a whole
+  file, and prefer fixing the actual issue over disabling it when the fix is simple
+  (e.g. `VAR=$(cmd); export VAR` instead of `export VAR=$(cmd)`, per SC2155).
+  A file that's only ever `source`d (never executed directly), like the ones under
+  `shell/shared/` and `shell/profiles/`, needs `# shellcheck shell=bash` as its first
+  line so shellcheck knows the dialect (see SC2148).
 - No inline `#` comments on a `packages/*.txt` package-name line — the line is passed
   verbatim to the package manager, so a comment on the same line breaks the install.
   Put the comment on the line above instead.
@@ -71,10 +78,12 @@ Conventional Commits, always: `<type>(<scope>)?: <summary>`.
 
 ## Testing
 
-There's no CI yet (see the open feature-idea list), so verification is manual and
-must be described in the PR:
+CI (`.github/workflows/ci.yml`) runs `bash -n` and `shellcheck` over every `*.sh` file
+on every push and PR — that catches syntax errors and style/correctness issues, but
+not behavior. Behavior is still verified manually and must be described in the PR:
 
-- `bash -n` every changed/added script.
+- `bash -n` and `shellcheck` every changed/added script (CI re-checks this, but catch
+  it before pushing).
 - Exercise the actual functions (`source`'d, not just read) against mocked external
   commands (`curl`, `sudo`, `gum`, `git`, package managers) in an isolated `$HOME` —
   don't hit real networks, install real system packages, or change real shell/system

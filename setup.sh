@@ -2,7 +2,8 @@
 # Entry point: gum-driven menu to link shell config and install packages.
 set -euo pipefail
 
-export ENVSETUP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENVSETUP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export ENVSETUP_ROOT
 source "$ENVSETUP_ROOT/lib/common.sh"
 source "$ENVSETUP_ROOT/lib/zsh.sh"
 source "$ENVSETUP_ROOT/lib/installers.sh"
@@ -58,6 +59,7 @@ envsetup::link_shell_config() {
 	{
 		echo "$RC_MARKER_BEGIN"
 		echo "export ENVSETUP_ROOT=\"$ENVSETUP_ROOT\""
+		# shellcheck disable=SC2016 # single-quoted on purpose: expands when the rc file sources it, not now
 		echo '[ -f "$ENVSETUP_ROOT/shell/init.sh" ] && source "$ENVSETUP_ROOT/shell/init.sh"'
 		echo "$RC_MARKER_END"
 	} >>"$rc_file"

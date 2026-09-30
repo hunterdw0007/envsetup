@@ -8,6 +8,12 @@ envsetup::setup_zsh() {
 	envsetup::has_cmd zsh || missing+=(zsh)
 	# The oh-my-zsh installer is fetched with curl, which a fresh desktop may not have yet.
 	envsetup::has_cmd curl || missing+=(curl)
+	if envsetup::dry_run; then
+		((${#missing[@]} == 0)) || envsetup::would "install ${missing[*]} (sudo)"
+		[[ "$SHELL" == */zsh ]] || envsetup::would "ask to make zsh your login shell (chsh)"
+		[[ -d "$HOME/.oh-my-zsh" ]] || envsetup::would "install oh-my-zsh (runs its installer from github.com)"
+		return 0
+	fi
 	if ((${#missing[@]} > 0)); then
 		manager="$(envsetup::pkg_manager)"
 		if [[ -z "$manager" ]]; then

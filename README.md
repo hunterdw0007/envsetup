@@ -89,6 +89,25 @@ and then wires `shell/init.sh` into `~/.zshrc`. The `work` profile stays on bash
 
 `setup.sh` will try to install `gum` itself (via `brew` or `go install`) if it isn't found.
 
+### What your shell gets
+
+Every profile and mode gets the prompt and aliases. Work lite gets only those two;
+everything else also gets the exports and functions.
+
+- **Prompt** (bash): time, kube context, a collapsed path (`~/d/envsetup`), git branch and
+  ahead/behind, then `❯` on its own line. On home, the oh-my-zsh theme owns the zsh
+  prompt instead.
+- **Aliases**: `ls` in color, `la`, `ll`, `..`/`...`/`....`. `cat`/`less` go through `bat`
+  when it's installed. On work there are also kubectl shortcuts (`kc`, `kcaMem`).
+- **Exports**: XDG base directories, `EDITOR=vim`, and man pages through `bat`.
+- **Functions** (bash): multi-repo git helpers for a directory of checkouts. They are
+  `branchAll` (`ba`), `fetchAll` (`fa`), `pullMainAll` (`pma`), `mainOriginAll`,
+  `pruneBranches` (`pb`) and `pruneBranchesAll` (`pba`); most take `--help`. On work
+  there is also `resetNode` for helm charts.
+
+Git shortcuts are git aliases (`git s`, `git d`, `git l`, ...) in `git/gitconfig`, not
+shell aliases.
+
 ## Customizing without forking
 
 Everything shipped here (packages, installers, aliases, git settings) is a *default*. To
@@ -151,7 +170,8 @@ setup.sh             # gum TUI: profile/mode selection, linking, package install
 config.example.sh    # template for your ~/.config/envsetup/config.sh overrides
 shell/
   shared/            # ps1, aliases, exports, functions loaded on every machine
-                      # (work/lite only loads ps1 + aliases)
+                      # (work/lite only loads ps1 + aliases), plus colors.sh
+                      # for the functions
   profiles/
     work/            # overlays loaded only when profile = work
     home/            # overlays loaded only when profile = home

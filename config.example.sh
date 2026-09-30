@@ -56,5 +56,6 @@
 # Anything else is ordinary shell config, loaded after the repo's shell/ defaults,
 # so it can add to or override them. Changes apply to new shells, no setup re-run.
 # alias k=kubectl
-# unalias gp 2>/dev/null
+# unalias ll 2>/dev/null
 # export EDITOR=nvim
+# alias code='"/mnt/c/Users/<you>/AppData/Local/Programs/Microsoft VS Code/bin/code"'  # WSL

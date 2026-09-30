@@ -1,3 +1,5 @@
 # shellcheck shell=bash
-# Work-only aliases. Example:
-# alias vpn='sudo openvpn /etc/openvpn/work.conf'
+# Work-only aliases: Kubernetes.
+
+alias kc=kubectl
+alias kcaMem="kubectl top pods -A --sort-by='memory'"

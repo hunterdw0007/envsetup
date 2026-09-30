@@ -107,7 +107,7 @@ ENVSETUP_PACKAGES+=(neovim)                        # add to the default package 
 ENVSETUP_SKIP=(docker.io terraform)                # drop a default package or installer
 ENVSETUP_SHELL=bash                                # stay on bash on the home profile
 ENVSETUP_INSTALLER_DIRS+=("$HOME/dotfiles/envsetup-installers")
-ENVSETUP_GIT_CONFIG+=("user.email=me@example.com" "alias.sw=switch")
+ENVSETUP_GIT_CONFIG+=("user.email=me@example.com" "pull.rebase=false")
 [[ $ENVSETUP_PROFILE == work ]] && ENVSETUP_PACKAGES+=(kubectx)
 
 alias k=kubectl                                    # anything else is ordinary shell config

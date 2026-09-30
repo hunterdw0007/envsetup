@@ -40,8 +40,13 @@
 # ENVSETUP_GIT_CONFIG+=(
 # 	"user.name=Your Name"
 # 	"user.email=you@example.com"
-# 	"pull.rebase=true"
-# 	"alias.sw=switch"
+# 	"pull.rebase=false"
+# 	"credential.helper=cache --timeout=3600"
+# )
+# Settings that only fit one machine go here too, e.g. on a work box:
+# [[ $ENVSETUP_PROFILE == work ]] && ENVSETUP_GIT_CONFIG+=(
+# 	"core.hooksPath=$HOME/.git-templates/hooks"
+# 	"http.sslCAInfo=$HOME/.config/corp-ca-bundle.crt"
 # )
 
 # --- Shell --------------------------------------------------------------------------

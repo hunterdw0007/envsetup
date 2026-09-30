@@ -174,6 +174,7 @@ check "bash loads the aliases" [ "$(in_shell "$h" bash 'alias ll')" = "alias ll=
 check "bash gets the prompt" [ "$(in_shell "$h" bash 'printf %s "$PS1"')" = '\u@\h \W \$ ' ]
 check "bash starts without errors" [ ! -s "$h/shell.err" ]
 [ -s "$h/shell.err" ] && show "$h/shell.err"
+check "git gets the shipped defaults" same_list "$(git config --file "$CLONE/git/gitconfig" alias.l)" "$(HOME=$h git config --global --includes alias.l)"
 if run_menu "$h" "Run everything" Quit; then pass "re-run exited 0"; else fail "re-run exited non-zero"; fi
 check "re-run didn't link twice" [ "$(count '# >>> envsetup >>>' "$h/.bashrc")" = 1 ]
 ((failures)) && show "$h/setup.out"

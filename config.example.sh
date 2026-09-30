@@ -28,6 +28,11 @@
 # Leave out any package or installer by name (installer = script name without .sh).
 # ENVSETUP_SKIP=(docker.io terraform awscli)
 
+# --- Dotfiles in XDG directories -----------------------------------------------------
+# Default: 0. 1 makes "Run everything" also run "Move dotfiles to XDG dirs", which moves
+# dotfiles into ~/.config, ~/.local and ~/.cache where xdg-ninja says it's mechanical.
+# ENVSETUP_XDG_NINJA=1
+
 # --- Login shell --------------------------------------------------------------------
 # Default: zsh (+ oh-my-zsh) on home, bash otherwise. Decides which rc file gets
 # linked and whether zsh/oh-my-zsh are installed.

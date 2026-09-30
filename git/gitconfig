@@ -1,15 +1,79 @@
 # Shared git config/aliases, included from ~/.gitconfig by lib/git.sh. No identity
 # (user.name/email) here on purpose — that's prompted for per-machine, not committed.
+# Machine-specific settings (hooks path, CA bundle, ...) belong in config.sh.
+[advice]
+	statusHints = false
+[alias]
+	a = add
+	ap = add --patch
+	aa = add .
+	b = branch
+	ba = branch --all
+	c = commit
+	ca = commit --amend --no-edit
+	ce = commit --amend
+	co = checkout
+	cp = cherry-pick
+	d = diff --output-indicator-new=' ' --output-indicator-old=' '
+	ds = diff --output-indicator-new=' ' --output-indicator-old=' ' --staged
+	i = init
+	l = log --graph --pretty=format:'%C(magenta)%h %C(cyan) %an  %C(yellow)%ar%C(blue)  %D%n%s%n'
+	la = log --graph --pretty=format:'%C(magenta)%h %C(cyan) %an  %C(yellow)%ar%C(blue)  %D%n%s%n' --all
+	n = checkout -b
+	p = push origin HEAD
+	pf = push origin HEAD --force-with-lease
+	r = reset
+	s = status --short
+	u = pull
+	rb = rebase
+	po = reset --soft HEAD^
+	sw = switch -c
+	su = branch -u origin/main
+[core]
+	compression = 9
+[column]
+	ui = auto
+[branch]
+	sort = -committerdate
+[tag]
+	sort = -taggerdate
+[diff]
+	algorithm = histogram
+	colorMoved = plain
+	mnemonicPrefix = true
+	renames = true
+[fetch]
+	prune = true
+	pruneTags = true
+	all = true
+[help]
+	autocorrect = prompt
+[merge]
+	conflictstyle = zdiff3
+[pull]
+	rebase = true
+[commit]
+	verbose = true
+[status]
+	branch = true
+	showStash = true
+	showUntrackedFiles = all
+[log]
+	abbrevCommit = true
+[color "branch"]
+	current = magenta
+	local = default
+	remote = yellow
+	upstream = green
+	plain = blue
+[color "diff"]
+	meta = black bold
+	frag = magenta
+	context = default
+	whitespace = yellow reverse
+[credential]
+	helper = cache --timeout=3600
+[push]
+	default = current
 [init]
 	defaultBranch = main
-[pull]
-	rebase = false
-[color]
-	ui = auto
-[alias]
-	st = status
-	co = checkout
-	br = branch
-	ci = commit
-	last = log -1 HEAD
-	lg = log --graph --abbrev-commit --pretty=format:'%C(yellow)%h%Creset -%C(auto)%d%Creset %s %C(green)(%cr) %C(blue)<%an>%Creset'

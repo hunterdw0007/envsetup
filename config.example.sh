@@ -56,5 +56,10 @@
 # Anything else is ordinary shell config, loaded after the repo's shell/ defaults,
 # so it can add to or override them. Changes apply to new shells, no setup re-run.
 # alias k=kubectl
-# unalias gp 2>/dev/null
+# unalias ll 2>/dev/null
 # export EDITOR=nvim
+# alias code='"/mnt/c/Users/<you>/AppData/Local/Programs/Microsoft VS Code/bin/code"'  # WSL
+#
+# Your own prompt holidays go in ~/.config/envsetup/holidays.txt instead (same format
+# as shell/shared/holidays.txt; checked first), e.g.
+#   fixed 05 14 "Happy Birthday" 🎂

@@ -12,3 +12,7 @@ jq
 fzf
 ripgrep
 bat
+
+# `column` (branchAll/fetchAll/pullMainAll tables): package is "bsdextrautils" on
+# Debian/Ubuntu, part of "util-linux" (already installed) on Fedora/Arch.
+bsdextrautils

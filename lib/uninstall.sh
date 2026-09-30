@@ -24,7 +24,7 @@ envsetup::strip_block() {
 # Returns 0 when it removed things, 2 when you backed out, 1 if a step failed. It's
 # run where set -e doesn't apply, so each step reports its own failure.
 envsetup::uninstall() {
-	local state="$HOME/.config/envsetup" failed=0 rc f re kept=() mine=()
+	local state="$HOME/.config/envsetup" failed=0 rc f re kept=()
 	local gitconfig="$state/gitconfig"
 	gum style --bold "Removes what envsetup added: its block in your shell rc files, its git" \
 		"include and its saved state. Packages and tools it installed stay."
@@ -63,16 +63,13 @@ envsetup::uninstall() {
 		[[ -e "$f" ]] || continue
 		if envsetup::dry_run; then envsetup::would "delete $f"; else rm -f "$f"; fi
 	done
-	for f in "$state/config.sh" "$state/holidays.txt"; do
-		[[ -f "$f" ]] && mine+=("$f")
-	done
-	if ((${#mine[@]})); then
-		if gum confirm "Keep your own files (${mine[*]})? Only envsetup reads them."; then
-			kept+=("your files: ${mine[*]}")
+	if [[ -f "$state/config.sh" ]]; then
+		if gum confirm "Keep your own config ($state/config.sh)? Only envsetup reads it."; then
+			kept+=("your config: $state/config.sh")
 		elif envsetup::dry_run; then
-			envsetup::would "delete ${mine[*]}"
+			envsetup::would "delete $state/config.sh"
 		else
-			rm -f "${mine[@]}"
+			rm -f "$state/config.sh"
 		fi
 	fi
 	envsetup::dry_run || rmdir "$state" 2>/dev/null || true

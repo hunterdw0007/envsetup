@@ -32,8 +32,6 @@ check() {
 has() { command -v "$1" >/dev/null; }
 count() { grep -cF -- "$1" "$2" || true; }
 not_grep() { ! grep -q -- "$1" "$2"; }
-all_exist() { for f; do [ -e "$f" ] || return 1; done; }
-none_exist() { for f; do [ ! -e "$f" ] || return 1; done; }
 same_list() { [ -n "$1" ] && [ "$1" = "$2" ]; } # an empty expected list is a broken test, not a pass
 same_commit() { # both must resolve, so two failed lookups can't compare equal
 	local a b
@@ -177,9 +175,6 @@ check "no downloads (vendor tools already installed)" not_grep '^curl ' "$SMOKE_
 check "bash loads the aliases" [ "$(in_shell "$h" bash 'alias ll')" = "alias ll='ls -alh'" ]
 check "bash gets the prompt" has_prompt "$h"
 check "  ...which collapses the path" [ "$(in_shell "$h" bash 'cd /usr/share/doc && collapsed_directory')" = /u/s/doc ]
-printf 'fixed %s "Smoke Day" 🧪\n' "$(date '+%m %d')" >"$h/.config/envsetup/holidays.txt"
-check "  ...and marks your own holidays" [ "$(in_shell "$h" bash 'printf %s "$PROMPT_CHAR"')" = 🧪 ]
-rm "$h/.config/envsetup/holidays.txt"
 check "bash gets the functions" [ "$(in_shell "$h" bash 'type -t fetchAll')" = function ]
 check "bash gets the work aliases" [ "$(in_shell "$h" bash 'alias kc')" = "alias kc='kubectl'" ]
 check "bash starts without errors" [ ! -s "$h/shell.err" ]
@@ -321,28 +316,26 @@ echo "== Uninstall from the menu: home on zsh, with a config.sh"
 h=$(new_home)
 mkdir -p "$h/.config/envsetup"
 echo 'alias smoke=true' >"$h/.config/envsetup/config.sh"
-echo 'fixed 01 01 "Mine" 🥳' >"$h/.config/envsetup/holidays.txt"
 run_menu "$h" "Select profile" home "Run everything" Quit
 check "(before: ~/.zshrc is linked)" grep -qF '# >>> envsetup >>>' "$h/.zshrc"
-# Remove? yes; keep config.sh + holidays.txt? no; keep zsh as login shell? no.
+# Remove? yes; keep config.sh? no; keep zsh as login shell? no.
 CONFIRMS=(yes no no)
 if SHELL=/usr/bin/zsh run_menu "$h" Uninstall; then pass "exited 0"; else fail "exited non-zero"; fi
 CONFIRMS=()
 check "unlinked ~/.zshrc" not_grep '# >>> envsetup >>>' "$h/.zshrc"
 check "  ...keeping the rest of it" grep -qF 'stand-in for the oh-my-zsh theme' "$h/.zshrc"
-check "deleted config.sh and holidays.txt when told to" none_exist "$h/.config/envsetup/config.sh" "$h/.config/envsetup/holidays.txt"
+check "deleted config.sh when told to" [ ! -e "$h/.config/envsetup/config.sh" ]
 check "switched the login shell back to bash" grep -q '^chsh -s .*/bash$' "$SMOKE_LOG"
 check "said how to remove oh-my-zsh" grep -qF 'uninstall_oh_my_zsh' "$SMOKE_LOG"
 check "closed the menu afterwards" [ "$(count 'gum choose' "$SMOKE_LOG")" = 1 ]
 h=$(new_home)
 mkdir -p "$h/.config/envsetup"
 echo 'alias smoke=true' >"$h/.config/envsetup/config.sh"
-echo 'fixed 01 01 "Mine" 🥳' >"$h/.config/envsetup/holidays.txt"
 run_menu "$h" "Select profile" work lite Quit
 SETUP_ARGS=(--uninstall) CONFIRMS=(yes yes)
 run_menu "$h" || true
 SETUP_ARGS=() CONFIRMS=()
-check "kept config.sh and holidays.txt by default" all_exist "$h/.config/envsetup/config.sh" "$h/.config/envsetup/holidays.txt"
+check "kept config.sh by default" [ -f "$h/.config/envsetup/config.sh" ]
 check "  ...but removed the saved profile" [ ! -e "$h/.config/envsetup/profile" ]
 
 echo "== cancelling"

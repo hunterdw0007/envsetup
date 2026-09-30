@@ -59,7 +59,3 @@
 # unalias ll 2>/dev/null
 # export EDITOR=nvim
 # alias code='"/mnt/c/Users/<you>/AppData/Local/Programs/Microsoft VS Code/bin/code"'  # WSL
-#
-# Your own prompt holidays go in ~/.config/envsetup/holidays.txt instead (same format
-# as shell/shared/holidays.txt; checked first), e.g.
-#   fixed 05 14 "Happy Birthday" 🎂

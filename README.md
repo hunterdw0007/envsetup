@@ -38,6 +38,12 @@ cd ~/envsetup
 ./setup.sh
 ```
 
+Nothing changes until you pick an action. `./setup.sh --help` gives an overview without
+launching the menu (it works before `gum` is installed), and the profile and mode pickers
+say what each choice does on *this* machine, e.g.
+`work  bash · 23 packages · 5 installers (awscli, gh, helm, kubectl, terraform)`, worked
+out from your `config.sh` if you have one.
+
 From the menu you can:
 
 - pick a machine profile (`work` or `home`)

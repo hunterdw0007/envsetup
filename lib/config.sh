@@ -30,6 +30,32 @@ envsetup::skipped() {
 	[[ " ${ENVSETUP_SKIP[*]:-} " == *" $1 "* ]]
 }
 
+# What "Install packages" would install: ENVSETUP_PACKAGES deduped, minus
+# ENVSETUP_SKIP. Anything that describes or previews packages uses this too, so
+# it can't drift from what actually runs.
+envsetup::resolved_packages() {
+	local pkg
+	local -A seen=()
+	for pkg in "${ENVSETUP_PACKAGES[@]}"; do
+		[[ -z "$pkg" || -n "${seen[$pkg]:-}" ]] && continue
+		seen[$pkg]=1
+		envsetup::skipped "$pkg" || echo "$pkg"
+	done
+}
+
+# What "Run installers" would run, in order: every *.sh in ENVSETUP_INSTALLER_DIRS,
+# minus ENVSETUP_SKIP (installer name = script name without .sh).
+envsetup::resolved_installers() {
+	local dir script name
+	for dir in "${ENVSETUP_INSTALLER_DIRS[@]}"; do
+		for script in "$dir"/*.sh; do
+			[[ -f "$script" ]] || continue
+			name=${script##*/}
+			envsetup::skipped "${name%.sh}" || echo "$script"
+		done
+	done
+}
+
 envsetup::edit_config() {
 	if [[ ! -f "$ENVSETUP_USER_CONFIG" ]]; then
 		mkdir -p "${ENVSETUP_USER_CONFIG%/*}"

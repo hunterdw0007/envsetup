@@ -72,7 +72,7 @@
 	context = default
 	whitespace = yellow reverse
 [credential]
-	helper = store
+	helper = cache --timeout=3600
 [push]
 	default = current
 [init]

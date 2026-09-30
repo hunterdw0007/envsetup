@@ -41,8 +41,11 @@
 # 	"user.name=Your Name"
 # 	"user.email=you@example.com"
 # 	"pull.rebase=false"
-# 	"credential.helper=cache --timeout=3600"
 # )
+# Multi-valued keys (credential.helper, ...) add to the defaults instead of replacing
+# them; an empty value clears the list first. E.g. to keep HTTPS credentials on disk
+# (plain text, in ~/.git-credentials) instead of in memory for an hour:
+# ENVSETUP_GIT_CONFIG+=("credential.helper=" "credential.helper=store")
 # Settings that only fit one machine go here too, e.g. on a work box:
 # [[ $ENVSETUP_PROFILE == work ]] && ENVSETUP_GIT_CONFIG+=(
 # 	"core.hooksPath=$HOME/.git-templates/hooks"

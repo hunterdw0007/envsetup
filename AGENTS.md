@@ -60,6 +60,10 @@ Conventional Commits, always: `<type>(<scope>)?: <summary>`.
 - Under `set -e`, a function whose last command is `[[ ... ]] && x` returns non-zero
   when the test is false, and `var=$(that_function)` then kills the script. End such
   functions with `if ...; then ...; fi` instead.
+- Never run a step as `step || handle_failure`: bash switches `set -e` off inside
+  everything `step` calls, so a failure halfway through carries on silently. Menu
+  actions go through `envsetup::run_step` (`setup.sh`), which runs them in a subshell
+  with `set -e` intact and returns to the menu if they fail.
 - Every shell script must pass `bash -n <file>` and `shellcheck <file>` before it's
   committed — CI (`.github/workflows/ci.yml`) enforces both on every push/PR, so a
   script that doesn't pass locally will fail there too. Prefer an inline

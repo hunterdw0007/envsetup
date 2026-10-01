@@ -73,7 +73,8 @@ From the menu you can:
   `~/.config/envsetup/gitconfig`, includes that from `~/.gitconfig`, and prompts for
   `user.name`/`user.email` if nothing set them. Runs regardless of profile/mode — it never
   needs sudo
-- install the packages listed for `common` + the active profile (skipped for `work` lite)
+- install the packages listed for `common` + the active profile (skipped for `work` lite);
+  if one can't be installed, the rest still are, and it says which one failed
 - run the installer scripts under `installers/common` + the active profile — anything that
   isn't a plain package-manager package: vendor installers, manual binary downloads, or any
   other custom setup step (also skipped for `work` lite)
@@ -81,8 +82,8 @@ From the menu you can:
   [below](#moving-dotfiles-to-xdg-directories-optional))
 - take it all back out again (see [Uninstalling](#uninstalling))
 
-"Run everything" does all four in one shot; each is also available individually from the
-menu if you just want to re-run one piece.
+"Run everything" does all four in one shot, carrying on past a step that fails; each is
+also available individually from the menu if you just want to re-run one piece.
 
 The `home` profile assumes the machine is yours to configure fully: linking installs zsh
 and [oh-my-zsh](https://ohmyz.sh) if they're missing, offers to make zsh your login shell,

@@ -42,24 +42,30 @@ envsetup::ensure_gum() {
 }
 
 envsetup::install_packages() {
-	local manager=$1
+	local manager=$1 pkg failed=() install=()
 	shift
-	local pkgs=("$@")
-	((${#pkgs[@]} == 0)) && return 0
-
+	(($#)) || return 0
 	case "$manager" in
-	brew) brew install "${pkgs[@]}" ;;
+	brew) install=(brew install) ;;
 	apt)
 		# One broken source (e.g. a dead PPA) makes update exit non-zero even though the
 		# rest refreshed; install anyway; it still fails loudly if the lists are unusable.
 		sudo apt-get update || echo "apt-get update reported errors; installing anyway." >&2
-		sudo apt-get install -y "${pkgs[@]}"
+		install=(sudo apt-get install -y)
 		;;
-	dnf) sudo dnf install -y "${pkgs[@]}" ;;
-	pacman) sudo pacman -S --noconfirm "${pkgs[@]}" ;;
+	dnf) install=(sudo dnf install -y) ;;
+	pacman) install=(sudo pacman -S --noconfirm) ;;
 	*)
 		echo "No supported package manager found." >&2
 		return 1
 		;;
 	esac
+	# One at a time: in a batch, one package the system can't take (a conflict, a name
+	# this distro doesn't use) fails all the others with it.
+	for pkg; do
+		"${install[@]}" "$pkg" || failed+=("$pkg")
+	done
+	((${#failed[@]} == 0)) && return 0
+	echo "Couldn't install: ${failed[*]}" >&2
+	return 1
 }

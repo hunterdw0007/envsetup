@@ -72,7 +72,8 @@ EOF
 # Root in the container; a real machine has sudo.
 printf '#!/bin/sh\nexec "$@"\n' >"$STUBS/sudo"
 
-printf '#!/bin/sh\necho "apt-get $*" >>"$SMOKE_LOG"\n' >"$OFFLINE/apt-get"
+# apt-get refuses any batch with smoke-conflict in it, like a real package conflict.
+printf '#!/bin/sh\necho "apt-get $*" >>"$SMOKE_LOG"\ncase "$*" in *smoke-conflict*) exit 100 ;; esac\n' >"$OFFLINE/apt-get"
 printf '#!/bin/sh\necho "chsh $*" >>"$SMOKE_LOG"\n' >"$OFFLINE/chsh"
 # curl only serves a stand-in oh-my-zsh installer; any other download is a test bug.
 cat >"$OFFLINE/curl" <<'EOF'
@@ -339,6 +340,17 @@ run_menu "$h" || true
 SETUP_ARGS=() CONFIRMS=()
 check "kept config.sh by default" [ -f "$h/.config/envsetup/config.sh" ]
 check "  ...but removed the saved profile" [ ! -e "$h/.config/envsetup/profile" ]
+
+echo "== a package that can't be installed doesn't stop the rest"
+h=$(new_home)
+mkdir -p "$h/.config/envsetup"
+echo 'ENVSETUP_PACKAGES+=(smoke-conflict)' >"$h/.config/envsetup/config.sh"
+if run_menu "$h" "Select profile" work full "Run everything" Quit; then pass "exited 0: back to the menu, then Quit"; else fail "exited non-zero"; fi
+check "installed one package at a time" [ "$(grep -c '^apt-get install -y [^ ]*$' "$SMOKE_LOG")" = "$(($(n_expected work) + 1))" ]
+check "  ...and named the one that failed" grep -qF "Couldn't install: smoke-conflict" "$h/setup.out"
+check "said the step didn't finish" grep -qF "That step didn't finish" "$SMOKE_LOG"
+check "still ran the installers after it" grep -qF "Running kubectl.sh" "$SMOKE_LOG"
+((failures)) && show "$h/setup.out"
 
 echo "== Move dotfiles to XDG dirs (ENVSETUP_XDG_NINJA=1, offline copy of xdg-ninja)"
 # Three notes in xdg-ninja's real format: move + export, move only, and one whose

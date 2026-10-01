@@ -115,7 +115,7 @@ envsetup::link_shell_config() {
 }
 
 envsetup::install_packages() {
-	local manager pkgs=()
+	local manager pkg name pkgs=() names=()
 	if envsetup::lite; then
 		gum style --foreground 3 "work (lite) assumes no sudo access, so package installs are skipped."
 		return 0
@@ -126,13 +126,20 @@ envsetup::install_packages() {
 		return 1
 	fi
 	readarray -t pkgs < <(envsetup::resolved_packages)
-	if ((${#pkgs[@]} == 0)); then
+	for pkg in "${pkgs[@]}"; do
+		name=$(envsetup::pkg_name "$manager" "$pkg")
+		if [[ -n "$name" ]]; then names+=("$name"); fi
+	done
+	if ((${#names[@]} == 0)); then
 		gum style --foreground 3 "No packages listed for $ENVSETUP_PROFILE."
-	elif envsetup::dry_run; then
-		[[ "$manager" == brew ]] || manager="sudo $manager"
-		envsetup::would "install ${#pkgs[@]} packages with $manager (ones already installed are left alone): ${pkgs[*]}"
+		return 0
+	fi
+	if [[ "$manager" == dnf ]]; then envsetup::enable_epel; fi
+	if envsetup::dry_run; then
+		[[ "$manager" == brew || "$manager" == nix ]] || manager="sudo $manager"
+		envsetup::would "install ${#names[@]} packages with $manager (ones already installed are left alone): ${names[*]}"
 	else
-		gum style --bold --foreground 4 "Installing via $manager: ${pkgs[*]}"
+		gum style --bold --foreground 4 "Installing via $manager: ${names[*]}"
 		envsetup::pkg_install "$manager" "${pkgs[@]}"
 	fi
 }

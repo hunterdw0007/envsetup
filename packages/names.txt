@@ -1,0 +1,24 @@
+# What each package in packages/*.txt (and in ENVSETUP_PACKAGES) is called by each
+# package manager, where that differs. The lists use Debian/Ubuntu's names; a package
+# that isn't in this table is installed under that same name everywhere.
+#   =  same name as the list
+#   -  nothing to install there: it comes with the base system or with another package
+# A path (dnf) installs whichever package provides that file, so an already-installed
+# variant (Amazon Linux's curl-minimal) counts instead of conflicting.
+#
+# list name     apt      dnf               zypper                pacman       apk               brew    nix
+vim             =        vim-enhanced      =                     =            =                 =       =
+curl            =        /usr/bin/curl     =                     =            =                 =       =
+bsdextrautils   =        util-linux        util-linux            util-linux   util-linux-misc   -       util-linux
+python3         =        =                 =                     python       =                 python  =
+python3-pip     =        =                 =                     python-pip   py3-pip           -       python3Packages.pip
+nodejs          =        =                 nodejs-default        =            =                 node    =
+npm             =        =                 npm-default           =            =                 -       -
+shellcheck      =        ShellCheck        ShellCheck            =            =                 =       =
+# Fedora's build of Docker. On RHEL clones use Docker CE's repo (and ENVSETUP_SKIP this);
+# with Homebrew or Nix, Docker Desktop or NixOS's virtualisation.docker instead.
+docker.io       =        moby-engine       docker                docker       docker            -       -
+net-tools       =        =                 net-tools-deprecated  =            =                 =       =
+dnsutils        =        bind-utils        bind-utils            bind         bind-tools        bind    =
+# Not in the lists: setup_zsh installs it when chsh is missing (Fedora, Alpine).
+chsh            passwd   util-linux-user   shadow                util-linux   shadow            -       -

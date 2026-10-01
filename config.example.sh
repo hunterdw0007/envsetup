@@ -15,7 +15,8 @@
 # since setup.sh sources this file non-interactively too.
 
 # --- Packages ---------------------------------------------------------------------
-# Defaults: packages/common.txt + packages/$ENVSETUP_PROFILE.txt
+# Defaults: packages/common.txt + packages/$ENVSETUP_PROFILE.txt. Use Debian/Ubuntu's
+# names; packages/names.txt translates them for other distros (others pass through).
 # ENVSETUP_PACKAGES+=(neovim)          # add to the defaults
 # ENVSETUP_PACKAGES=(git tmux curl)    # or replace them entirely
 # [[ $ENVSETUP_PROFILE == work ]] && ENVSETUP_PACKAGES+=(kubectx)

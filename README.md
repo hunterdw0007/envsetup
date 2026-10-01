@@ -46,6 +46,28 @@ curl -fsSL -H "Authorization: token $GITHUB_TOKEN" \
 git clone git@github.com:hunterdw0007/envsetup.git ~/envsetup && ~/envsetup/install.sh
 ```
 
+## Supported systems
+
+envsetup uses whichever package manager the machine has, and translates package names
+for it (`packages/names.txt`). Homebrew wins when it's installed.
+
+| System | Uses | Notes |
+|---|---|---|
+| Ubuntu, Debian, Mint, Pop!_OS, WSL | `apt` | |
+| Fedora | `dnf` | |
+| RHEL, Rocky, Alma, CentOS Stream, Oracle Linux | `dnf` | Asks to enable EPEL, where fzf, ripgrep, bat, htop, neovim and ~10 more come from |
+| Amazon Linux 2023 | `dnf` | No EPEL, so several extras (fzf, ripgrep, bat, ...) are reported as not installable; `ENVSETUP_SKIP` them |
+| Arch, CachyOS, EndeavourOS, Manjaro | `pacman` | |
+| openSUSE Tumbleweed and Leap | `zypper` | |
+| Alpine | `apk` | Needs bash first: `apk add bash curl` |
+| Bazzite, Aurora, Silverblue, SteamOS, Aeon | `brew` | `/usr` is read-only, so it needs Homebrew (Bazzite and Aurora ship it), or else Nix |
+| NixOS | `nix` | Installs into your user profile (`nix profile` or `nix-env`) |
+
+Root steps go through `sudo`, or `doas` if that's what the machine has, or run directly
+when you're already root (containers, a fresh WSL distro). `gum` comes from Homebrew if
+you have it, else from its GitHub release into `~/.local/bin`, so no sudo is needed for
+the menu itself. Installers download the amd64 or arm64 build to match the machine.
+
 ## Manual install
 
 ```sh
@@ -223,8 +245,8 @@ git/
   gitconfig          # default git aliases/settings (no identity)
 ```
 
-Package names are passed straight to whichever of `apt`/`dnf`/`brew`/`pacman` is detected on
-the machine. To change what's installed or loaded for yourself, use `config.sh` (above)
+Package lists use Debian/Ubuntu's names; `packages/names.txt` maps the ones other package
+managers call something else. To change what's installed or loaded for yourself, use `config.sh` (above)
 rather than editing these files.
 
 ### Adding a third-party or custom installer

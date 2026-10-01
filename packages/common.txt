@@ -1,4 +1,5 @@
-# One package name per line, as known to your package manager (apt/dnf/brew/pacman).
+# One package per line, by its Debian/Ubuntu name; packages/names.txt has what other
+# package managers call it, where that differs.
 # Lines starting with # are ignored. Installed on every profile (home, work/full).
 git
 tmux
@@ -13,6 +14,5 @@ fzf
 ripgrep
 bat
 
-# `column` (branchAll/fetchAll/pullMainAll tables): package is "bsdextrautils" on
-# Debian/Ubuntu, part of "util-linux" (already installed) on Fedora/Arch.
+# `column` (branchAll/fetchAll/pullMainAll tables).
 bsdextrautils

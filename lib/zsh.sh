@@ -7,6 +7,8 @@ envsetup::setup_zsh() {
 	envsetup::has_cmd zsh || missing+=(zsh)
 	# The oh-my-zsh installer is fetched with curl, which a fresh desktop may not have yet.
 	envsetup::has_cmd curl || missing+=(curl)
+	# Fedora and Alpine leave chsh out of the base system.
+	envsetup::has_cmd chsh || missing+=(chsh)
 	if envsetup::dry_run; then
 		((${#missing[@]} == 0)) || envsetup::would "install ${missing[*]} (sudo)"
 		[[ "$SHELL" == */zsh ]] || envsetup::would "ask to make zsh your login shell (chsh)"
@@ -35,6 +37,7 @@ envsetup::setup_zsh() {
 			gum style --foreground 1 "Couldn't download the oh-my-zsh installer."
 			return 1
 		fi
-		RUNZSH=no KEEP_ZSHRC=yes sh -c "$installer" || return 1
+		# CHSH=no: the login shell was asked about above; the installer would ask again.
+		RUNZSH=no CHSH=no KEEP_ZSHRC=yes sh -c "$installer" || return 1
 	fi
 }

@@ -78,6 +78,8 @@ From the menu you can:
 - run the installer scripts under `installers/common` + the active profile — anything that
   isn't a plain package-manager package: vendor installers, manual binary downloads, or any
   other custom setup step (also skipped for `work` lite)
+- move dotfiles out of `$HOME` into XDG directories (optional, see
+  [below](#moving-dotfiles-to-xdg-directories-optional))
 - take it all back out again (see [Uninstalling](#uninstalling))
 
 "Run everything" does all four in one shot, carrying on past a step that fails; each is
@@ -108,6 +110,36 @@ everything else also gets the exports and functions.
 
 Git shortcuts are git aliases (`git s`, `git d`, `git l`, ...) in `git/gitconfig`, not
 shell aliases.
+
+### Moving dotfiles to XDG directories (optional)
+
+**Move dotfiles to XDG dirs** in the menu tidies `$HOME` using
+[xdg-ninja](https://github.com/b3nj5m1n/xdg-ninja)'s notes on 600+ programs. It moves
+files like `~/.docker` to `~/.config/docker` and exports whatever variable the program
+needs (`DOCKER_CONFIG`) from every new shell. Set `ENVSETUP_XDG_NINJA=1` in `config.sh`
+to make it part of "Run everything", so tools it installs get tidied too.
+
+xdg-ninja's notes are written for people, so only the mechanical fixes are applied
+automatically:
+
+- one `export` and a move
+- a move to a path the program already reads
+
+Everything else is left in place and listed, with the reason:
+
+- notes with a version caveat or extra steps
+- dotfiles your rc files mention (e.g. `~/.cargo/env`)
+- symlinks
+- variables that are already set or shared (`HISTFILE`, `ZDOTDIR`, `GNUPGHOME`)
+- the rc files themselves and `~/.gitconfig`
+
+It shows the list and asks before moving anything, and `--dry-run` previews it. Every
+move is recorded, so uninstall moves them all back. It needs `git` and `jq` (both in
+`packages/common.txt`). The notes are cached in `~/.cache/envsetup/xdg-ninja`, from
+`ENVSETUP_XDG_NINJA_URL` if you point that at a mirror.
+
+The exports apply to shells that load envsetup. A program started some other way (a
+desktop launcher, cron) won't see them.
 
 ## Customizing without forking
 
@@ -140,6 +172,7 @@ alias k=kubectl                                    # anything else is ordinary s
 | `ENVSETUP_SKIP` | empty — names of packages/installers to leave out | Install packages, Run installers |
 | `ENVSETUP_SHELL` | `zsh` on home, `bash` otherwise | Link shell config |
 | `ENVSETUP_GIT_CONFIG` | `git/gitconfig`, as `key=value` (later entries win) | Configure git |
+| `ENVSETUP_XDG_NINJA` | `0`; `1` adds "Move dotfiles to XDG dirs" to "Run everything" | Run everything |
 | aliases, exports, functions, `PS1` | `shell/` | every new shell, after the defaults |
 
 Shell settings take effect in the next new shell. The `ENVSETUP_*` settings take effect the
@@ -156,7 +189,8 @@ running `install.sh`.
 
 This takes out everything envsetup added: its block in `~/.bashrc`/`~/.zshrc` (the rest of
 the file is left byte-for-byte as it was), its include in `~/.gitconfig` and the generated
-file behind it, and its saved profile/mode. It asks before removing anything that might
+file behind it, and its saved profile/mode. Dotfiles it moved to XDG directories go back
+where they were. It asks before removing anything that might
 be yours: your `config.sh`, and, if it would have set you up on zsh, switching your login
 shell back to bash. Packages and tools stay, since they may have been there before
 envsetup, as do your git `user.name`/`user.email` and oh-my-zsh (it has its own

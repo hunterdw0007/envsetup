@@ -4,90 +4,90 @@
 # Usage: echo -e "${RED}This is red text${RESET}"; run show_colors to see them all.
 
 # Reset
-RESET='\033[0m'       # Text Reset
+RESET='\033[0m'
 
 # Regular Colors
-BLACK='\033[0;30m'        # Black
-RED='\033[0;31m'          # Red
-GREEN='\033[0;32m'        # Green
-YELLOW='\033[0;33m'       # Yellow
-BLUE='\033[0;34m'         # Blue
-PURPLE='\033[0;35m'       # Purple
-CYAN='\033[0;36m'         # Cyan
-WHITE='\033[0;37m'        # White
+BLACK='\033[0;30m'
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+WHITE='\033[0;37m'
 
 # Bold Colors
-BOLD_BLACK='\033[1;30m'   # Bold Black
-BOLD_RED='\033[1;31m'     # Bold Red
-BOLD_GREEN='\033[1;32m'   # Bold Green
-BOLD_YELLOW='\033[1;33m'  # Bold Yellow
-BOLD_BLUE='\033[1;34m'    # Bold Blue
-BOLD_PURPLE='\033[1;35m'  # Bold Purple
-BOLD_CYAN='\033[1;36m'    # Bold Cyan
-BOLD_WHITE='\033[1;37m'   # Bold White
+BOLD_BLACK='\033[1;30m'
+BOLD_RED='\033[1;31m'
+BOLD_GREEN='\033[1;32m'
+BOLD_YELLOW='\033[1;33m'
+BOLD_BLUE='\033[1;34m'
+BOLD_PURPLE='\033[1;35m'
+BOLD_CYAN='\033[1;36m'
+BOLD_WHITE='\033[1;37m'
 
 # Underlined Colors
-UNDERLINE_BLACK='\033[4;30m'   # Underlined Black
-UNDERLINE_RED='\033[4;31m'     # Underlined Red
-UNDERLINE_GREEN='\033[4;32m'   # Underlined Green
-UNDERLINE_YELLOW='\033[4;33m'  # Underlined Yellow
-UNDERLINE_BLUE='\033[4;34m'    # Underlined Blue
-UNDERLINE_PURPLE='\033[4;35m'  # Underlined Purple
-UNDERLINE_CYAN='\033[4;36m'    # Underlined Cyan
-UNDERLINE_WHITE='\033[4;37m'   # Underlined White
+UNDERLINE_BLACK='\033[4;30m'
+UNDERLINE_RED='\033[4;31m'
+UNDERLINE_GREEN='\033[4;32m'
+UNDERLINE_YELLOW='\033[4;33m'
+UNDERLINE_BLUE='\033[4;34m'
+UNDERLINE_PURPLE='\033[4;35m'
+UNDERLINE_CYAN='\033[4;36m'
+UNDERLINE_WHITE='\033[4;37m'
 
 # Background Colors
-BG_BLACK='\033[40m'       # Black Background
-BG_RED='\033[41m'         # Red Background
-BG_GREEN='\033[42m'       # Green Background
-BG_YELLOW='\033[43m'      # Yellow Background
-BG_BLUE='\033[44m'        # Blue Background
-BG_PURPLE='\033[45m'      # Purple Background
-BG_CYAN='\033[46m'        # Cyan Background
-BG_WHITE='\033[47m'       # White Background
+BG_BLACK='\033[40m'
+BG_RED='\033[41m'
+BG_GREEN='\033[42m'
+BG_YELLOW='\033[43m'
+BG_BLUE='\033[44m'
+BG_PURPLE='\033[45m'
+BG_CYAN='\033[46m'
+BG_WHITE='\033[47m'
 
 # High Intensity (Bright) Colors
-BRIGHT_BLACK='\033[0;90m'     # Bright Black (Gray)
-BRIGHT_RED='\033[0;91m'       # Bright Red
-BRIGHT_GREEN='\033[0;92m'     # Bright Green
-BRIGHT_YELLOW='\033[0;93m'    # Bright Yellow
-BRIGHT_BLUE='\033[0;94m'      # Bright Blue
-BRIGHT_PURPLE='\033[0;95m'    # Bright Purple
-BRIGHT_CYAN='\033[0;96m'      # Bright Cyan
-BRIGHT_WHITE='\033[0;97m'     # Bright White
+BRIGHT_BLACK='\033[0;90m'
+BRIGHT_RED='\033[0;91m'
+BRIGHT_GREEN='\033[0;92m'
+BRIGHT_YELLOW='\033[0;93m'
+BRIGHT_BLUE='\033[0;94m'
+BRIGHT_PURPLE='\033[0;95m'
+BRIGHT_CYAN='\033[0;96m'
+BRIGHT_WHITE='\033[0;97m'
 
 # High Intensity Background Colors
-BG_BRIGHT_BLACK='\033[0;100m'   # Bright Black Background
-BG_BRIGHT_RED='\033[0;101m'     # Bright Red Background
-BG_BRIGHT_GREEN='\033[0;102m'   # Bright Green Background
-BG_BRIGHT_YELLOW='\033[0;103m'  # Bright Yellow Background
-BG_BRIGHT_BLUE='\033[0;104m'    # Bright Blue Background
-BG_BRIGHT_PURPLE='\033[0;105m'  # Bright Purple Background
-BG_BRIGHT_CYAN='\033[0;106m'    # Bright Cyan Background
-BG_BRIGHT_WHITE='\033[0;107m'   # Bright White Background
+BG_BRIGHT_BLACK='\033[0;100m'
+BG_BRIGHT_RED='\033[0;101m'
+BG_BRIGHT_GREEN='\033[0;102m'
+BG_BRIGHT_YELLOW='\033[0;103m'
+BG_BRIGHT_BLUE='\033[0;104m'
+BG_BRIGHT_PURPLE='\033[0;105m'
+BG_BRIGHT_CYAN='\033[0;106m'
+BG_BRIGHT_WHITE='\033[0;107m'
 
 # Text Styles
-BOLD='\033[1m'            # Bold
-DIM='\033[2m'             # Dim/Faint
-ITALIC='\033[3m'          # Italic
-UNDERLINE='\033[4m'       # Underline
-BLINK='\033[5m'           # Blink
-REVERSE='\033[7m'         # Reverse/Invert
-STRIKETHROUGH='\033[9m'   # Strikethrough
+BOLD='\033[1m'
+DIM='\033[2m'
+ITALIC='\033[3m'
+UNDERLINE='\033[4m'
+BLINK='\033[5m'
+REVERSE='\033[7m'
+STRIKETHROUGH='\033[9m'
 
 # Reset Styles (turn off specific formatting)
-RESET_BOLD='\033[21m'         # Reset Bold
-RESET_DIM='\033[22m'          # Reset Dim
-RESET_ITALIC='\033[23m'       # Reset Italic
-RESET_UNDERLINE='\033[24m'    # Reset Underline
-RESET_BLINK='\033[25m'        # Reset Blink
-RESET_REVERSE='\033[27m'      # Reset Reverse
-RESET_STRIKETHROUGH='\033[29m' # Reset Strikethrough
+RESET_BOLD='\033[21m'
+RESET_DIM='\033[22m'
+RESET_ITALIC='\033[23m'
+RESET_UNDERLINE='\033[24m'
+RESET_BLINK='\033[25m'
+RESET_REVERSE='\033[27m'
+RESET_STRIKETHROUGH='\033[29m'
 
 # Convenience aliases
-NC=$RESET                 # No Color (same as RESET)
-GRAY=$BRIGHT_BLACK        # Gray alias
-GREY=$BRIGHT_BLACK        # Grey alias
+NC=$RESET
+GRAY=$BRIGHT_BLACK
+GREY=$BRIGHT_BLACK
 
 # Function to display all colors (optional demo function)
 show_colors() {

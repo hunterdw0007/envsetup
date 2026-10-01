@@ -166,7 +166,7 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y -qq zsh >$W/zsh.out 2>&1 || {
 
 echo "== work/full: Run everything"
 h=$(new_home)
-if run_menu "$h" "Select profile" work full "Run everything" Quit; then pass "exited 0"; else fail "exited non-zero"; fi
+check "exited 0" run_menu "$h" "Select profile" work full "Run everything" Quit
 check "linked ~/.bashrc once" [ "$(count '# >>> envsetup >>>' "$h/.bashrc")" = 1 ]
 check "installed common + work packages" same_list "$(expected work)" "$(installed)"
 for s in "$CLONE"/installers/work/*.sh; do
@@ -181,13 +181,13 @@ check "bash gets the work aliases" [ "$(in_shell "$h" bash 'alias kc')" = "alias
 check "bash starts without errors" [ ! -s "$h/shell.err" ]
 [ -s "$h/shell.err" ] && show "$h/shell.err"
 check "git gets the shipped defaults" same_list "$(git config --file "$CLONE/git/gitconfig" alias.l)" "$(HOME=$h git config --global --includes alias.l)"
-if run_menu "$h" "Run everything" Quit; then pass "re-run exited 0"; else fail "re-run exited non-zero"; fi
+check "re-run exited 0" run_menu "$h" "Run everything" Quit
 check "re-run didn't link twice" [ "$(count '# >>> envsetup >>>' "$h/.bashrc")" = 1 ]
 ((failures)) && show "$h/setup.out"
 
 echo "== work/lite: Run everything (no sudo: no packages, no installers)"
 h=$(new_home)
-if run_menu "$h" "Select profile" work lite "Run everything" Quit; then pass "exited 0"; else fail "exited non-zero"; fi
+check "exited 0" run_menu "$h" "Select profile" work lite "Run everything" Quit
 check "linked ~/.bashrc" grep -qF '# >>> envsetup >>>' "$h/.bashrc"
 check "no package installs" [ "$(count 'apt-get' "$SMOKE_LOG")" = 0 ]
 check "no installers run" [ "$(count 'Running ' "$SMOKE_LOG")" = 0 ]
@@ -198,7 +198,7 @@ check "bash still gets the prompt" has_prompt "$h"
 
 echo "== home: Run everything (zsh + oh-my-zsh)"
 h=$(new_home)
-if run_menu "$h" "Select profile" home "Run everything" Quit; then pass "exited 0"; else fail "exited non-zero"; fi
+check "exited 0" run_menu "$h" "Select profile" home "Run everything" Quit
 check "installed oh-my-zsh" [ -d "$h/.oh-my-zsh" ]
 check "kept the oh-my-zsh .zshrc" grep -qF 'stand-in for the oh-my-zsh theme' "$h/.zshrc"
 check "linked ~/.zshrc once" [ "$(count '# >>> envsetup >>>' "$h/.zshrc")" = 1 ]
@@ -234,7 +234,7 @@ echo "== --dry-run: home, Run everything"
 h=$(new_home)
 before=$(snapshot "$h")
 SETUP_ARGS=(--dry-run)
-if run_menu "$h" "Select profile" home "Run everything" Quit; then pass "exited 0"; else fail "exited non-zero"; fi
+check "exited 0" run_menu "$h" "Select profile" home "Run everything" Quit
 SETUP_ARGS=()
 check "said it would install oh-my-zsh" grep -qF 'would install oh-my-zsh' "$SMOKE_LOG"
 check "said it would link ~/.zshrc" grep -qF "would add a 4-line block to $h/.zshrc" "$SMOKE_LOG"
@@ -262,7 +262,7 @@ check "  ...and nothing was saved" [ "$(snapshot "$h")" = "$before" ]
 
 echo "== Preview everything (normal session): work/full"
 h=$(new_home)
-if run_menu "$h" "Select profile" work full "Preview everything" Quit; then pass "exited 0"; else fail "exited non-zero"; fi
+check "exited 0" run_menu "$h" "Select profile" work full "Preview everything" Quit
 check "said it would install common + work packages" described "$w" "would install $w packages"
 check "said it would run the work installers" described "$wi" "would run $wi installer scripts"
 check "ran nothing that changes the machine" not_grep '^\(apt-get\|curl\|chsh\) ' "$SMOKE_LOG"
@@ -286,7 +286,7 @@ gc=$h/.config/envsetup/gitconfig
 check "(before: git includes envsetup's file)" [ "$(includes "$h")" = "$gc" ]
 check "(before: a profile is saved)" [ -f "$h/.config/envsetup/profile" ]
 SETUP_ARGS=(--uninstall) CONFIRMS=(yes)
-if run_menu "$h"; then pass "exited 0"; else fail "exited non-zero"; fi
+check "exited 0" run_menu "$h"
 check ".bashrc is byte-for-byte what it was" cmp -s /etc/skel/.bashrc "$h/.bashrc"
 check "removed the git include" [ -z "$(includes "$h")" ]
 check "kept the git identity" [ "$(git config --file "$h/.gitconfig" user.name)" = "Smoke Test" ]
@@ -321,7 +321,7 @@ run_menu "$h" "Select profile" home "Run everything" Quit
 check "(before: ~/.zshrc is linked)" grep -qF '# >>> envsetup >>>' "$h/.zshrc"
 # Remove? yes; keep config.sh? no; keep zsh as login shell? no.
 CONFIRMS=(yes no no)
-if SHELL=/usr/bin/zsh run_menu "$h" Uninstall; then pass "exited 0"; else fail "exited non-zero"; fi
+SHELL=/usr/bin/zsh check "exited 0" run_menu "$h" Uninstall
 CONFIRMS=()
 check "unlinked ~/.zshrc" not_grep '# >>> envsetup >>>' "$h/.zshrc"
 check "  ...keeping the rest of it" grep -qF 'stand-in for the oh-my-zsh theme' "$h/.zshrc"
@@ -343,7 +343,7 @@ echo "== a package that can't be installed doesn't stop the rest"
 h=$(new_home)
 mkdir -p "$h/.config/envsetup"
 echo 'ENVSETUP_PACKAGES+=(smoke-conflict)' >"$h/.config/envsetup/config.sh"
-if run_menu "$h" "Select profile" work full "Run everything" Quit; then pass "exited 0: back to the menu, then Quit"; else fail "exited non-zero"; fi
+check "exited 0: back to the menu, then Quit" run_menu "$h" "Select profile" work full "Run everything" Quit
 check "retried the batch one package at a time" [ "$(grep -c '^apt-get install -y [^ ]*$' "$SMOKE_LOG")" = "$(($(n_expected work) + 1))" ]
 check "  ...and named the one that failed" grep -qF "Couldn't install: smoke-conflict" "$h/setup.out"
 check "said the step didn't finish" grep -qF "That step didn't finish" "$SMOKE_LOG"

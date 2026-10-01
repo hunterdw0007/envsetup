@@ -10,8 +10,8 @@ envsetup::has_cmd docker && exit 0
 
 manager="$(envsetup::pkg_manager)"
 case "$manager" in
-apt) envsetup::install_packages apt docker.io ;;
-dnf) envsetup::install_packages dnf moby-engine ;;
-pacman) envsetup::install_packages pacman docker ;;
+apt) envsetup::pkg_install apt docker.io ;;
+dnf) envsetup::pkg_install dnf moby-engine ;;
+pacman) envsetup::pkg_install pacman docker ;;
 *) echo "No distro package for Docker here; see https://docs.docker.com/engine/install/" >&2 ;;
 esac

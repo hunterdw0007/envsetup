@@ -4,8 +4,8 @@
 #   [14:02:11] <kube context> ~/d/envsetup main [⤻ 1]
 #   ❯
 #
-# Bash only: zsh uses different prompt escapes, and on home the oh-my-zsh theme owns
-# the prompt. PS1 isn't exported, so it doesn't leak into shells that can't read it.
+# Bash only: zsh uses different prompt escapes, and there the oh-my-zsh theme owns the
+# prompt. PS1 isn't exported, so it doesn't leak into shells that can't read it.
 
 [[ -n "${BASH_VERSION:-}" ]] || return 0
 

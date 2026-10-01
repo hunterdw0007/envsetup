@@ -9,7 +9,7 @@
 # Everything is commented out, so this file as shipped changes nothing.
 #
 # Branch on $ENVSETUP_PROFILE (work | home) and $ENVSETUP_MODE (full | lite) for
-# per-machine tweaks. On the home profile your shell is zsh, so keep shell code
+# per-machine tweaks. If you've set up zsh, this runs there too, so keep shell code
 # portable (or guard bash-only bits with [[ -n $BASH_VERSION ]]), and put
 # interactive-only things (prompt frameworks, completions) under [[ $- == *i* ]],
 # since setup.sh sources this file non-interactively too.
@@ -35,9 +35,10 @@
 # ENVSETUP_XDG_NINJA=1
 
 # --- Login shell --------------------------------------------------------------------
-# Default: zsh (+ oh-my-zsh) on home, bash otherwise. Decides which rc file gets
-# linked and whether zsh/oh-my-zsh are installed.
-# ENVSETUP_SHELL=bash
+# Default: bash, on every profile (~/.bashrc is always linked). zsh also installs zsh
+# + oh-my-zsh and links ~/.zshrc as part of "Run everything", like the menu's "Set up
+# zsh + oh-my-zsh".
+# ENVSETUP_SHELL=zsh
 
 # --- Git ----------------------------------------------------------------------------
 # Defaults: git/gitconfig. key=value, same format as `git config --list`, so you can

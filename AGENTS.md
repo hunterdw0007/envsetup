@@ -95,7 +95,7 @@ Conventional Commits, always: `<type>(<scope>)?: <summary>`.
 
 - A shell alias/export/function everyone should get → `shell/shared/`.
 - One that only applies to one profile → `shell/profiles/<profile>/`.
-- Everything under `shell/` is sourced by both bash and zsh (home's default shell). Code
+- Everything under `shell/` is sourced by both bash and zsh (opt-in on any profile). Code
   that's bash-only (arrays, `mapfile`, bash prompt escapes) goes in a file that starts
   with `[[ -n "${BASH_VERSION:-}" ]] || return 0`, like `shell/shared/ps1.sh`. An alias
   or export that relies on an optional tool is defined only when that tool is installed

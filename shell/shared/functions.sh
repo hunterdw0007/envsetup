@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 # Shell functions loaded on every machine except work lite. Bash only (arrays,
-# mapfile), so zsh, home's default shell, skips them.
+# mapfile), so zsh skips them.
 
 [[ -n "${BASH_VERSION:-}" ]] || return 0
 

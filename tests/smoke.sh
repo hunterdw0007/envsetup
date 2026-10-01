@@ -198,17 +198,39 @@ check "bash skips exports" [ -z "$(in_shell "$h" bash 'printf %s "${EDITOR:-}"')
 check "bash skips functions" [ -z "$(in_shell "$h" bash 'type -t fetchAll')" ]
 check "bash still gets the prompt" has_prompt "$h"
 
-echo "== home: Run everything (zsh + oh-my-zsh)"
+echo "== home: Run everything (bash; zsh is opt-in)"
 h=$(new_home)
 check "exited 0" run_menu "$h" "Select profile" home "Run everything" Quit
+check "linked ~/.bashrc once" [ "$(count '# >>> envsetup >>>' "$h/.bashrc")" = 1 ]
+check "installed common + home packages" same_list "$(expected home)" "$(installed)"
+check "bash loads the aliases" [ "$(in_shell "$h" bash 'alias ll')" = "alias ll='ls -alh'" ]
+check "bash starts without errors" [ ! -s "$h/shell.err" ]
+check "left zsh alone" none_exist "$h/.oh-my-zsh" "$h/.zshrc"
+check "didn't ask about the login shell" not_grep '^gum confirm Set zsh' "$SMOKE_LOG"
+
+echo "== home: Set up zsh + oh-my-zsh (menu)"
+check "exited 0" run_menu "$h" "Set up zsh + oh-my-zsh" Quit
 check "installed oh-my-zsh" [ -d "$h/.oh-my-zsh" ]
+check "asked about the login shell" grep -q '^gum confirm Set zsh as your default login shell' "$SMOKE_LOG"
 check "kept the oh-my-zsh .zshrc" grep -qF 'stand-in for the oh-my-zsh theme' "$h/.zshrc"
 check "linked ~/.zshrc once" [ "$(count '# >>> envsetup >>>' "$h/.zshrc")" = 1 ]
-check "installed common + home packages" same_list "$(expected home)" "$(installed)"
 check "zsh loads the aliases" [ "$(in_shell "$h" zsh 'alias ll')" = "ll='ls -alh'" ]
 check "zsh keeps the theme prompt" [ "$(in_shell "$h" zsh 'print -r -- $PS1')" = '%n@%m %# ' ]
 check "zsh starts without errors" [ ! -s "$h/shell.err" ]
 [ -s "$h/shell.err" ] && show "$h/shell.err"
+check "re-run exited 0" run_menu "$h" "Set up zsh + oh-my-zsh" Quit
+check "re-run didn't link twice" [ "$(count '# >>> envsetup >>>' "$h/.zshrc")" = 1 ]
+
+echo "== work/lite: ENVSETUP_SHELL=zsh makes Run everything set up zsh too"
+h=$(new_home)
+mkdir -p "$h/.config/envsetup"
+echo 'ENVSETUP_SHELL=zsh' >"$h/.config/envsetup/config.sh"
+check "exited 0" run_menu "$h" "Select profile" work lite "Run everything" Quit
+check "linked ~/.bashrc" [ "$(count '# >>> envsetup >>>' "$h/.bashrc")" = 1 ]
+check "  ...and ~/.zshrc" [ "$(count '# >>> envsetup >>>' "$h/.zshrc")" = 1 ]
+check "installed oh-my-zsh" [ -d "$h/.oh-my-zsh" ]
+check "  ...without installing packages (zsh was already there)" [ "$(count 'apt-get' "$SMOKE_LOG")" = 0 ]
+((failures)) && show "$h/setup.out"
 
 echo "== explaining itself"
 h=$(new_home)
@@ -221,16 +243,16 @@ w=$(n_expected work) wi=$(n_installers work) hm=$(n_expected home)
 # Answer with whole lines, the way gum returns a picked label.
 run_menu "$h" "Select profile" "work  bash · (as gum returns it)" "lite  no sudo: (as gum returns it)" Quit
 check "work is described from its config" described "$w" "work  bash · $w packages · $wi installers ("
-check "home is described from its config" described "$hm" "home  zsh + oh-my-zsh · $hm packages · no installers"
+check "home is described from its config" described "$hm" "home  bash · $hm packages · no installers"
 check "modes say what needs sudo" described "$w" "full  uses sudo: installs $w packages and runs $wi installers"
 check "a picked line is saved as just its name" [ "$(cat "$h/.config/envsetup/profile")/$(cat "$h/.config/envsetup/mode")" = work/lite ]
 run_menu "$h" Quit
 check "no welcome once a profile is saved" not_grep 'Welcome to envsetup' "$SMOKE_LOG"
 h=$(new_home)
 mkdir -p "$h/.config/envsetup"
-printf 'ENVSETUP_SHELL=bash\nENVSETUP_SKIP=(%s)\n' "$(expected home | head -1)" >"$h/.config/envsetup/config.sh"
+printf 'ENVSETUP_SHELL=zsh\nENVSETUP_SKIP=(%s)\n' "$(expected home | head -1)" >"$h/.config/envsetup/config.sh"
 run_menu "$h" "Select profile" ESC
-check "descriptions follow the user's config.sh" described "$hm" "home  bash · $((hm - 1)) packages"
+check "descriptions follow the user's config.sh" described "$hm" "home  zsh + oh-my-zsh · $((hm - 1)) packages"
 
 echo "== --dry-run: home, Run everything"
 h=$(new_home)
@@ -238,8 +260,8 @@ before=$(snapshot "$h")
 SETUP_ARGS=(--dry-run)
 check "exited 0" run_menu "$h" "Select profile" home "Run everything" Quit
 SETUP_ARGS=()
-check "said it would install oh-my-zsh" grep -qF 'would install oh-my-zsh' "$SMOKE_LOG"
-check "said it would link ~/.zshrc" grep -qF "would add a 4-line block to $h/.zshrc" "$SMOKE_LOG"
+check "said it would link ~/.bashrc" grep -qF "would add a 4-line block to $h/.bashrc" "$SMOKE_LOG"
+check "  ...and nothing about zsh" not_grep 'would .*\(oh-my-zsh\|zshrc\)' "$SMOKE_LOG"
 check "said it would ask for a git identity" grep -qF 'would ask for your git user.name' "$SMOKE_LOG"
 check "said it would install common + home packages" described "$hm" "would install $hm packages"
 check "ran nothing that changes the machine" not_grep '^\(apt-get\|curl\|chsh\) ' "$SMOKE_LOG"
@@ -252,14 +274,14 @@ check "  ...(control: the snapshot does notice a change)" [ "$(snapshot "$h")" !
 echo "== --dry-run: config edits last only for the session"
 h=$(new_home)
 before=$(snapshot "$h")
-printf '#!/bin/sh\necho ENVSETUP_SHELL=bash >>"$1"\n' >$W/editor
+printf '#!/bin/sh\necho ENVSETUP_SHELL=zsh >>"$1"\n' >$W/editor
 chmod +x $W/editor
 export EDITOR=$W/editor
 SETUP_ARGS=(--dry-run)
 run_menu "$h" "Edit config" "Select profile" ESC Quit || true
 SETUP_ARGS=()
 unset EDITOR
-check "the edit applied within the session" described "$hm" "home  bash · $hm packages"
+check "the edit applied within the session" described "$hm" "home  zsh + oh-my-zsh · $hm packages"
 check "  ...and nothing was saved" [ "$(snapshot "$h")" = "$before" ]
 
 echo "== Preview everything (normal session): work/full"
@@ -319,7 +341,7 @@ echo "== Uninstall from the menu: home on zsh, with a config.sh"
 h=$(new_home)
 mkdir -p "$h/.config/envsetup"
 echo 'alias smoke=true' >"$h/.config/envsetup/config.sh"
-run_menu "$h" "Select profile" home "Run everything" Quit
+run_menu "$h" "Select profile" home "Run everything" "Set up zsh + oh-my-zsh" Quit
 check "(before: ~/.zshrc is linked)" grep -qF '# >>> envsetup >>>' "$h/.zshrc"
 # Remove? yes; keep config.sh? no; keep zsh as login shell? no.
 CONFIRMS=(yes no no)

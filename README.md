@@ -107,10 +107,11 @@ From the menu you can:
 "Run everything" does all four in one shot, carrying on past a step that fails; each is
 also available individually from the menu if you just want to re-run one piece.
 
-The `home` profile assumes the machine is yours to configure fully: linking installs zsh
-and [oh-my-zsh](https://ohmyz.sh) if they're missing, offers to make zsh your login shell,
-and then wires `shell/init.sh` into `~/.zshrc`. The `work` profile stays on bash and wires
-`shell/init.sh` into `~/.bashrc`. Either default can be flipped with `ENVSETUP_SHELL`.
+Linking wires `shell/init.sh` into `~/.bashrc` on every profile. zsh is opt-in: **Set up
+zsh + oh-my-zsh** in the menu installs zsh and [oh-my-zsh](https://ohmyz.sh) if they're
+missing, offers to make zsh your login shell, and wires the same config into `~/.zshrc`.
+`ENVSETUP_SHELL=zsh` in `config.sh` makes that part of "Link shell config" and "Run
+everything".
 
 `setup.sh` will try to install `gum` itself (via `brew` or `go install`) if it isn't found.
 
@@ -120,8 +121,8 @@ Every profile and mode gets the prompt and aliases. Work lite gets only those tw
 everything else also gets the exports and functions.
 
 - **Prompt** (bash): time, kube context, a collapsed path (`~/d/envsetup`), git branch and
-  ahead/behind, then `❯` on its own line. On home, the oh-my-zsh theme owns the zsh
-  prompt instead.
+  ahead/behind, then `❯` on its own line. In zsh, the oh-my-zsh theme owns the prompt
+  instead.
 - **Aliases**: `ls` in color, `la`, `ll`, `..`/`...`/`....`. `cat`/`less` go through `bat`
   when it's installed. On work there are also kubectl shortcuts (`kc`, `kcaMem`).
 - **Exports**: XDG base directories, `EDITOR=vim`, and man pages through `bat`.
@@ -179,7 +180,7 @@ after the defaults, so `+=` extends a default, `=` replaces it, and you can bran
 ```sh
 ENVSETUP_PACKAGES+=(neovim)                        # add to the default package list
 ENVSETUP_SKIP=(docker.io terraform)                # drop a default package or installer
-ENVSETUP_SHELL=bash                                # stay on bash on the home profile
+ENVSETUP_SHELL=zsh                                 # also set up zsh + oh-my-zsh
 ENVSETUP_INSTALLER_DIRS+=("$HOME/dotfiles/envsetup-installers")
 ENVSETUP_GIT_CONFIG+=("user.email=me@example.com" "pull.rebase=false")
 [[ $ENVSETUP_PROFILE == work ]] && ENVSETUP_PACKAGES+=(kubectx)
@@ -192,7 +193,7 @@ alias k=kubectl                                    # anything else is ordinary s
 | `ENVSETUP_PACKAGES` | `packages/common.txt` + `packages/<profile>.txt` | Install packages |
 | `ENVSETUP_INSTALLER_DIRS` | `installers/common` + `installers/<profile>` | Run installers |
 | `ENVSETUP_SKIP` | empty — names of packages/installers to leave out | Install packages, Run installers |
-| `ENVSETUP_SHELL` | `zsh` on home, `bash` otherwise | Link shell config |
+| `ENVSETUP_SHELL` | `bash`; `zsh` also sets up zsh + oh-my-zsh | Link shell config |
 | `ENVSETUP_GIT_CONFIG` | `git/gitconfig`, as `key=value` (later entries win) | Configure git |
 | `ENVSETUP_XDG_NINJA` | `0`; `1` adds "Move dotfiles to XDG dirs" to "Run everything" | Run everything |
 | aliases, exports, functions, `PS1` | `shell/` | every new shell, after the defaults |
@@ -213,8 +214,8 @@ This takes out everything envsetup added: its block in `~/.bashrc`/`~/.zshrc` (t
 the file is left byte-for-byte as it was), its include in `~/.gitconfig` and the generated
 file behind it, and its saved profile/mode. Dotfiles it moved to XDG directories go back
 where they were. It asks before removing anything that might
-be yours: your `config.sh`, and, if it would have set you up on zsh, switching your login
-shell back to bash. Packages and tools stay, since they may have been there before
+be yours: your `config.sh`, and, if it set you up on zsh, switching your login shell back
+to bash. Packages and tools stay, since they may have been there before
 envsetup, as do your git `user.name`/`user.email` and oh-my-zsh (it has its own
 `uninstall_oh_my_zsh`). It lists all of that at the end, along with how to delete the
 checkout itself.

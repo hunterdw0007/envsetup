@@ -10,6 +10,7 @@ source "$ENVSETUP_ROOT/lib/zsh.sh"
 source "$ENVSETUP_ROOT/lib/installers.sh"
 source "$ENVSETUP_ROOT/lib/git.sh"
 source "$ENVSETUP_ROOT/lib/uninstall.sh"
+source "$ENVSETUP_ROOT/lib/xdg.sh"
 
 CONFIG_DIR="$HOME/.config/envsetup"
 PROFILE_FILE="$CONFIG_DIR/profile"
@@ -35,6 +36,10 @@ template: config.example.sh), outside this repo, so updates never conflict.
 
 To see what it would do first, use --dry-run, or "Preview everything" in the menu.
 To take it all back out, use --uninstall, or "Uninstall" in the menu.
+
+"Move dotfiles to XDG dirs" moves dotfiles out of $HOME into ~/.config, ~/.local and
+~/.cache where that's safe to do automatically (from xdg-ninja's notes). Set
+ENVSETUP_XDG_NINJA=1 in config.sh to make it part of "Run everything".
 
 Options:
   -n, --dry-run    walk through the menu without changing anything: every step says
@@ -215,6 +220,7 @@ envsetup::run_everything() {
 	envsetup::setup_git
 	envsetup::install_packages_for_profile "$1"
 	envsetup::run_installers "$1"
+	if [[ "$ENVSETUP_XDG_NINJA" == 1 ]]; then envsetup::xdg_tidy; fi
 }
 
 envsetup::main_menu() {
@@ -232,6 +238,7 @@ envsetup::main_menu() {
 			"Configure git" \
 			"Install packages" \
 			"Run installers" \
+			"Move dotfiles to XDG dirs" \
 			"Preview everything" \
 			"Run everything" \
 			"Uninstall" \
@@ -270,6 +277,9 @@ envsetup::main_menu() {
 		"Run installers")
 			[[ -z "$profile" ]] && { gum style --foreground 1 "Select a profile first."; continue; }
 			envsetup::run_installers "$profile"
+			;;
+		"Move dotfiles to XDG dirs")
+			envsetup::xdg_tidy
 			;;
 		"Preview everything")
 			[[ -z "$profile" ]] && { gum style --foreground 1 "Select a profile first."; continue; }

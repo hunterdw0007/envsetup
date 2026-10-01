@@ -25,6 +25,11 @@ for _envsetup_f in "${_envsetup_files[@]}"; do
 	[[ -f "$_envsetup_f" ]] && source "$_envsetup_f"
 done
 
+# Exports for dotfiles "Move dotfiles to XDG dirs" moved (lib/xdg.sh); every mode needs
+# them, or the programs would recreate the files in $HOME.
+# shellcheck source=/dev/null # generated file
+[[ -f "$HOME/.config/envsetup/xdg.sh" ]] && source "$HOME/.config/envsetup/xdg.sh"
+
 if [[ -n "$ENVSETUP_PROFILE" ]]; then
 	for _envsetup_f in "$ENVSETUP_ROOT/shell/profiles/$ENVSETUP_PROFILE"/*.sh; do
 		# shellcheck disable=SC1090

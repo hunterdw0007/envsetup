@@ -10,5 +10,4 @@ shellcheck
 tig
 ncdu
 
-# Docker: package is "docker.io" on Debian/Ubuntu, "docker" on Fedora/Arch — adjust for your distro.
-docker.io
+# Docker is an installer (installers/home/docker.sh), so an existing Docker CE is left alone.

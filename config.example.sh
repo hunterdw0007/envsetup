@@ -26,7 +26,7 @@
 
 # --- Skip ---------------------------------------------------------------------------
 # Leave out any package or installer by name (installer = script name without .sh).
-# ENVSETUP_SKIP=(docker.io terraform awscli)
+# ENVSETUP_SKIP=(docker terraform awscli)
 
 # --- Login shell --------------------------------------------------------------------
 # Default: zsh (+ oh-my-zsh) on home, bash otherwise. Decides which rc file gets

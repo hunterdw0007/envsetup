@@ -99,7 +99,10 @@ Conventional Commits, always: `<type>(<scope>)?: <summary>`.
 - A tool installable by name from `apt`/`dnf`/`brew`/`pacman` → `packages/common.txt`
   or `packages/<profile>.txt`.
 - Anything else — a vendor installer script, a manual binary download, an arbitrary
-  custom setup step → `installers/common/` or `installers/<profile>/`.
+  custom setup step → `installers/common/` or `installers/<profile>/`. So is a package
+  the machine may already have from another source under a different name (Docker CE
+  vs. the distro's `docker.io`): an installer can check for the command first, and a
+  package list can't.
 - A shared, non-identity git setting or alias → `git/gitconfig` (merged with the user's
   `ENVSETUP_GIT_CONFIG` into `~/.config/envsetup/gitconfig` by `lib/git.sh`). Identity
   (`user.name`/`user.email`) is prompted for at runtime or set in the user's own

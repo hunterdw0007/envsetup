@@ -185,7 +185,9 @@ envsetup::profile_label() {
 	summary+=" · ${#pkgs[@]} packages"
 	if ((${#names[@]} > 0)); then
 		printf -v list '%s, ' "${names[@]}"
-		summary+=" · ${#names[@]} installers (${list%, })"
+		summary+=" · ${#names[@]} installer"
+		((${#names[@]} == 1)) || summary+=s
+		summary+=" (${list%, })"
 	else
 		summary+=" · no installers"
 	fi
@@ -210,11 +212,27 @@ envsetup::welcome() {
 		"Your own tweaks go in Edit config. More: ./setup.sh --help"
 }
 
+# Each step runs on its own, so one that fails (say, a package that can't be installed)
+# doesn't stop the rest.
 envsetup::run_everything() {
-	envsetup::link_shell_config
-	envsetup::setup_git
-	envsetup::install_packages_for_profile "$1"
-	envsetup::run_installers "$1"
+	envsetup::run_step envsetup::link_shell_config
+	envsetup::run_step envsetup::setup_git
+	envsetup::run_step envsetup::install_packages_for_profile "$1"
+	envsetup::run_step envsetup::run_installers "$1"
+}
+
+# Runs a menu action with set -e still in force (a bare `action || ...` would switch it
+# off inside the action), but a failure returns to the menu instead of ending setup.
+envsetup::run_step() {
+	local rc
+	set +e
+	(
+		set -e
+		"$@"
+	)
+	rc=$?
+	set -e
+	((rc == 0)) || gum style --foreground 1 "That step didn't finish; see above. Fix it and run it again."
 }
 
 envsetup::main_menu() {
@@ -255,21 +273,21 @@ envsetup::main_menu() {
 			;;
 		"Edit config")
 			envsetup::dry_run && gum style --foreground 6 "Dry run: editing a copy of your config; changes last until you quit."
-			envsetup::edit_config
+			envsetup::run_step envsetup::edit_config
 			;;
 		"Link shell config")
-			envsetup::link_shell_config
+			envsetup::run_step envsetup::link_shell_config
 			;;
 		"Configure git")
-			envsetup::setup_git
+			envsetup::run_step envsetup::setup_git
 			;;
 		"Install packages")
 			[[ -z "$profile" ]] && { gum style --foreground 1 "Select a profile first."; continue; }
-			envsetup::install_packages_for_profile "$profile"
+			envsetup::run_step envsetup::install_packages_for_profile "$profile"
 			;;
 		"Run installers")
 			[[ -z "$profile" ]] && { gum style --foreground 1 "Select a profile first."; continue; }
-			envsetup::run_installers "$profile"
+			envsetup::run_step envsetup::run_installers "$profile"
 			;;
 		"Preview everything")
 			[[ -z "$profile" ]] && { gum style --foreground 1 "Select a profile first."; continue; }

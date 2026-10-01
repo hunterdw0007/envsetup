@@ -10,6 +10,5 @@ shellcheck
 tig
 ncdu
 
-# Docker, as the distro packages it. With Docker CE already installed it conflicts
-# (containerd); add it to ENVSETUP_SKIP.
-docker.io
+# Docker comes from installers/home/docker.sh: its package differs per distro, and a
+# Docker CE (or Desktop) that's already there must not be replaced.

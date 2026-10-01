@@ -15,9 +15,6 @@ python3-pip     =        =                 =                     python-pip   py
 nodejs          =        =                 nodejs-default        =            =                 node    =
 npm             =        =                 npm-default           =            =                 -       -
 shellcheck      =        ShellCheck        ShellCheck            =            =                 =       =
-# Fedora's build of Docker. On RHEL clones use Docker CE's repo (and ENVSETUP_SKIP this);
-# with Homebrew or Nix, Docker Desktop or NixOS's virtualisation.docker instead.
-docker.io       =        moby-engine       docker                docker       docker            -       -
 net-tools       =        =                 net-tools-deprecated  =            =                 =       =
 dnsutils        =        bind-utils        bind-utils            bind         bind-tools        bind    =
 # Not in the lists: install_zsh installs it when chsh is missing (Fedora, Alpine).

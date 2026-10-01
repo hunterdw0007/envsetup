@@ -87,7 +87,7 @@ OMZ
 	*) echo "smoke: unexpected download: curl $*" >&2; exit 1 ;;
 esac
 EOF
-for tool in kubectl helm gh terraform aws; do printf '#!/bin/sh\n' >"$OFFLINE/$tool"; done
+for tool in kubectl helm gh terraform aws docker; do printf '#!/bin/sh\n' >"$OFFLINE/$tool"; done
 chmod +x "$STUBS"/* "$OFFLINE"/*
 
 # run_menu <home> <answers...>: runs the cloned setup.sh offline, answering the menu.
@@ -203,6 +203,8 @@ h=$(new_home)
 check "exited 0" run_menu "$h" "Select profile" home "Run everything" Quit
 check "linked ~/.bashrc once" [ "$(count '# >>> envsetup >>>' "$h/.bashrc")" = 1 ]
 check "installed common + home packages" same_list "$(expected home)" "$(installed)"
+check "ran installer docker.sh" grep -qF "Running docker.sh" "$SMOKE_LOG"
+check "  ...a no-op with docker already there" not_grep '^curl .*docker' "$SMOKE_LOG"
 check "bash loads the aliases" [ "$(in_shell "$h" bash 'alias ll')" = "alias ll='ls -alh'" ]
 check "bash starts without errors" [ ! -s "$h/shell.err" ]
 check "left zsh alone" none_exist "$h/.oh-my-zsh" "$h/.zshrc"
@@ -243,7 +245,7 @@ w=$(n_expected work) wi=$(n_installers work) hm=$(n_expected home)
 # Answer with whole lines, the way gum returns a picked label.
 run_menu "$h" "Select profile" "work  bash · (as gum returns it)" "lite  no sudo: (as gum returns it)" Quit
 check "work is described from its config" described "$w" "work  bash · $w packages · $wi installers ("
-check "home is described from its config" described "$hm" "home  bash · $hm packages · no installers"
+check "home is described from its config" described "$hm" "home  bash · $hm packages · $(n_installers home) installer (docker)"
 check "modes say what needs sudo" described "$w" "full  uses sudo: installs $w packages and runs $wi installers"
 check "a picked line is saved as just its name" [ "$(cat "$h/.config/envsetup/profile")/$(cat "$h/.config/envsetup/mode")" = work/lite ]
 run_menu "$h" Quit

@@ -124,7 +124,9 @@ for run in home work-full work-lite; do
 	chown -R "$user:" "/home/$user/.config"
 
 	case $run in
-	home) answers "$user" no yes -- "Select profile" home "Run everything" Quit ;; # no: chsh would ask for a password
+	# zsh first, so "no" always lands on its chsh question (chsh would ask for a password);
+	# "yes" then moves dotfiles, if there are any to move.
+	home) answers "$user" no yes -- "Select profile" home "Set up zsh + oh-my-zsh" "Run everything" Quit ;;
 	work-full) answers "$user" -- "Select profile" work full "Run everything" Quit ;;
 	work-lite) answers "$user" -- "Select profile" work lite "Run everything" Quit ;;
 	esac
@@ -170,8 +172,6 @@ for run in home work-full work-lite; do
 			result "$run: $sh" FAIL "errors starting $sh: $(head -n 2 "$out/$run.$sh.err.real")"
 		elif grep -q 'ls -alh' "$out/$run.$sh.out"; then
 			result "$run: $sh" PASS "starts cleanly and loads the aliases"
-		elif [[ $run == home && $sh == bash ]]; then
-			result "$run: $sh" WARN "home links only ~/.zshrc, so bash (still the login shell when chsh is declined) gets none of envsetup"
 		else
 			result "$run: $sh" FAIL "starts, but without envsetup's aliases"
 		fi

@@ -14,7 +14,7 @@ envsetup::load_config() {
 	readarray -t ENVSETUP_GIT_CONFIG < <(git config --file "$ENVSETUP_ROOT/git/gitconfig" --list)
 	ENVSETUP_INSTALLER_DIRS=("$ENVSETUP_ROOT/installers/common" "$ENVSETUP_ROOT/installers/$ENVSETUP_PROFILE")
 	ENVSETUP_SKIP=()
-	if [[ "$ENVSETUP_PROFILE" == home ]]; then ENVSETUP_SHELL=zsh; else ENVSETUP_SHELL=bash; fi
+	ENVSETUP_SHELL=bash
 	ENVSETUP_XDG_NINJA=0
 
 	[[ -f "$ENVSETUP_USER_CONFIG" ]] || return 0

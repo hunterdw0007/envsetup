@@ -20,5 +20,5 @@ shellcheck      =        ShellCheck        ShellCheck            =            = 
 docker.io       =        moby-engine       docker                docker       docker            -       -
 net-tools       =        =                 net-tools-deprecated  =            =                 =       =
 dnsutils        =        bind-utils        bind-utils            bind         bind-tools        bind    =
-# Not in the lists: setup_zsh installs it when chsh is missing (Fedora, Alpine).
+# Not in the lists: install_zsh installs it when chsh is missing (Fedora, Alpine).
 chsh            passwd   util-linux-user   shadow                util-linux   shadow            -       -

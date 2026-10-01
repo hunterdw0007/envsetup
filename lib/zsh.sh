@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
-# Gets a machine onto zsh + oh-my-zsh (the home profile). Called as `setup_zsh ||
-# return 1`, which turns set -e off in here, so every failure has an explicit return.
+# Gets a machine onto zsh + oh-my-zsh, opted into from the menu or with
+# ENVSETUP_SHELL=zsh. Called as `install_zsh || return 1`, which turns set -e off in
+# here, so every failure has an explicit return.
 
-envsetup::setup_zsh() {
+envsetup::install_zsh() {
 	local missing=() manager installer
 	envsetup::has_cmd zsh || missing+=(zsh)
 	# The oh-my-zsh installer is fetched with curl, which a fresh desktop may not have yet.
 	envsetup::has_cmd curl || missing+=(curl)
 	# Fedora and Alpine leave chsh out of the base system.
 	envsetup::has_cmd chsh || missing+=(chsh)
+	if ((${#missing[@]} > 0)) && envsetup::lite; then
+		gum style --foreground 1 "work (lite) assumes no sudo, so it can't install ${missing[*]} for you; do that yourself and run this again."
+		return 1
+	fi
 	if envsetup::dry_run; then
 		((${#missing[@]} == 0)) || envsetup::would "install ${missing[*]} (sudo)"
 		[[ "$SHELL" == */zsh ]] || envsetup::would "ask to make zsh your login shell (chsh)"

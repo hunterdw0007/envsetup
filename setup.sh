@@ -23,7 +23,7 @@ Sets up this machine's shell (aliases, prompt), git, packages and tools, from an
 interactive menu. Nothing changes until you pick an action in it.
 
 Profiles (pick one from the menu; switch any time):
-  home  zsh + oh-my-zsh, general-use and light-dev packages
+  home  bash, general-use and light-dev packages
   work  bash, SRE tools (kubectl, terraform, helm, ...), in one of two modes:
           full  uses sudo: installs packages and runs vendor installers
           lite  no sudo: only the prompt, aliases and git config; installs nothing
@@ -33,6 +33,10 @@ template: config.example.sh), outside this repo, so updates never conflict.
 
 To see what it would do first, use --dry-run, or "Preview everything" in the menu.
 To take it all back out, use --uninstall, or "Uninstall" in the menu.
+
+"Set up zsh + oh-my-zsh" installs both if missing, offers to make zsh your login shell
+and links the same config into ~/.zshrc. Set ENVSETUP_SHELL=zsh in config.sh to make
+it part of "Run everything".
 
 "Move dotfiles to XDG dirs" moves dotfiles out of $HOME into ~/.config, ~/.local and
 ~/.cache where that's safe to do automatically (from xdg-ninja's notes). Set
@@ -93,25 +97,33 @@ envsetup::save_state() {
 	if [[ -n "$2" ]]; then echo "$2" >"$STATE_DIR/$1"; else rm -f "$STATE_DIR/$1"; fi
 }
 
-envsetup::link_shell_config() {
-	local rc_file="$HOME/.bashrc"
-	if [[ "$ENVSETUP_SHELL" == zsh ]]; then
-		envsetup::setup_zsh || return 1
-		rc_file="$HOME/.zshrc"
-	fi
-	if [[ -f "$rc_file" ]] && grep -qF "$ENVSETUP_RC_BEGIN" "$rc_file"; then
-		gum style --foreground 3 "Already linked in $rc_file"
+# link_rc <file>: adds the block that loads shell/init.sh, once.
+envsetup::link_rc() {
+	if [[ -f "$1" ]] && grep -qF "$ENVSETUP_RC_BEGIN" "$1"; then
+		gum style --foreground 3 "Already linked in $1"
 		return 0
 	fi
 	if envsetup::dry_run; then
-		envsetup::would "add a 4-line block to $rc_file that loads shell/ from $ENVSETUP_ROOT"
+		envsetup::would "add a 4-line block to $1 that loads shell/ from $ENVSETUP_ROOT"
 		return 0
 	fi
 	# shellcheck disable=SC2016 # the last line expands when the rc file runs, not now
 	printf '%s\n' "$ENVSETUP_RC_BEGIN" "export ENVSETUP_ROOT=\"$ENVSETUP_ROOT\"" \
 		'[ -f "$ENVSETUP_ROOT/shell/init.sh" ] && source "$ENVSETUP_ROOT/shell/init.sh"' \
-		"$ENVSETUP_RC_END" >>"$rc_file"
-	gum style --foreground 2 "Linked shell config into $rc_file (restart your shell to pick it up)"
+		"$ENVSETUP_RC_END" >>"$1"
+	gum style --foreground 2 "Linked shell config into $1 (restart your shell to pick it up)"
+}
+
+# bash is always linked, so the config is there whatever shell you end up in; zsh
+# only when config.sh asks for it (ENVSETUP_SHELL=zsh) or from its own menu action.
+envsetup::link_shell_config() {
+	envsetup::link_rc "$HOME/.bashrc"
+	if [[ "$ENVSETUP_SHELL" == zsh ]]; then envsetup::set_up_zsh; fi
+}
+
+envsetup::set_up_zsh() {
+	envsetup::install_zsh || return 1
+	envsetup::link_rc "$HOME/.zshrc"
 }
 
 envsetup::install_packages() {
@@ -227,8 +239,9 @@ envsetup::main_menu() {
 		label="${profile:-none}"
 		[[ "$profile" == work ]] && label+=" ($ENVSETUP_MODE)"
 		choice="$(gum choose "Select profile (current: $label)" "Edit config" "Link shell config" \
-			"Configure git" "Install packages" "Run installers" "Move dotfiles to XDG dirs" \
-			"Preview everything" "Run everything" "Uninstall" "Quit")" || break # esc/ctrl+c
+			"Set up zsh + oh-my-zsh" "Configure git" "Install packages" "Run installers" \
+			"Move dotfiles to XDG dirs" "Preview everything" "Run everything" "Uninstall" \
+			"Quit")" || break # esc/ctrl+c
 
 		case "$choice" in
 		"Install packages" | "Run installers" | *everything)
@@ -245,6 +258,7 @@ envsetup::main_menu() {
 			envsetup::run_step envsetup::edit_config
 			;;
 		"Link shell config") envsetup::run_step envsetup::link_shell_config ;;
+		"Set up zsh + oh-my-zsh") envsetup::run_step envsetup::set_up_zsh ;;
 		"Configure git") envsetup::run_step envsetup::configure_git ;;
 		"Install packages") envsetup::run_step envsetup::install_packages ;;
 		"Run installers") envsetup::run_step envsetup::run_installers ;;

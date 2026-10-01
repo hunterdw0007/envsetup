@@ -1,47 +1,44 @@
 #!/usr/bin/env bash
 # Shared helpers for envsetup scripts.
+# shellcheck disable=SC2034 # the ENVSETUP_* constants are used by the other lib files
+
+ENVSETUP_STATE="$HOME/.config/envsetup"
+ENVSETUP_RC_BEGIN="# >>> envsetup >>>"
+ENVSETUP_RC_END="# <<< envsetup <<<"
 
 # Dry run (--dry-run, or "Preview everything"): every step that would change the
 # machine checks this first and describes the change instead of making it.
 envsetup::dry_run() { [[ "${ENVSETUP_DRY_RUN:-0}" == 1 ]]; }
 envsetup::would() { gum style --foreground 6 "  would $*"; }
-
-envsetup::has_cmd() {
-	command -v "$1" &>/dev/null
-}
+envsetup::has_cmd() { command -v "$1" &>/dev/null; }
 
 envsetup::pkg_manager() {
-	if envsetup::has_cmd brew; then
-		echo brew
-	elif envsetup::has_cmd apt-get; then
-		echo apt
-	elif envsetup::has_cmd dnf; then
-		echo dnf
-	elif envsetup::has_cmd pacman; then
-		echo pacman
-	fi
+	local cmd
+	for cmd in brew apt-get dnf pacman; do
+		if envsetup::has_cmd "$cmd"; then
+			echo "${cmd%-get}"
+			return 0
+		fi
+	done
 }
 
 envsetup::ensure_gum() {
 	envsetup::has_cmd gum && return 0
-
 	echo "gum not found, attempting to install it..." >&2
 	if envsetup::has_cmd brew; then
 		brew install gum
 	elif envsetup::has_cmd go; then
 		go install github.com/charmbracelet/gum@latest
-		local gopath
-		gopath="$(go env GOPATH)"
-		export PATH="$gopath/bin:$PATH"
+		PATH="$(go env GOPATH)/bin:$PATH"
 	else
 		echo "Could not auto-install gum. See https://github.com/charmbracelet/gum#installation" >&2
 		return 1
 	fi
-
 	envsetup::has_cmd gum
 }
 
-envsetup::install_packages() {
+# pkg_install <manager> <package>...
+envsetup::pkg_install() {
 	local manager=$1 pkg failed=() install=()
 	shift
 	(($#)) || return 0

@@ -13,10 +13,8 @@ fi
 
 # Prefixes piped lines with │, and the last one with └.
 format_with_pipes() {
-	local lines=() line i
-	while IFS= read -r line; do
-		lines+=("$line")
-	done
+	local lines=() i
+	mapfile -t lines
 	for i in "${!lines[@]}"; do
 		if ((i + 1 == ${#lines[@]})); then echo "└ ${lines[i]}"; else echo "│ ${lines[i]}"; fi
 	done

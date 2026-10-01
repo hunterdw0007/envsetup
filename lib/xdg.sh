@@ -10,8 +10,8 @@
 
 ENVSETUP_XDG_NINJA_URL=${ENVSETUP_XDG_NINJA_URL:-https://github.com/b3nj5m1n/xdg-ninja}
 ENVSETUP_XDG_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/envsetup/xdg-ninja"
-ENVSETUP_XDG_MOVES="$HOME/.config/envsetup/xdg-moves"
-ENVSETUP_XDG_ENV="$HOME/.config/envsetup/xdg.sh"
+ENVSETUP_XDG_MOVES="$ENVSETUP_STATE/xdg-moves"
+ENVSETUP_XDG_ENV="$ENVSETUP_STATE/xdg.sh"
 
 # Files a shell or envsetup itself reads before any exports load, and variables that
 # more than one program (or a running agent) depends on: never moved automatically.

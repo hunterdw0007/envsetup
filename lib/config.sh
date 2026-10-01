@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# Resolves what setup.sh acts on: repo defaults first, then the user's config.sh
-# (if present) on top, so anyone can extend (+=), replace (=), or skip defaults
-# without editing tracked files. config.example.sh documents every ENVSETUP_* knob.
+# What setup.sh acts on: the repo's defaults, then the user's config.sh on top
+# (documented in config.example.sh).
 # shellcheck disable=SC2034 # the ENVSETUP_* vars are read by setup.sh, lib/*.sh and the user's config
 
-ENVSETUP_USER_CONFIG="$HOME/.config/envsetup/config.sh"
+ENVSETUP_USER_CONFIG="$ENVSETUP_STATE/config.sh"
 
 envsetup::load_config() {
 	ENVSETUP_PROFILE=$1
@@ -26,6 +25,9 @@ envsetup::load_config() {
 	source "$ENVSETUP_USER_CONFIG"
 	set -eu
 }
+
+# work lite assumes no sudo: no packages, no installers.
+envsetup::lite() { [[ "$ENVSETUP_PROFILE" == work && "$ENVSETUP_MODE" == lite ]]; }
 
 envsetup::skipped() {
 	[[ " ${ENVSETUP_SKIP[*]:-} " == *" $1 "* ]]

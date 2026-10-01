@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Gets a machine onto zsh + oh-my-zsh (used for the home profile). Called as
-# `envsetup::setup_zsh || return 1`, which disables set -e in here, so every
-# failure that matters has an explicit return.
+# Gets a machine onto zsh + oh-my-zsh (the home profile). Called as `setup_zsh ||
+# return 1`, which turns set -e off in here, so every failure has an explicit return.
 
 envsetup::setup_zsh() {
 	local missing=() manager installer
@@ -21,7 +20,7 @@ envsetup::setup_zsh() {
 			return 1
 		fi
 		gum style --bold "Installing ${missing[*]}..."
-		envsetup::install_packages "$manager" "${missing[@]}" || return 1
+		envsetup::pkg_install "$manager" "${missing[@]}" || return 1
 	fi
 
 	if [[ "$SHELL" != */zsh ]] && gum confirm "Set zsh as your default login shell?"; then

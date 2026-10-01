@@ -25,7 +25,8 @@ envsetup::remove_rc_block() {
 envsetup::uninstall() {
 	local state=$ENVSETUP_STATE gitconfig=$ENVSETUP_GIT_GENERATED failed=0 rc f re kept=()
 	gum style --bold "Removes what envsetup added: its block in your shell rc files, its git" \
-		"include and its saved state. Packages and tools it installed stay."
+		"include and its saved state, and moves back any dotfiles it moved. Packages and" \
+		"tools it installed stay."
 	if ! gum confirm "Remove envsetup from this machine?"; then
 		gum style "Nothing removed."
 		return 2
@@ -57,6 +58,8 @@ envsetup::uninstall() {
 			fi
 		fi
 	fi
+
+	envsetup::xdg_restore || failed=1
 
 	for f in "$gitconfig" "$gitconfig.tmp" "$state/profile" "$state/mode"; do
 		[[ -e "$f" ]] || continue

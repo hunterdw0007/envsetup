@@ -32,6 +32,7 @@ check() {
 has() { command -v "$1" >/dev/null; }
 count() { grep -cF -- "$1" "$2" || true; }
 not_grep() { ! grep -q -- "$1" "$2"; }
+none_exist() { for f; do [ ! -e "$f" ] || return 1; done; }
 same_list() { [ -n "$1" ] && [ "$1" = "$2" ]; } # an empty expected list is a broken test, not a pass
 same_commit() { # both must resolve, so two failed lookups can't compare equal
 	local a b
@@ -158,8 +159,9 @@ check "git was installed" has git
 check "cloned the commit under test" same_commit "$SRC" "$CLONE"
 check "setup.sh reached the menu on a first run" grep -q '^gum choose Select profile (current: none)' "$SMOKE_LOG"
 
-# Real zsh, so the home profile's shell config is checked in the shell it targets.
-DEBIAN_FRONTEND=noninteractive apt-get install -y -qq zsh >$W/zsh.out 2>&1 || {
+# Real zsh, so the home profile's shell config is checked in the shell it targets, and
+# real jq, which "Move dotfiles to XDG dirs" reads xdg-ninja's notes with.
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq zsh jq >$W/zsh.out 2>&1 || {
 	show $W/zsh.out
 	exit 1
 }
@@ -348,6 +350,53 @@ check "retried the batch one package at a time" [ "$(grep -c '^apt-get install -
 check "  ...and named the one that failed" grep -qF "Couldn't install: smoke-conflict" "$h/setup.out"
 check "said the step didn't finish" grep -qF "That step didn't finish" "$SMOKE_LOG"
 check "still ran the installers after it" grep -qF "Running kubectl.sh" "$SMOKE_LOG"
+((failures)) && show "$h/setup.out"
+
+echo "== Move dotfiles to XDG dirs (ENVSETUP_XDG_NINJA=1, offline copy of xdg-ninja)"
+# Three notes in xdg-ninja's real format: move + export, move only, and one whose
+# dotfile the user's .bashrc references, which has to be left alone.
+mkdir -p $W/xdg-ninja/programs
+cat >$W/xdg-ninja/programs/docker.json <<'JSON'
+{"name": "docker", "files": [{"path": "$HOME/.docker", "movable": true,
+ "help": "Export the following environment variables:\n\n```bash\nexport DOCKER_CONFIG=\"$XDG_CONFIG_HOME\"/docker\n```\n"}]}
+JSON
+cat >$W/xdg-ninja/programs/htop.json <<'JSON'
+{"name": "htop", "files": [{"path": "$HOME/.htoprc", "movable": true,
+ "help": "Supported by default.\n\nYou can move the file to _$XDG_CONFIG_HOME/htop/htoprc_.\n"}]}
+JSON
+cat >$W/xdg-ninja/programs/wget.json <<'JSON'
+{"name": "wget", "files": [{"path": "$HOME/.wgetrc", "movable": true,
+ "help": "```bash\nexport WGETRC=\"$XDG_CONFIG_HOME/wgetrc\"\n```\n"}]}
+JSON
+git -C $W/xdg-ninja init -q && git -C $W/xdg-ninja add . && git -C $W/xdg-ninja -c user.name=smoke -c user.email=smoke@example.com commit -qm notes
+export ENVSETUP_XDG_NINJA_URL=file://$W/xdg-ninja
+h=$(new_home)
+mkdir -p "$h/.docker" "$h/.config/envsetup"
+echo '{"auths": {}}' >"$h/.docker/config.json"
+echo 'color_scheme=1' >"$h/.htoprc"
+echo 'tries=3' >"$h/.wgetrc"
+echo 'alias wget="wget --config ~/.wgetrc"' >>"$h/.bashrc"
+echo 'ENVSETUP_XDG_NINJA=1' >"$h/.config/envsetup/config.sh"
+before=$(snapshot "$h")
+SETUP_ARGS=(--dry-run)
+check "--dry-run exits 0" run_menu "$h" "Move dotfiles to XDG dirs" Quit
+check "  ...says it would fetch the notes" grep -qF "would download xdg-ninja's notes" "$SMOKE_LOG"
+check "  ...and changes nothing" [ "$(snapshot "$h")" = "$before" ]
+SETUP_ARGS=() CONFIRMS=(yes)
+if run_menu "$h" "Select profile" work full "Run everything" Quit; then pass "Run everything exited 0"; else fail "Run everything exited non-zero"; fi
+check "moved ~/.htoprc (program reads the XDG path)" cmp -s <(echo 'color_scheme=1') "$h/.config/htop/htoprc"
+check "moved ~/.docker" [ -f "$h/.config/docker/config.json" ]
+check "  ...out of \$HOME" [ ! -e "$h/.docker" ]
+check "  ...and new shells get DOCKER_CONFIG" [ "$(in_shell "$h" bash 'printf %s "$DOCKER_CONFIG"')" = "$h/.config/docker" ]
+check "left ~/.wgetrc: .bashrc references it" [ -f "$h/.wgetrc" ]
+check "  ...and said why" grep -qF 'leaving ~/.wgetrc (wget): referenced from' "$h/setup.out"
+SETUP_ARGS=(--uninstall) CONFIRMS=(yes yes)
+check "--uninstall exits 0" run_menu "$h"
+SETUP_ARGS=() CONFIRMS=()
+check "  ...moved ~/.htoprc back" cmp -s <(echo 'color_scheme=1') "$h/.htoprc"
+check "  ...moved ~/.docker back" [ -f "$h/.docker/config.json" ]
+check "  ...and removed the exports and the notes" none_exist "$h/.config/envsetup/xdg.sh" "$h/.cache/envsetup"
+unset ENVSETUP_XDG_NINJA_URL
 ((failures)) && show "$h/setup.out"
 
 echo "== cancelling"

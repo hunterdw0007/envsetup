@@ -10,6 +10,7 @@ source "$ENVSETUP_ROOT/lib/zsh.sh"
 source "$ENVSETUP_ROOT/lib/installers.sh"
 source "$ENVSETUP_ROOT/lib/git.sh"
 source "$ENVSETUP_ROOT/lib/uninstall.sh"
+source "$ENVSETUP_ROOT/lib/xdg.sh"
 
 # Where the menu keeps its picks: the real state dir, or a throwaway copy in a dry run.
 STATE_DIR=$ENVSETUP_STATE
@@ -32,6 +33,10 @@ template: config.example.sh), outside this repo, so updates never conflict.
 
 To see what it would do first, use --dry-run, or "Preview everything" in the menu.
 To take it all back out, use --uninstall, or "Uninstall" in the menu.
+
+"Move dotfiles to XDG dirs" moves dotfiles out of $HOME into ~/.config, ~/.local and
+~/.cache where that's safe to do automatically (from xdg-ninja's notes). Set
+ENVSETUP_XDG_NINJA=1 in config.sh to make it part of "Run everything".
 
 Options:
   -n, --dry-run    walk through the menu without changing anything: every step says
@@ -198,6 +203,7 @@ envsetup::run_everything() {
 	for step in link_shell_config configure_git install_packages run_installers; do
 		envsetup::run_step "envsetup::$step"
 	done
+	if [[ "$ENVSETUP_XDG_NINJA" == 1 ]]; then envsetup::run_step envsetup::xdg_tidy; fi
 }
 
 envsetup::main_menu() {
@@ -214,8 +220,8 @@ envsetup::main_menu() {
 		label="${profile:-none}"
 		[[ "$profile" == work ]] && label+=" ($ENVSETUP_MODE)"
 		choice="$(gum choose "Select profile (current: $label)" "Edit config" "Link shell config" \
-			"Configure git" "Install packages" "Run installers" "Preview everything" \
-			"Run everything" "Uninstall" "Quit")" || break # esc/ctrl+c
+			"Configure git" "Install packages" "Run installers" "Move dotfiles to XDG dirs" \
+			"Preview everything" "Run everything" "Uninstall" "Quit")" || break # esc/ctrl+c
 
 		case "$choice" in
 		"Install packages" | "Run installers" | *everything)
@@ -235,6 +241,7 @@ envsetup::main_menu() {
 		"Configure git") envsetup::run_step envsetup::configure_git ;;
 		"Install packages") envsetup::run_step envsetup::install_packages ;;
 		"Run installers") envsetup::run_step envsetup::run_installers ;;
+		"Move dotfiles to XDG dirs") envsetup::run_step envsetup::xdg_tidy ;;
 		"Preview everything")
 			gum style --bold "What Run everything would do for $label (nothing is changed):"
 			ENVSETUP_DRY_RUN=1 envsetup::run_everything

@@ -15,6 +15,7 @@ envsetup::load_config() {
 	ENVSETUP_INSTALLER_DIRS=("$ENVSETUP_ROOT/installers/common" "$ENVSETUP_ROOT/installers/$ENVSETUP_PROFILE")
 	ENVSETUP_SKIP=()
 	if [[ "$ENVSETUP_PROFILE" == home ]]; then ENVSETUP_SHELL=zsh; else ENVSETUP_SHELL=bash; fi
+	ENVSETUP_XDG_NINJA=0
 
 	[[ -f "$ENVSETUP_USER_CONFIG" ]] || return 0
 	# Every interactive shell sources this file too, so it may not be strict-mode

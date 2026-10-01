@@ -11,20 +11,33 @@ set -euo pipefail
 REPO_URL="${ENVSETUP_REPO_URL:-https://github.com/hunterdw0007/envsetup.git}"
 ENVSETUP_DIR="${ENVSETUP_DIR:-$HOME/envsetup}"
 
+# As root already (containers, WSL), via sudo, or via doas (Alpine).
+envsetup::as_root() {
+	if ((EUID == 0)); then "$@"; elif command -v sudo &>/dev/null; then sudo "$@"; else doas "$@"; fi
+}
+
 envsetup::bootstrap_git() {
 	command -v git &>/dev/null && return 0
 
 	echo "git not found, attempting to install it..." >&2
-	if command -v apt-get &>/dev/null; then
-		# See envsetup::pkg_install: a single broken source fails update, not the install.
-		sudo apt-get update || echo "apt-get update reported errors; installing anyway." >&2
-		sudo apt-get install -y git
-	elif command -v dnf &>/dev/null; then
-		sudo dnf install -y git
-	elif command -v pacman &>/dev/null; then
-		sudo pacman -S --noconfirm git
-	elif command -v brew &>/dev/null; then
+	if command -v brew &>/dev/null; then
 		brew install git
+	elif command -v apt-get &>/dev/null; then
+		# See envsetup::pkg_install: a single broken source fails update, not the install.
+		envsetup::as_root apt-get update || echo "apt-get update reported errors; installing anyway." >&2
+		envsetup::as_root apt-get install -y git
+	elif command -v dnf &>/dev/null; then
+		envsetup::as_root dnf install -y git
+	elif command -v zypper &>/dev/null; then
+		envsetup::as_root zypper --non-interactive install git
+	elif command -v pacman &>/dev/null; then
+		# Never synced (a fresh container): sync with -u, since Arch doesn't do partial upgrades.
+		compgen -G '/var/lib/pacman/sync/*.db' >/dev/null || envsetup::as_root pacman -Syu --noconfirm
+		envsetup::as_root pacman -S --noconfirm --needed git
+	elif command -v apk &>/dev/null; then
+		envsetup::as_root apk add git
+	elif command -v nix-env &>/dev/null; then
+		nix-env -f '<nixpkgs>' -iA git
 	else
 		echo "Could not auto-install git. Install it manually, then re-run this script." >&2
 		exit 1

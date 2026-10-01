@@ -10,6 +10,6 @@ shellcheck
 tig
 ncdu
 
-# Docker: package is "docker.io" on Debian/Ubuntu, "docker" on Fedora/Arch — adjust for your distro.
-# With Docker CE already installed it conflicts (containerd); add it to ENVSETUP_SKIP.
+# Docker, as the distro packages it. With Docker CE already installed it conflicts
+# (containerd); add it to ENVSETUP_SKIP.
 docker.io

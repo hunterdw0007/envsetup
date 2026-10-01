@@ -12,9 +12,8 @@ iftop
 net-tools
 rsync
 
-# dig/nslookup: package is "dnsutils" on Debian/Ubuntu, "bind-utils" on Fedora, "bind" on Arch.
+# dig/nslookup.
 dnsutils
 
-# Tools below need a vendor install script or third-party repo, so they're left out
-# of this list to avoid breaking the batch install — add them yourself if wanted:
-#   terraform, kubectl, helm, awscli v2, gh (GitHub CLI)
+# terraform, kubectl, helm, awscli v2 and gh aren't in most distros' repos; they come
+# from installers/work/ instead.

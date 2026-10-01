@@ -87,8 +87,9 @@ Conventional Commits, always: `<type>(<scope>)?: <summary>`.
 - One script failing must not stop the others — `lib/installers.sh` already handles
   this; don't add a `set -e`-defeating workaround inside an individual script to try
   to do the same thing.
-- Document any OS/arch assumption in a comment (most existing scripts assume
-  `linux/amd64`).
+- Download the build for the machine (`envsetup::arch` gives `amd64`/`arm64`), run root
+  steps through `envsetup::as_root` (sudo, doas, or already root), and document any
+  remaining OS/arch assumption in a comment.
 
 ## Where new content goes
 
@@ -100,8 +101,10 @@ Conventional Commits, always: `<type>(<scope>)?: <summary>`.
   or export that relies on an optional tool is defined only when that tool is installed
   (`bat` in `shell/shared/aliases.sh`). Work lite installs nothing, and a `cat` alias
   pointing at a missing binary breaks `cat` itself.
-- A tool installable by name from `apt`/`dnf`/`brew`/`pacman` → `packages/common.txt`
-  or `packages/<profile>.txt`.
+- A tool installable by name from the distros' package managers → `packages/common.txt`
+  or `packages/<profile>.txt`, by its Debian/Ubuntu name. If another manager (`dnf`,
+  `zypper`, `pacman`, `apk`, `brew`, `nix`) calls it something else, or has it in the base
+  system, add a row to `packages/names.txt`.
 - Anything else — a vendor installer script, a manual binary download, an arbitrary
   custom setup step → `installers/common/` or `installers/<profile>/`.
 - A shared, non-identity git setting or alias → `git/gitconfig` (merged with the user's

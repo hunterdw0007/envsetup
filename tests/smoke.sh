@@ -383,7 +383,7 @@ check "--dry-run exits 0" run_menu "$h" "Move dotfiles to XDG dirs" Quit
 check "  ...says it would fetch the notes" grep -qF "would download xdg-ninja's notes" "$SMOKE_LOG"
 check "  ...and changes nothing" [ "$(snapshot "$h")" = "$before" ]
 SETUP_ARGS=() CONFIRMS=(yes)
-if run_menu "$h" "Select profile" work full "Run everything" Quit; then pass "Run everything exited 0"; else fail "Run everything exited non-zero"; fi
+check "Run everything exited 0" run_menu "$h" "Select profile" work full "Run everything" Quit
 check "moved ~/.htoprc (program reads the XDG path)" cmp -s <(echo 'color_scheme=1') "$h/.config/htop/htoprc"
 check "moved ~/.docker" [ -f "$h/.config/docker/config.json" ]
 check "  ...out of \$HOME" [ ! -e "$h/.docker" ]

@@ -274,3 +274,30 @@ stop the others — failures are collected and reported at the end.
 See `AGENTS.md` for commit/branch conventions and code standards. CI
 (`.github/workflows/ci.yml`) runs `bash -n` and `shellcheck` on every shell script for
 every push and PR.
+
+### Testing on other distros
+
+`tests/distros/run.sh` tries the tool on a dozen distros, each in a fresh container: the
+Ubuntus, Debians, Mint, Fedora, Alma, Rocky, Amazon Linux, Arch, openSUSE and Alpine.
+Nothing is stubbed except gum's UI. It does real package installs and vendor downloads,
+as non-root users with sudo, and covers:
+
+- `install.sh` on a box without git, and installing gum;
+- "Run everything" for home, work/full and work/lite;
+- which commands actually ended up installed;
+- whether bash and zsh start cleanly;
+- uninstall.
+
+It takes minutes per distro, so it isn't part of CI. Run it before handing a build to
+testers:
+
+```sh
+tests/distros/run.sh                               # all of them, 3 at a time
+tests/distros/run.sh fedora:latest archlinux:latest
+```
+
+It tests the commit you have checked out and writes `distros-report/<time>/report.md`: a
+pass/fail grid plus every problem it found, with logs alongside. The same thing runs from
+GitHub's Actions tab ("distros" > Run workflow), which puts the report in the run summary.
+Behind a proxy, `DISTROS_PREHOOK` points at a script that sets it up in each container;
+see the top of `run.sh`.

@@ -1,0 +1,41 @@
+name: distros
+
+# Manual only (Actions tab > distros > Run workflow): tries envsetup on many distros
+# with real package installs, which takes too long for every push. See
+# tests/distros/run.sh. The report lands in the run summary and as an artifact.
+on:
+  workflow_dispatch:
+    inputs:
+      images:
+        description: Container images, space-separated (empty runs the default list)
+        required: false
+        default: ""
+      skip:
+        description: Packages/installers to leave out, as in ENVSETUP_SKIP
+        required: false
+        default: ""
+
+jobs:
+  distros:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run tests/distros/run.sh
+        env:
+          IMAGES: ${{ inputs.images }}
+          DISTROS_SKIP: ${{ inputs.skip }}
+          DISTROS_OUT: ${{ runner.temp }}/distros-report
+          JOBS: "4"
+        run: tests/distros/run.sh $IMAGES # split on purpose: one image per word
+
+      - name: Report
+        if: always()
+        run: cat "$RUNNER_TEMP/distros-report/report.md" >>"$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: distros-report
+          path: ${{ runner.temp }}/distros-report

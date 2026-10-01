@@ -57,11 +57,8 @@ envsetup::pkg_install() {
 		return 1
 		;;
 	esac
-	"${install[@]}" "$@" && return 0
-	(($# > 1)) || return 1
-	# One package the system can't take (a conflict, a name this distro doesn't use)
-	# fails the whole batch, so install the rest one at a time.
-	echo "Installing one package at a time so the rest still go in..." >&2
+	# One at a time: in a batch, one package the system can't take (a conflict, a name
+	# this distro doesn't use) fails all the others with it.
 	for pkg; do
 		"${install[@]}" "$pkg" || failed+=("$pkg")
 	done

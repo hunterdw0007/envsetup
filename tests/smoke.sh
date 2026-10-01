@@ -87,7 +87,7 @@ OMZ
 	*) echo "smoke: unexpected download: curl $*" >&2; exit 1 ;;
 esac
 EOF
-for tool in kubectl helm gh terraform aws docker; do printf '#!/bin/sh\n' >"$OFFLINE/$tool"; done
+for tool in kubectl helm gh terraform aws; do printf '#!/bin/sh\n' >"$OFFLINE/$tool"; done
 chmod +x "$STUBS"/* "$OFFLINE"/*
 
 # run_menu <home> <answers...>: runs the cloned setup.sh offline, answering the menu.
@@ -217,11 +217,11 @@ check "an unknown option is rejected, not ignored" rejects_unknown "$h"
 check "  ...without writing anything" [ ! -e "$h/.config" ]
 run_menu "$h" Quit
 check "a first run shows a welcome" grep -qF 'Welcome to envsetup' "$SMOKE_LOG"
-w=$(n_expected work) wi=$(n_installers work) hm=$(n_expected home) hi=$(n_installers home)
+w=$(n_expected work) wi=$(n_installers work) hm=$(n_expected home)
 # Answer with whole lines, the way gum returns a picked label.
 run_menu "$h" "Select profile" "work  bash · (as gum returns it)" "lite  no sudo: (as gum returns it)" Quit
 check "work is described from its config" described "$w" "work  bash · $w packages · $wi installers ("
-check "home is described from its config" described "$hi" "home  zsh + oh-my-zsh · $hm packages · 1 installer (docker)"
+check "home is described from its config" described "$hm" "home  zsh + oh-my-zsh · $hm packages · no installers"
 check "modes say what needs sudo" described "$w" "full  uses sudo: installs $w packages and runs $wi installers"
 check "a picked line is saved as just its name" [ "$(cat "$h/.config/envsetup/profile")/$(cat "$h/.config/envsetup/mode")" = work/lite ]
 run_menu "$h" Quit
@@ -346,7 +346,7 @@ h=$(new_home)
 mkdir -p "$h/.config/envsetup"
 echo 'ENVSETUP_PACKAGES+=(smoke-conflict)' >"$h/.config/envsetup/config.sh"
 check "exited 0: back to the menu, then Quit" run_menu "$h" "Select profile" work full "Run everything" Quit
-check "retried the batch one package at a time" [ "$(grep -c '^apt-get install -y [^ ]*$' "$SMOKE_LOG")" = "$(($(n_expected work) + 1))" ]
+check "installed one package at a time" [ "$(grep -c '^apt-get install -y [^ ]*$' "$SMOKE_LOG")" = "$(($(n_expected work) + 1))" ]
 check "  ...and named the one that failed" grep -qF "Couldn't install: smoke-conflict" "$h/setup.out"
 check "said the step didn't finish" grep -qF "That step didn't finish" "$SMOKE_LOG"
 check "still ran the installers after it" grep -qF "Running kubectl.sh" "$SMOKE_LOG"

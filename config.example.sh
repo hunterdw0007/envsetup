@@ -26,7 +26,7 @@
 
 # --- Skip ---------------------------------------------------------------------------
 # Leave out any package or installer by name (installer = script name without .sh).
-# ENVSETUP_SKIP=(docker terraform awscli)
+# ENVSETUP_SKIP=(docker.io terraform awscli)
 
 # --- Dotfiles in XDG directories -----------------------------------------------------
 # Default: 0. 1 makes "Run everything" also run "Move dotfiles to XDG dirs", which moves

@@ -55,7 +55,7 @@ for it (`packages/names.txt`). Homebrew wins when it's installed.
 |---|---|---|
 | Ubuntu, Debian, Mint, Pop!_OS, WSL | `apt` | |
 | Fedora | `dnf` | |
-| RHEL, Rocky, Alma, CentOS Stream, Oracle Linux | `dnf` | Asks to enable EPEL, where fzf, ripgrep, bat, htop, neovim and ~10 more come from |
+| RHEL, Rocky, Alma, CentOS Stream, Oracle Linux | `dnf` | Asks to enable EPEL, where fzf, ripgrep, bat, htop, neovim and ~10 more come from; Docker comes from Docker CE's repo. direnv isn't in EPEL 9 |
 | Amazon Linux 2023 | `dnf` | No EPEL, so several extras (fzf, ripgrep, bat, ...) are reported as not installable; `ENVSETUP_SKIP` them |
 | Arch, CachyOS, EndeavourOS, Manjaro | `pacman` | |
 | openSUSE Tumbleweed and Leap | `zypper` | |
@@ -179,7 +179,7 @@ after the defaults, so `+=` extends a default, `=` replaces it, and you can bran
 
 ```sh
 ENVSETUP_PACKAGES+=(neovim)                        # add to the default package list
-ENVSETUP_SKIP=(docker.io terraform)                # drop a default package or installer
+ENVSETUP_SKIP=(docker terraform)                   # drop a default package or installer
 ENVSETUP_SHELL=zsh                                 # also set up zsh + oh-my-zsh
 ENVSETUP_INSTALLER_DIRS+=("$HOME/dotfiles/envsetup-installers")
 ENVSETUP_GIT_CONFIG+=("user.email=me@example.com" "pull.rebase=false")

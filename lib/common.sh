@@ -159,16 +159,19 @@ envsetup::gum_release() {
 # ensure_gum: the menu needs it. The release binary in ~/.local/bin needs no sudo and
 # works on any distro; Homebrew is used when it's there, Go as a last resort.
 envsetup::ensure_gum() {
-	local bin=$HOME/.local/bin manager
+	local bin=$HOME/.local/bin manager need=()
 	[[ ":$PATH:" == *":$bin:"* || ! -x "$bin/gum" ]] || PATH=$bin:$PATH
 	envsetup::has_cmd gum && return 0
 	echo "gum not found, attempting to install it..." >&2
 	if envsetup::has_cmd brew; then
 		brew install gum
 	else
-		if ! envsetup::has_cmd curl && ! envsetup::has_cmd wget; then
+		# Minimal images (Amazon Linux, Leap) can lack tar; some have neither curl nor wget.
+		envsetup::has_cmd curl || envsetup::has_cmd wget || need+=(curl)
+		envsetup::has_cmd tar || need+=(tar)
+		if ((${#need[@]})); then
 			manager=$(envsetup::pkg_manager)
-			if [[ -n "$manager" ]]; then envsetup::pkg_install "$manager" curl; fi
+			if [[ -n "$manager" ]]; then envsetup::pkg_install "$manager" "${need[@]}"; fi
 		fi
 		if envsetup::gum_release "$bin"; then
 			PATH=$bin:$PATH

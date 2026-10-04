@@ -166,9 +166,11 @@ envsetup::ensure_gum() {
 	if envsetup::has_cmd brew; then
 		brew install gum
 	else
-		# Minimal images (Amazon Linux, Leap) can lack tar; some have neither curl nor wget.
+		# Minimal images (Amazon Linux, Leap) can lack tar or gzip, which tar runs to unpack
+		# .tar.gz; some have neither curl nor wget.
 		envsetup::has_cmd curl || envsetup::has_cmd wget || need+=(curl)
 		envsetup::has_cmd tar || need+=(tar)
+		envsetup::has_cmd gzip || need+=(gzip)
 		if ((${#need[@]})); then
 			manager=$(envsetup::pkg_manager)
 			if [[ -n "$manager" ]]; then envsetup::pkg_install "$manager" "${need[@]}"; fi

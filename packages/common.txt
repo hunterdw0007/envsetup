@@ -9,8 +9,9 @@ wget
 htop
 tree
 unzip
-# Installers unpack .tar.gz releases; minimal images (Amazon Linux, Leap) lack it.
+# Installers unpack .tar.gz releases; minimal images (Amazon Linux, Leap) lack these.
 tar
+gzip
 jq
 fzf
 ripgrep

@@ -4,3 +4,6 @@
 
 # env file
 .env
+
+# tests/distros/run.sh output
+distros-report/

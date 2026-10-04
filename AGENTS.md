@@ -138,6 +138,10 @@ CI (`.github/workflows/ci.yml`) runs two jobs on every push and PR:
   able to fail: compare against a non-empty expected value, never two things that
   could both come back empty.
 
+`tests/distros/run.sh` (manual, not CI; see the README) runs the real tool against a
+dozen distros with real installs. Run it after changing anything distro-specific: package
+lists, `envsetup::pkg_install`/`pkg_manager`, installers, `install.sh`.
+
 The smoke test proves the flows run; it doesn't prove every branch. Behavior is still
 verified and described in the PR:
 

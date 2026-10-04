@@ -9,8 +9,9 @@ ENVSETUP_PROFILE="" ENVSETUP_MODE=full
 [[ -f "$_envsetup_state/profile" ]] && ENVSETUP_PROFILE="$(<"$_envsetup_state/profile")"
 [[ "$ENVSETUP_PROFILE" == work && -f "$_envsetup_state/mode" ]] && ENVSETUP_MODE="$(<"$_envsetup_state/mode")"
 
-# work lite assumes no sudo, so it only gets the prompt and aliases.
-_envsetup_files=(ps1 aliases)
+# work lite assumes no sudo, so it only gets the prompt, aliases and tool hooks (for
+# tools that happen to be installed).
+_envsetup_files=(ps1 aliases tools)
 [[ "$ENVSETUP_MODE" == lite ]] || _envsetup_files+=(exports functions)
 for _envsetup_f in "${_envsetup_files[@]}"; do
 	# shellcheck disable=SC1090 # dynamic by design

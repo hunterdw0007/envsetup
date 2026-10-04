@@ -13,6 +13,7 @@ envsetup::load_config() {
 		"$ENVSETUP_ROOT/packages/common.txt" "$ENVSETUP_ROOT/packages/$ENVSETUP_PROFILE.txt" 2>/dev/null)
 	readarray -t ENVSETUP_GIT_CONFIG < <(git config --file "$ENVSETUP_ROOT/git/gitconfig" --list)
 	ENVSETUP_INSTALLER_DIRS=("$ENVSETUP_ROOT/installers/common" "$ENVSETUP_ROOT/installers/$ENVSETUP_PROFILE")
+	ENVSETUP_EXTRAS=()
 	ENVSETUP_SKIP=()
 	ENVSETUP_SHELL=bash
 	ENVSETUP_XDG_NINJA=0
@@ -46,16 +47,26 @@ envsetup::resolved_packages() {
 	done
 }
 
-# What "Run installers" would run, in order: every *.sh in ENVSETUP_INSTALLER_DIRS,
-# minus ENVSETUP_SKIP (installer name = script name without .sh).
+# What "Run installers" would run, in order: every *.sh in ENVSETUP_INSTALLER_DIRS, then
+# the opt-in installers/extras/ named in ENVSETUP_EXTRAS, minus ENVSETUP_SKIP (installer
+# name = script name without .sh).
 envsetup::resolved_installers() {
-	local dir script name
+	local dir script name scripts=()
 	for dir in "${ENVSETUP_INSTALLER_DIRS[@]}"; do
-		for script in "$dir"/*.sh; do
-			[[ -f "$script" ]] || continue
-			name=${script##*/}
-			envsetup::skipped "${name%.sh}" || echo "$script"
-		done
+		scripts+=("$dir"/*.sh)
+	done
+	for name in "${ENVSETUP_EXTRAS[@]}"; do
+		script=$ENVSETUP_ROOT/installers/extras/$name.sh
+		if [[ -f "$script" ]]; then
+			scripts+=("$script")
+		else
+			echo "ENVSETUP_EXTRAS: no installer for \"$name\" (see installers/extras/)" >&2
+		fi
+	done
+	for script in "${scripts[@]}"; do
+		[[ -f "$script" ]] || continue
+		name=${script##*/}
+		envsetup::skipped "${name%.sh}" || echo "$script"
 	done
 }
 

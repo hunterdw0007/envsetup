@@ -106,7 +106,12 @@ Conventional Commits, always: `<type>(<scope>)?: <summary>`.
   `zypper`, `pacman`, `apk`, `brew`, `nix`) calls it something else, or has it in the base
   system, add a row to `packages/names.txt`.
 - Anything else — a vendor installer script, a manual binary download, an arbitrary
-  custom setup step → `installers/common/` or `installers/<profile>/`.
+  custom setup step → `installers/common/` or `installers/<profile>/`. A popular tool
+  that only some users want and that major distros (Ubuntu LTS, Fedora) don't package →
+  `installers/extras/`, opted into by name with `ENVSETUP_EXTRAS`; download with
+  `envsetup::release_sha256` + `envsetup::install_release` so the checksum is verified.
+- A tool that needs a shell hook to work (direnv, zoxide) → `shell/shared/tools.sh`,
+  guarded on the tool being installed.
 - A shared, non-identity git setting or alias → `git/gitconfig` (merged with the user's
   `ENVSETUP_GIT_CONFIG` into `~/.config/envsetup/gitconfig` by `lib/git.sh`). Identity
   (`user.name`/`user.email`) is prompted for at runtime or set in the user's own

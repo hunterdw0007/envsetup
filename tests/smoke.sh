@@ -16,6 +16,7 @@ CLONE=/root/envsetup
 W=/tmp/smoke
 STUBS=$W/stubs     # gum + sudo: on PATH for every run
 OFFLINE=$W/offline # package manager, curl, chsh, "already installed" vendor tools
+HOOKS=$W/hooks     # direnv and zoxide stand-ins that print a marker function as their hook
 export SMOKE_LOG=$W/calls.log SMOKE_CHOICES=$W/choices SMOKE_CONFIRMS=$W/confirms
 failures=0
 
@@ -87,8 +88,11 @@ OMZ
 	*) echo "smoke: unexpected download: curl $*" >&2; exit 1 ;;
 esac
 EOF
-for tool in kubectl helm gh terraform aws docker; do printf '#!/bin/sh\n' >"$OFFLINE/$tool"; done
-chmod +x "$STUBS"/* "$OFFLINE"/*
+for tool in kubectl helm gh terraform aws docker lazygit; do printf '#!/bin/sh\n' >"$OFFLINE/$tool"; done
+mkdir -p "$HOOKS"
+printf '#!/bin/sh\necho "_direnv_hook() { :; }"\n' >"$HOOKS/direnv"
+printf '#!/bin/sh\necho "__zoxide_z() { :; }"\n' >"$HOOKS/zoxide"
+chmod +x "$STUBS"/* "$OFFLINE"/* "$HOOKS"/*
 
 # run_menu <home> <answers...>: runs the cloned setup.sh offline, answering the menu.
 # Options for setup.sh itself go in SETUP_ARGS, answers to gum confirm in CONFIRMS.
@@ -222,6 +226,23 @@ check "zsh starts without errors" [ ! -s "$h/shell.err" ]
 [ -s "$h/shell.err" ] && show "$h/shell.err"
 check "re-run exited 0" run_menu "$h" "Set up zsh + oh-my-zsh" Quit
 check "re-run didn't link twice" [ "$(count '# >>> envsetup >>>' "$h/.zshrc")" = 1 ]
+check "zsh hooks zoxide when it's installed" [ "$(PATH=$HOOKS:$PATH in_shell "$h" zsh 'typeset -f __zoxide_z >/dev/null && echo hooked')" = hooked ]
+check "  ...without errors" [ ! -s "$h/shell.err" ]
+
+echo "== ENVSETUP_EXTRAS and tool hooks"
+h=$(new_home)
+mkdir -p "$h/.config/envsetup"
+echo 'ENVSETUP_EXTRAS=(lazygit nope)' >"$h/.config/envsetup/config.sh"
+check "exited 0" run_menu "$h" "Select profile" work full "Run everything" Quit
+check "the mode picker counts the extra" described "$(n_installers work)" "runs $(($(n_installers work) + 1)) installers"
+check "ran the extra's installer" grep -qF "Running lazygit.sh" "$SMOKE_LOG"
+check "  ...a no-op with lazygit already there" not_grep '^curl .*lazygit' "$SMOKE_LOG"
+check "named the extra it has no installer for" grep -qF 'no installer for "nope"' "$h/setup.out"
+check "bash hooks direnv when it's installed" [ "$(PATH=$HOOKS:$PATH in_shell "$h" bash 'typeset -f _direnv_hook >/dev/null && echo hooked')" = hooked ]
+check "  ...and zoxide" [ "$(PATH=$HOOKS:$PATH in_shell "$h" bash 'typeset -f __zoxide_z >/dev/null && echo hooked')" = hooked ]
+check "  ...without errors" [ ! -s "$h/shell.err" ]
+check "no hooks for tools that aren't installed" [ "$(in_shell "$h" bash 'typeset -f _direnv_hook >/dev/null || echo none')" = none ]
+((failures)) && show "$h/setup.out"
 
 echo "== work/lite: ENVSETUP_SHELL=zsh makes Run everything set up zsh too"
 h=$(new_home)

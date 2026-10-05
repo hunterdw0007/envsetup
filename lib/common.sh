@@ -72,6 +72,40 @@ envsetup::github_latest() {
 	echo "${BASH_REMATCH[1]}"
 }
 
+# release_sha256 <checksums url> <file>: <file>'s hash from a project's sha256 list,
+# either "<hash>  <file>" lines (sha256sum's format, "*file" and "./file" too) or the
+# bare hash of a one-file .sha256.
+envsetup::release_sha256() {
+	local hash file sums
+	sums=$(curl -fsSL "$1") || return 1
+	while read -r hash file; do
+		file=${file#\*}
+		file=${file#./}
+		if [[ "$file" == "$2" || (-z "$file" && "$hash" =~ ^[0-9a-f]{64}$) ]]; then
+			echo "$hash"
+			return 0
+		fi
+	done <<<"$sums"
+	echo "No checksum for $2 in $1" >&2
+	return 1
+}
+
+# install_release <url> <sha256> <member>...: downloads a release (a .tar.gz, or a bare
+# binary), checks its hash, and installs each member (a path inside the archive, or
+# the binary's name) into /usr/local/bin under its base name.
+envsetup::install_release() (
+	url=$1 sha=$2 tmp=$(mktemp -d)
+	shift 2
+	trap 'rm -rf "$tmp"' EXIT
+	file=$tmp/${url##*/}
+	curl -fsSL -o "$file" "$url"
+	echo "$sha  $file" | sha256sum -c >/dev/null
+	if [[ "$file" == *.tar.gz ]]; then tar -xzf "$file" -C "$tmp"; else mv "$file" "$tmp/$1"; fi
+	for member; do
+		envsetup::as_root install -m 0755 "$tmp/$member" "/usr/local/bin/${member##*/}"
+	done
+)
+
 envsetup::pkg_manager() {
 	local cmd cmds=(brew apt-get dnf zypper pacman apk nix-env)
 	if envsetup::immutable; then cmds=(brew nix-env); fi

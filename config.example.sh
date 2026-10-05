@@ -21,6 +21,11 @@
 # ENVSETUP_PACKAGES=(git tmux curl)    # or replace them entirely
 # [[ $ENVSETUP_PROFILE == work ]] && ENVSETUP_PACKAGES+=(kubectx)
 
+# --- Extra tools --------------------------------------------------------------------
+# Popular tools that Ubuntu LTS or Fedora don't package, installed from their own
+# releases by "Run installers": starship lazygit k9s yq mise uv (installers/extras/).
+# ENVSETUP_EXTRAS=(lazygit k9s)
+
 # --- Installer scripts ------------------------------------------------------------
 # Defaults: installers/common + installers/$ENVSETUP_PROFILE
 # ENVSETUP_INSTALLER_DIRS+=("$HOME/dotfiles/envsetup-installers")   # your own scripts

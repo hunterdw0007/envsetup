@@ -117,14 +117,17 @@ everything".
 
 ### What your shell gets
 
-Every profile and mode gets the prompt and aliases. Work lite gets only those two;
-everything else also gets the exports and functions.
+Every profile and mode gets the prompt, aliases and tool hooks. Work lite gets only
+those; everything else also gets the exports and functions.
 
 - **Prompt** (bash): time, kube context, a collapsed path (`~/d/envsetup`), git branch and
   ahead/behind, then `❯` on its own line. In zsh, the oh-my-zsh theme owns the prompt
   instead.
 - **Aliases**: `ls` in color, `la`, `ll`, `..`/`...`/`....`. `cat`/`less` go through `bat`
   when it's installed. On work there are also kubectl shortcuts (`kc`, `kcaMem`).
+- **Tool hooks**, for whichever of these is installed: `direnv` (loads `.envrc`),
+  `zoxide` (`z`), `fzf` key bindings (Ctrl-R history, Ctrl-T files, Alt-C cd) and `mise`
+  (per-project runtimes). On Debian/Ubuntu, `fd` points at `fdfind`.
 - **Exports**: XDG base directories, `EDITOR=vim`, and man pages through `bat`.
 - **Functions** (bash): multi-repo git helpers for a directory of checkouts. They are
   `branchAll` (`ba`), `fetchAll` (`fa`), `pullMainAll` (`pma`), `mainOriginAll`,
@@ -179,6 +182,8 @@ after the defaults, so `+=` extends a default, `=` replaces it, and you can bran
 
 ```sh
 ENVSETUP_PACKAGES+=(neovim)                        # add to the default package list
+ENVSETUP_PACKAGES+=(fd-find zoxide btop git-delta) # any package, by its Debian name
+ENVSETUP_EXTRAS=(lazygit k9s)                      # tools distros don't package (below)
 ENVSETUP_SKIP=(docker terraform)                   # drop a default package or installer
 ENVSETUP_SHELL=zsh                                 # also set up zsh + oh-my-zsh
 ENVSETUP_INSTALLER_DIRS+=("$HOME/dotfiles/envsetup-installers")
@@ -192,11 +197,39 @@ alias k=kubectl                                    # anything else is ordinary s
 | --- | --- | --- |
 | `ENVSETUP_PACKAGES` | `packages/common.txt` + `packages/<profile>.txt` | Install packages |
 | `ENVSETUP_INSTALLER_DIRS` | `installers/common` + `installers/<profile>` | Run installers |
+| `ENVSETUP_EXTRAS` | empty — names from `installers/extras/` to install | Run installers |
 | `ENVSETUP_SKIP` | empty — names of packages/installers to leave out | Install packages, Run installers |
 | `ENVSETUP_SHELL` | `bash`; `zsh` also sets up zsh + oh-my-zsh | Link shell config |
 | `ENVSETUP_GIT_CONFIG` | `git/gitconfig`, as `key=value` (later entries win) | Configure git |
 | `ENVSETUP_XDG_NINJA` | `0`; `1` adds "Move dotfiles to XDG dirs" to "Run everything" | Run everything |
 | aliases, exports, functions, `PS1` | `shell/` | every new shell, after the defaults |
+
+### Popular tools
+
+Most tools people add are in every distro's repos, so `ENVSETUP_PACKAGES+=(...)` covers
+them, under their Debian/Ubuntu name; `packages/names.txt` translates for the other package
+managers:
+
+| | Add with `ENVSETUP_PACKAGES` |
+| --- | --- |
+| General | `fd-find` (fd), `zoxide`, `btop`, `git-delta`, `ncdu`, `tree` |
+| Development | `golang-go`, `build-essential`, `python3-venv`, `pipx`, `make`, `podman` |
+| Work | `ansible`, `kubectx` (not packaged on Fedora/RHEL) |
+
+Older LTS releases can lack the newest of these (`git-delta` isn't in Ubuntu 22.04); the
+package step names whatever it couldn't install.
+
+The ones Ubuntu LTS or Fedora don't package come from their own releases (checksums
+verified, amd64 or arm64) when named in `ENVSETUP_EXTRAS`:
+
+| `ENVSETUP_EXTRAS` | |
+| --- | --- |
+| `starship` | cross-shell prompt; installing doesn't switch to it, add `eval "$(starship init bash)"` to `config.sh` |
+| `lazygit` | git TUI |
+| `k9s` | Kubernetes TUI |
+| `yq` | mikefarah's YAML/JSON processor (Debian's `yq` is a different tool) |
+| `mise` | per-project runtime versions (node, python, go, ...); activated in new shells |
+| `uv` | Python package and project manager, with `uvx` |
 
 Shell settings take effect in the next new shell. The `ENVSETUP_*` settings take effect the
 next time you run the matching menu action (or "Run everything"). To carry your setup to

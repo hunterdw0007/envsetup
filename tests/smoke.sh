@@ -34,6 +34,12 @@ has() { command -v "$1" >/dev/null; }
 count() { grep -cF -- "$1" "$2" || true; }
 not_grep() { ! grep -q -- "$1" "$2"; }
 none_exist() { for f; do [ ! -e "$f" ] || return 1; done; }
+# none_exist_in <text> <file>...: none of the files contain the text.
+none_exist_in() {
+	local text=$1 f
+	shift
+	for f; do ! grep -qF -- "$text" "$f" || return 1; done
+}
 same_list() { [ -n "$1" ] && [ "$1" = "$2" ]; } # an empty expected list is a broken test, not a pass
 same_commit() { # both must resolve, so two failed lookups can't compare equal
 	local a b
@@ -255,6 +261,21 @@ check "installed oh-my-zsh" [ -d "$h/.oh-my-zsh" ]
 check "  ...without installing packages (zsh was already there)" [ "$(count 'apt-get' "$SMOKE_LOG")" = 0 ]
 ((failures)) && show "$h/setup.out"
 
+echo "== a zsh login shell gets ~/.zshrc linked, without oh-my-zsh"
+h=$(new_home)
+SHELL=/usr/bin/zsh check "exited 0" run_menu "$h" "Select profile" work lite "Run everything" Quit
+check "linked ~/.bashrc" [ "$(count '# >>> envsetup >>>' "$h/.bashrc")" = 1 ]
+check "  ...and ~/.zshrc" [ "$(count '# >>> envsetup >>>' "$h/.zshrc")" = 1 ]
+check "  ...without installing oh-my-zsh" [ ! -e "$h/.oh-my-zsh" ]
+check "zsh loads the aliases" [ "$(in_shell "$h" zsh 'alias ll')" = "ll='ls -alh'" ]
+check "  ...without errors" [ ! -s "$h/shell.err" ]
+SETUP_ARGS=(--uninstall) CONFIRMS=(yes yes)
+SHELL=/usr/bin/zsh check "--uninstall exits 0" run_menu "$h"
+SETUP_ARGS=() CONFIRMS=()
+check "  ...unlinked both" none_exist_in '# >>> envsetup >>>' "$h/.bashrc" "$h/.zshrc"
+check "  ...and didn't offer to change a login shell it didn't set" not_grep 'Keep zsh as your login shell' "$SMOKE_LOG"
+((failures)) && show "$h/setup.out"
+
 echo "== explaining itself"
 h=$(new_home)
 check "--help works before gum is installed" help_ok "$h"
@@ -364,8 +385,10 @@ echo "== Uninstall from the menu: home on zsh, with a config.sh"
 h=$(new_home)
 mkdir -p "$h/.config/envsetup"
 echo 'alias smoke=true' >"$h/.config/envsetup/config.sh"
+CONFIRMS=(yes) # make zsh the login shell
 run_menu "$h" "Select profile" home "Run everything" "Set up zsh + oh-my-zsh" Quit
 check "(before: ~/.zshrc is linked)" grep -qF '# >>> envsetup >>>' "$h/.zshrc"
+check "(before: noted that it switched the login shell)" [ -f "$h/.config/envsetup/chsh" ]
 # Remove? yes; keep config.sh? no; keep zsh as login shell? no.
 CONFIRMS=(yes no no)
 SHELL=/usr/bin/zsh check "exited 0" run_menu "$h" Uninstall

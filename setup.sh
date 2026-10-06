@@ -34,6 +34,9 @@ template: config.example.sh), outside this repo, so updates never conflict.
 To see what it would do first, use --dry-run, or "Preview everything" in the menu.
 To take it all back out, use --uninstall, or "Uninstall" in the menu.
 
+"Link shell config" links ~/.bashrc and your login shell's rc file (~/.zshrc for zsh,
+~/.bash_profile for bash on macOS).
+
 "Set up zsh + oh-my-zsh" installs both if missing, offers to make zsh your login shell
 and links the same config into ~/.zshrc. Set ENVSETUP_SHELL=zsh in config.sh to make
 it part of "Run everything".
@@ -114,10 +117,23 @@ envsetup::link_rc() {
 	gum style --foreground 2 "Linked shell config into $1 (restart your shell to pick it up)"
 }
 
-# bash is always linked, so the config is there whatever shell you end up in; zsh
-# only when config.sh asks for it (ENVSETUP_SHELL=zsh) or from its own menu action.
+# The rc file a new terminal's shell reads: your login shell's. macOS terminals start
+# bash as a login shell, which reads ~/.bash_profile rather than ~/.bashrc.
+envsetup::login_rc() {
+	case ${SHELL##*/} in
+	zsh) echo "$HOME/.zshrc" ;;
+	bash) if [[ "$OSTYPE" == darwin* ]]; then echo "$HOME/.bash_profile"; else echo "$HOME/.bashrc"; fi ;;
+	esac
+}
+
+# ~/.bashrc always, so the config is there whenever bash runs; your login shell's rc
+# file too, so new terminals get it. Setting up zsh + oh-my-zsh stays opt-in
+# (ENVSETUP_SHELL=zsh, or its own menu action).
 envsetup::link_shell_config() {
+	local rc
 	envsetup::link_rc "$HOME/.bashrc"
+	rc=$(envsetup::login_rc)
+	if [[ -n "$rc" && "$rc" != "$HOME/.bashrc" ]]; then envsetup::link_rc "$rc"; fi
 	if [[ "$ENVSETUP_SHELL" == zsh ]]; then envsetup::set_up_zsh; fi
 }
 

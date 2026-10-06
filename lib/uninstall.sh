@@ -23,7 +23,7 @@ envsetup::remove_rc_block() {
 # Returns 0 when it removed things, 2 when you backed out, 1 if a step failed. It runs
 # where set -e doesn't apply, so each step reports its own failure.
 envsetup::uninstall() {
-	local state=$ENVSETUP_STATE gitconfig=$ENVSETUP_GIT_GENERATED failed=0 zsh_linked=0 rc f re kept=()
+	local state=$ENVSETUP_STATE gitconfig=$ENVSETUP_GIT_GENERATED failed=0 chsh_by_us=0 rc f re kept=()
 	gum style --bold "Removes what envsetup added: its block in your shell rc files, its git" \
 		"include and its saved state, and moves back any dotfiles it moved. Packages and" \
 		"tools it installed stay."
@@ -32,9 +32,9 @@ envsetup::uninstall() {
 		return 2
 	fi
 
-	for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+	[[ -f "$ENVSETUP_CHSH_MARKER" ]] && chsh_by_us=1 # read before the state dir goes
+	for rc in "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.zshrc"; do
 		if [[ ! -f "$rc" ]] || ! grep -qxF "$ENVSETUP_RC_BEGIN" "$rc"; then continue; fi
-		[[ "$rc" == */.zshrc ]] && zsh_linked=1
 		if envsetup::dry_run; then
 			envsetup::would "remove the envsetup block from $rc"
 		elif envsetup::remove_rc_block "$rc"; then
@@ -62,7 +62,7 @@ envsetup::uninstall() {
 
 	envsetup::xdg_restore || failed=1
 
-	for f in "$gitconfig" "$gitconfig.tmp" "$state/profile" "$state/mode"; do
+	for f in "$gitconfig" "$gitconfig.tmp" "$state/profile" "$state/mode" "$ENVSETUP_CHSH_MARKER"; do
 		[[ -e "$f" ]] || continue
 		if envsetup::dry_run; then envsetup::would "delete $f"; else rm -f "$f"; fi
 	done
@@ -77,8 +77,8 @@ envsetup::uninstall() {
 	fi
 	envsetup::dry_run || rmdir "$state" 2>/dev/null || true
 
-	# Only asked if envsetup set you up on zsh; a zsh you chose yourself is yours.
-	if [[ "${SHELL:-}" == */zsh ]] && ((zsh_linked)); then
+	# Only asked if envsetup switched you to zsh; a zsh you chose yourself is yours.
+	if [[ "${SHELL:-}" == */zsh ]] && ((chsh_by_us)); then
 		if gum confirm "Keep zsh as your login shell?"; then
 			kept+=("zsh as your login shell")
 		elif envsetup::dry_run; then

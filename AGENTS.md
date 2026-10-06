@@ -155,6 +155,8 @@ CI (`.github/workflows/ci.yml`) runs two jobs on every push and PR:
 `tests/distros/run.sh` (manual, not CI; see the README) runs the real tool against a
 dozen distros with real installs. Run it after changing anything distro-specific: package
 lists, `envsetup::pkg_install`/`pkg_manager`, installers, `install.sh`.
+`tests/macos.sh` is the same for macOS, run on a Mac: ask for its report after changing
+anything a Mac takes a different path through (`brew`, bash 3.2 code, BSD tools).
 
 The smoke test proves the flows run; it doesn't prove every branch. Behavior is still
 verified and described in the PR:

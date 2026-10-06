@@ -337,3 +337,24 @@ pass/fail grid plus every problem it found, with logs alongside. The same thing 
 GitHub's Actions tab ("distros" > Run workflow), which puts the report in the run summary.
 Behind a proxy, `DISTROS_PREHOOK` points at a script that sets it up in each container;
 see the top of `run.sh`.
+
+### Testing on macOS
+
+`tests/macos.sh` runs on a Mac without changing it. It covers:
+
+- `install.sh`, plus `setup.sh` under macOS's bash 3.2, including the switch to Homebrew's
+  bash;
+- "Run everything" for home, work/full and work/lite in throwaway `$HOME`s;
+- every installer;
+- zsh, login bash and Homebrew's bash loading the result;
+- uninstall.
+
+gum's menu is scripted. `brew install` and `chsh` are recorded instead of run. Other brew
+commands are real, so every formula envsetup asks for is also checked against Homebrew.
+
+```sh
+tests/macos.sh
+```
+
+It tests the commit you have checked out and writes `macos-report/<time>/report.md`, with
+logs alongside.

@@ -3,6 +3,8 @@
 # mapfile), so zsh skips them.
 
 [[ -n "${BASH_VERSION:-}" ]] || return 0
+# mapfile is bash 4+; macOS's own bash is 3.2.
+((BASH_VERSINFO[0] >= 4)) || return 0
 
 # shellcheck source=/dev/null # sibling file, resolved at runtime
 source "$ENVSETUP_ROOT/shell/shared/colors.sh"
@@ -20,6 +22,24 @@ format_with_pipes() {
 	done
 }
 
+# _tabulate <heading>...: ':'-separated lines on stdin, as aligned columns under those
+# headings. util-linux's column (Linux) names them and truncates the last to fit; BSD's
+# (macOS) can't name columns, so it gets a heading row instead.
+_tabulate() {
+	local args=() heading
+	if column -C name=x </dev/null >/dev/null 2>&1; then
+		for heading; do args+=(-C "name=$heading"); done
+		args[${#args[@]} - 1]+=,trunc
+		column -t -s ':' "${args[@]}"
+	else
+		{
+			local IFS=:
+			echo "$*"
+			cat
+		} | column -t -s ':'
+	fi
+}
+
 # ============================================================================
 # GIT REPOSITORY MANAGEMENT FUNCTIONS
 # All of them work on the git repos directly under the current directory.
@@ -27,20 +47,26 @@ format_with_pipes() {
 
 # Branch, ahead/behind, latest semver tag and branch description of every repo.
 branchAll() {
-	local output
+	local output tracking='\[([^]]*(ahead|behind)[^]]*)\]'
 	output=$(
 		for dir in ./*/; do
 			[[ -d "$dir/.git" ]] || continue
 			repo_name=$(basename "$dir")
 			branch_name=$(git -C "$dir" rev-parse --abbrev-ref HEAD)
-			branch_info=$(git -C "$dir" status -sb | grep -oP '(?<=\[)(?=.*(?:ahead|behind))[^\]]*(?=\])' | sed -e 's/behind/⤺/g ; s/ahead/⤻/g')
-			[[ -n "$branch_info" ]] && branch_info="[$branch_info]"
+			# "## main...origin/main [ahead 1, behind 2]" -> "[⤻ 1, ⤺ 2]"
+			branch_info=$(git -C "$dir" status -sb | head -n 1)
+			if [[ "$branch_info" =~ $tracking ]]; then
+				branch_info=${BASH_REMATCH[1]//behind/⤺}
+				branch_info="[${branch_info//ahead/⤻}]"
+			else
+				branch_info=
+			fi
 			branch_tag=$(git -C "$dir" tag -l --sort=-version:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$' | head -n 1)
 			branch_description=$(git -C "$dir" config branch."${branch_name}".description)
 			echo -e "${BOLD}$repo_name:${RESET}${BOLD_BLUE}$branch_name${RESET} ${BOLD_RED}$branch_info${RESET}:${BOLD_YELLOW}$branch_tag${RESET}:$branch_description"
 		done
 	)
-	printf "%s" "$output" | column -t -s ':' -C name=Repository -C name=Tracking -C name="Latest Tag" -C name=Description,trunc
+	printf "%s" "$output" | _tabulate Repository Tracking "Latest Tag" Description
 }
 
 fetchAll() {
@@ -108,7 +134,8 @@ pullMainAll() {
 
 	if [[ -n "$summary" ]]; then
 		echo ""
-		printf "%s" "$summary" | column -t -N "Pulled the following directories:"
+		echo "Pulled the following directories:"
+		printf "%s" "$summary"
 	else
 		echo "No directories were pulled."
 	fi

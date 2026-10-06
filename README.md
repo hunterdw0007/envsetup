@@ -133,7 +133,7 @@ those; everything else also gets the exports and functions.
   (per-project runtimes). On Debian/Ubuntu, `fd` points at `fdfind`. On macOS, Homebrew
   and what it installed are put on `PATH` if the shell wasn't set up for it.
 - **Exports**: XDG base directories, `EDITOR=vim`, and man pages through `bat`.
-- **Functions** (bash): multi-repo git helpers for a directory of checkouts. They are
+- **Functions** (bash 4+, so not macOS's built-in 3.2): multi-repo git helpers for a directory of checkouts. They are
   `branchAll` (`ba`), `fetchAll` (`fa`), `pullMainAll` (`pma`), `mainOriginAll`,
   `pruneBranches` (`pb`) and `pruneBranchesAll` (`pba`); most take `--help`. On work
   there is also `resetNode` for helm charts.

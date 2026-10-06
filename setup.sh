@@ -56,6 +56,7 @@ Options:
 EOF
 }
 
+ARGS=("$@") # for re-running under a newer bash, below
 ENVSETUP_DRY_RUN=0
 UNINSTALL=0
 while (($#)); do
@@ -74,6 +75,20 @@ while (($#)); do
 	esac
 	shift
 done
+
+# macOS ships bash 3.2 and everything past here needs 4+, so re-run under Homebrew's
+# bash (install.sh installs it). Until then, keep this file bash 3.2-safe.
+envsetup::brew_shellenv
+if ((BASH_VERSINFO[0] < 4)); then
+	for newer in "${HOMEBREW_PREFIX:-/opt/homebrew}/bin/bash" /opt/homebrew/bin/bash /usr/local/bin/bash; do
+		if [[ -x "$newer" ]] && "$newer" -c '((BASH_VERSINFO[0] >= 4))' 2>/dev/null; then
+			# ${ARGS[@]+...}: bash 3.2 calls an empty array unbound under set -u.
+			exec "$newer" "${BASH_SOURCE[0]}" ${ARGS[@]+"${ARGS[@]}"}
+		fi
+	done
+	echo "envsetup needs bash 4 or newer; this is bash $BASH_VERSION. On macOS: brew install bash" >&2
+	exit 1
+fi
 
 if envsetup::dry_run; then
 	# Profile picks and config edits go to a throwaway copy, so the menu behaves as

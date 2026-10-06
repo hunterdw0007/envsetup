@@ -13,6 +13,20 @@ envsetup::dry_run() { [[ "${ENVSETUP_DRY_RUN:-0}" == 1 ]]; }
 envsetup::would() { gum style --foreground 6 "  would $*"; }
 envsetup::has_cmd() { command -v "$1" &>/dev/null; }
 
+# Homebrew installs outside the default PATH (/opt/homebrew on Apple silicon,
+# /home/linuxbrew on Linux), so a shell that wasn't set up for it can't see brew or what
+# it installed. Bash 3.2-safe: setup.sh calls it before switching to a newer bash.
+envsetup::brew_shellenv() {
+	local brew
+	envsetup::has_cmd brew && return 0
+	for brew in /opt/homebrew/bin/brew /usr/local/bin/brew /home/linuxbrew/.linuxbrew/bin/brew; do
+		if [[ -x "$brew" ]]; then
+			eval "$("$brew" shellenv)"
+			return 0
+		fi
+	done
+}
+
 # Runs a command as root: directly when already root (containers, WSL), else via sudo
 # or doas (Alpine).
 envsetup::as_root() {

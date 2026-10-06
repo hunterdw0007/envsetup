@@ -16,6 +16,50 @@ envsetup::as_root() {
 	if ((EUID == 0)); then "$@"; elif command -v sudo &>/dev/null; then sudo "$@"; else doas "$@"; fi
 }
 
+# macOS: git comes with Apple's Command Line Tools, and the rest from Homebrew, including
+# a newer bash than the 3.2 macOS ships (setup.sh needs 4+). This file runs under that
+# 3.2 (`curl | bash`), so it stays bash 3.2-safe.
+envsetup::bootstrap_macos() {
+	local brew reply installer
+	[[ "$OSTYPE" == darwin* ]] || return 0
+	if ! xcode-select -p &>/dev/null; then
+		xcode-select --install || true # opens Apple's installer dialog
+		echo "Install Apple's Command Line Tools from the dialog that just opened (they include git), then run this again." >&2
+		exit 1
+	fi
+	envsetup::brew_shellenv
+	if ! command -v brew &>/dev/null; then
+		reply=
+		read -rp "envsetup installs everything with Homebrew, which isn't installed. Install it now (https://brew.sh, asks for your password)? [y/N] " reply </dev/tty || true
+		if [[ "$reply" != [yY]* ]]; then
+			echo "Install Homebrew from https://brew.sh, then run this again." >&2
+			exit 1
+		fi
+		# Downloaded first: `bash -c "$(curl ...)"` would run an empty script, and
+		# "succeed", if the download failed.
+		installer=$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)
+		/bin/bash -c "$installer" </dev/tty
+		envsetup::brew_shellenv
+	fi
+	brew=$(command -v brew)
+	if ! "${brew%/*}/bash" -c '((BASH_VERSINFO[0] >= 4))' 2>/dev/null; then
+		echo "Installing a current bash with Homebrew (macOS ships 3.2)..." >&2
+		brew install bash
+	fi
+}
+
+# Same as lib/common.sh's, which isn't cloned yet.
+envsetup::brew_shellenv() {
+	local brew
+	command -v brew &>/dev/null && return 0
+	for brew in /opt/homebrew/bin/brew /usr/local/bin/brew /home/linuxbrew/.linuxbrew/bin/brew; do
+		if [[ -x "$brew" ]]; then
+			eval "$("$brew" shellenv)"
+			return 0
+		fi
+	done
+}
+
 envsetup::bootstrap_git() {
 	command -v git &>/dev/null && return 0
 
@@ -44,6 +88,7 @@ envsetup::bootstrap_git() {
 	fi
 }
 
+envsetup::bootstrap_macos
 envsetup::bootstrap_git
 
 if [[ -d "$ENVSETUP_DIR/.git" ]]; then

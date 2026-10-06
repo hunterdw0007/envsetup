@@ -92,6 +92,9 @@ Conventional Commits, always: `<type>(<scope>)?: <summary>`.
 - One script failing must not stop the others — `lib/installers.sh` already handles
   this; don't add a `set -e`-defeating workaround inside an individual script to try
   to do the same thing.
+- On macOS, hand over to Homebrew right after the already-installed check:
+  `envsetup::macos_brew <formula>` installs it and ends the script (the downloads that
+  follow are Linux builds).
 - Download the build for the machine (`envsetup::arch` gives `amd64`/`arm64`), run root
   steps through `envsetup::as_root` (sudo, doas, or already root), and document any
   remaining OS/arch assumption in a comment.

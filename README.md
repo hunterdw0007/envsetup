@@ -61,7 +61,7 @@ for it (`packages/names.txt`). Homebrew wins when it's installed.
 | openSUSE Tumbleweed and Leap | `zypper` | |
 | Alpine | `apk` | Needs bash first: `apk add bash curl` |
 | Bazzite, Aurora, Silverblue, SteamOS, Aeon | `brew` | `/usr` is read-only, so it needs Homebrew (Bazzite and Aurora ship it), or else Nix |
-| macOS | `brew` | Needs Apple's Command Line Tools and Homebrew; `install.sh` offers both, plus Homebrew's bash (macOS ships 3.2, envsetup needs 4+) |
+| macOS | `brew` | Needs Apple's Command Line Tools and Homebrew; `install.sh` offers both, plus Homebrew's bash (macOS ships 3.2, envsetup needs 4+). Installers and extras use Homebrew too |
 | NixOS | `nix` | Installs into your user profile (`nix profile` or `nix-env`) |
 
 Root steps go through `sudo`, or `doas` if that's what the machine has, or run directly

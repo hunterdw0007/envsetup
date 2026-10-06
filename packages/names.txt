@@ -15,8 +15,14 @@ python3-pip      =       =                   =                                py
 nodejs           =       =                   nodejs-default                   =            =                node    =
 npm              =       =                   npm-default                      =            =                -       -
 shellcheck       =       ShellCheck          ShellCheck                       =            =                =       =
-net-tools        =       =                   net-tools-deprecated             =            =                =       =
+net-tools        =       =                   net-tools-deprecated             =            =                -       =
 dnsutils         =       bind-utils          bind-utils                       bind         bind-tools       bind    =
+# Linux-only, or part of macOS: nothing for Homebrew to install. Homebrew on Linux skips
+# them too; base systems there already have them.
+strace           =       =                   =                                =            =                -       =
+iotop            =       =                   =                                =            =                -       =
+sysstat          =       =                   =                                =            =                -       =
+tar              =       =                   =                                =            =                -       =
 # Popular extras for ENVSETUP_PACKAGES (not in the default lists), where names differ.
 fd-find          =       =                   fd                               fd           fd               fd      fd
 git-delta        =       =                   =                                =            delta            =       delta

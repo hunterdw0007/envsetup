@@ -5,6 +5,7 @@ set -euo pipefail
 source "$ENVSETUP_ROOT/lib/common.sh"
 
 envsetup::has_cmd lazygit && exit 0
+envsetup::macos_brew lazygit
 
 version="$(envsetup::github_latest jesseduffield/lazygit)"
 arch=x86_64

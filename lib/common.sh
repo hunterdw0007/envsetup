@@ -78,6 +78,15 @@ envsetup::github_latest() {
 	echo "${BASH_REMATCH[1]}"
 }
 
+# macos_brew <formula>: on macOS, installs the tool with Homebrew and ends the installer
+# there; the release downloads after it are Linux builds.
+envsetup::macos_brew() {
+	if [[ "$OSTYPE" == darwin* ]]; then
+		brew install "$1"
+		exit
+	fi
+}
+
 # release_sha256 <checksums url> <file>: <file>'s hash from a project's sha256 list,
 # either "<hash>  <file>" lines (sha256sum's format, "*file" and "./file" too) or the
 # bare hash of a one-file .sha256.

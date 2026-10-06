@@ -5,6 +5,7 @@ set -euo pipefail
 source "$ENVSETUP_ROOT/lib/common.sh"
 
 envsetup::has_cmd gh && exit 0
+envsetup::macos_brew gh
 
 version="$(envsetup::github_latest cli/cli)"
 asset="gh_${version}_linux_$(envsetup::arch)"

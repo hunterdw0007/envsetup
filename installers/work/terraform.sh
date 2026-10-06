@@ -5,6 +5,8 @@ set -euo pipefail
 source "$ENVSETUP_ROOT/lib/common.sh"
 
 envsetup::has_cmd terraform && exit 0
+# Homebrew's own tap dropped terraform after its license change; HashiCorp keeps one.
+envsetup::macos_brew hashicorp/tap/terraform
 
 version="$(curl -fsSL https://checkpoint-api.hashicorp.com/v1/check/terraform |
 	grep -o '"current_version":"[^"]*"' | cut -d'"' -f4)"

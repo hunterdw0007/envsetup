@@ -19,9 +19,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Most scenarios need Homebrew's bash, as install.sh would set up.
-      - name: brew install bash
-        run: brew install bash
+      # Most scenarios need Homebrew's bash, as install.sh would set up. The others are
+      # what the MANPAGER, cat alias and shell hook checks look for.
+      - name: brew install
+        run: brew install bash bat direnv zoxide mise fzf
 
       - name: Run tests/macos.sh
         env:

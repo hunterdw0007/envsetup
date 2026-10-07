@@ -61,6 +61,7 @@ for it (`packages/names.txt`). Homebrew wins when it's installed.
 | openSUSE Tumbleweed and Leap | `zypper` | |
 | Alpine | `apk` | Needs bash first: `apk add bash curl` |
 | Bazzite, Aurora, Silverblue, SteamOS, Aeon | `brew` | `/usr` is read-only, so it needs Homebrew (Bazzite and Aurora ship it), or else Nix |
+| macOS | `brew` | Needs Apple's Command Line Tools and Homebrew; `install.sh` offers both, plus Homebrew's bash (macOS ships 3.2, envsetup needs 4+) |
 | NixOS | `nix` | Installs into your user profile (`nix profile` or `nix-env`) |
 
 Root steps go through `sudo`, or `doas` if that's what the machine has, or run directly
@@ -129,7 +130,8 @@ those; everything else also gets the exports and functions.
   when it's installed. On work there are also kubectl shortcuts (`kc`, `kcaMem`).
 - **Tool hooks**, for whichever of these is installed: `direnv` (loads `.envrc`),
   `zoxide` (`z`), `fzf` key bindings (Ctrl-R history, Ctrl-T files, Alt-C cd) and `mise`
-  (per-project runtimes). On Debian/Ubuntu, `fd` points at `fdfind`.
+  (per-project runtimes). On Debian/Ubuntu, `fd` points at `fdfind`. On macOS, Homebrew
+  and what it installed are put on `PATH` if the shell wasn't set up for it.
 - **Exports**: XDG base directories, `EDITOR=vim`, and man pages through `bat`.
 - **Functions** (bash): multi-repo git helpers for a directory of checkouts. They are
   `branchAll` (`ba`), `fetchAll` (`fa`), `pullMainAll` (`pma`), `mainOriginAll`,

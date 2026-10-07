@@ -14,6 +14,19 @@ jobs:
       - name: bash -n (syntax check)
         run: find . -name '*.sh' -not -path './.git/*' -print0 | xargs -0 -n1 bash -n
 
+      # macOS's /bin/bash: install.sh and the start of setup.sh run under it, and the
+      # login shell sources shell/ (AGENTS.md).
+      - name: bash 3.2 (macOS) checks
+        run: |
+          docker run --rm -i -v "$PWD:/src:ro" -w /src bash:3.2 bash <<'EOF'
+          for f in install.sh setup.sh lib/*.sh shell/init.sh shell/shared/*.sh shell/profiles/*/*.sh; do bash -n "$f" || exit 1; done
+          ./setup.sh --help >/dev/null || exit 1
+          # Past option parsing, up to the re-exec: this image has no newer bash, so it
+          # has to say so and exit 1.
+          out=$(./setup.sh 2>&1); rc=$?
+          [[ $rc == 1 && $out == *"needs bash 4 or newer"* ]] || { echo "rc=$rc: $out"; exit 1; }
+          EOF
+
       - name: shellcheck
         run: find . -name '*.sh' -not -path './.git/*' -print0 | xargs -0 shellcheck
 

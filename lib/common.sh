@@ -13,6 +13,11 @@ envsetup::dry_run() { [[ "${ENVSETUP_DRY_RUN:-0}" == 1 ]]; }
 envsetup::would() { gum style --foreground 6 "  would $*"; }
 envsetup::has_cmd() { command -v "$1" &>/dev/null; }
 
+# On macOS, puts Homebrew on PATH if it isn't (see the file). Bash 3.2-safe: setup.sh
+# calls it before switching to a newer bash.
+# shellcheck source=shell/shared/brew.sh
+envsetup::brew_shellenv() { source "$ENVSETUP_ROOT/shell/shared/brew.sh"; }
+
 # Runs a command as root: directly when already root (containers, WSL), else via sudo
 # or doas (Alpine).
 envsetup::as_root() {

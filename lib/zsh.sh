@@ -31,7 +31,11 @@ envsetup::install_zsh() {
 	fi
 
 	if [[ "$SHELL" != */zsh ]] && gum confirm "Set zsh as your default login shell?"; then
-		chsh -s "$(command -v zsh)"
+		# Noted so uninstall offers to switch back only a login shell envsetup changed.
+		if chsh -s "$(command -v zsh)"; then
+			mkdir -p "${ENVSETUP_CHSH_MARKER%/*}"
+			: >"$ENVSETUP_CHSH_MARKER"
+		fi
 	fi
 
 	if [[ ! -d "$HOME/.oh-my-zsh" ]]; then

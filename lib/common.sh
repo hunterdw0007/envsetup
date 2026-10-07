@@ -5,6 +5,7 @@
 ENVSETUP_STATE="$HOME/.config/envsetup"
 ENVSETUP_RC_BEGIN="# >>> envsetup >>>"
 ENVSETUP_RC_END="# <<< envsetup <<<"
+ENVSETUP_CHSH_MARKER="$ENVSETUP_STATE/chsh" # exists once envsetup switched you to zsh
 
 # Dry run (--dry-run, or "Preview everything"): every step that would change the
 # machine checks this first and describes the change instead of making it.

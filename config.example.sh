@@ -40,9 +40,9 @@
 # ENVSETUP_XDG_NINJA=1
 
 # --- Login shell --------------------------------------------------------------------
-# Default: bash, on every profile (~/.bashrc is always linked). zsh also installs zsh
-# + oh-my-zsh and links ~/.zshrc as part of "Run everything", like the menu's "Set up
-# zsh + oh-my-zsh".
+# Default: bash. ~/.bashrc and your login shell's rc file are always linked. zsh also
+# installs zsh + oh-my-zsh and links ~/.zshrc as part of "Run everything", like the
+# menu's "Set up zsh + oh-my-zsh".
 # ENVSETUP_SHELL=zsh
 
 # --- Git ----------------------------------------------------------------------------

@@ -107,9 +107,11 @@ From the menu you can:
 "Run everything" does all four in one shot, carrying on past a step that fails; each is
 also available individually from the menu if you just want to re-run one piece.
 
-Linking wires `shell/init.sh` into `~/.bashrc` on every profile. zsh is opt-in: **Set up
-zsh + oh-my-zsh** in the menu installs zsh and [oh-my-zsh](https://ohmyz.sh) if they're
-missing, offers to make zsh your login shell, and wires the same config into `~/.zshrc`.
+Linking wires `shell/init.sh` into `~/.bashrc` on every profile, and into your login shell's
+rc file so new terminals load it: `~/.zshrc` if your login shell is zsh, `~/.bash_profile`
+for bash on macOS. Setting up zsh is opt-in: **Set up zsh + oh-my-zsh** in the menu
+installs zsh and [oh-my-zsh](https://ohmyz.sh) if they're missing, offers to make zsh your
+login shell, and wires the same config into `~/.zshrc`.
 `ENVSETUP_SHELL=zsh` in `config.sh` makes that part of "Link shell config" and "Run
 everything".
 
@@ -243,12 +245,11 @@ running `install.sh`.
 ./setup.sh --dry-run --uninstall  # see what it would remove first
 ```
 
-This takes out everything envsetup added: its block in `~/.bashrc`/`~/.zshrc` (the rest of
+This takes out everything envsetup added: its block in `~/.bashrc`/`~/.bash_profile`/`~/.zshrc` (the rest of
 the file is left byte-for-byte as it was), its include in `~/.gitconfig` and the generated
 file behind it, and its saved profile/mode. Dotfiles it moved to XDG directories go back
-where they were. It asks before removing anything that might
-be yours: your `config.sh`, and, if it set you up on zsh, switching your login shell back
-to bash. Packages and tools stay, since they may have been there before
+where they were. It asks before removing anything that might be yours: your `config.sh`,
+and, if envsetup switched it to zsh, switching your login shell back to bash. Packages and tools stay, since they may have been there before
 envsetup, as do your git `user.name`/`user.email` and oh-my-zsh (it has its own
 `uninstall_oh_my_zsh`). It lists all of that at the end, along with how to delete the
 checkout itself.

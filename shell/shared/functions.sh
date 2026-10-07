@@ -3,8 +3,24 @@
 # mapfile), so zsh skips them.
 
 [[ -n "${BASH_VERSION:-}" ]] || return 0
-# mapfile is bash 4+; macOS's own bash is 3.2.
-((BASH_VERSINFO[0] >= 4)) || return 0
+# They need bash 4+ (mapfile), and macOS's own bash is 3.2: there each one, and its
+# alias, says so instead of "command not found". The names come from this file.
+if ((BASH_VERSINFO[0] < 4)); then
+	_envsetup_needs_bash4() {
+		echo "$1 needs bash 4 or newer, and this is bash $BASH_VERSION. Run it from Homebrew's bash (brew install bash)." >&2
+		return 1
+	}
+	_envsetup_re='^([a-zA-Z]+)\(\) '
+	while IFS= read -r _envsetup_f; do
+		if [[ "$_envsetup_f" =~ $_envsetup_re ]]; then
+			eval "${BASH_REMATCH[1]}() { _envsetup_needs_bash4 ${BASH_REMATCH[1]}; }"
+		elif [[ "$_envsetup_f" == "alias "* ]]; then
+			eval "$_envsetup_f"
+		fi
+	done <"$ENVSETUP_ROOT/shell/shared/functions.sh"
+	unset _envsetup_f _envsetup_re
+	return 0
+fi
 
 # shellcheck source=/dev/null # sibling file, resolved at runtime
 source "$ENVSETUP_ROOT/shell/shared/colors.sh"
@@ -22,10 +38,10 @@ format_with_pipes() {
 	done
 }
 
-# _tabulate <heading>...: ':'-separated lines on stdin, as aligned columns under those
-# headings. util-linux's column (Linux) names them and truncates the last to fit; BSD's
-# (macOS) can't name columns, so it gets a heading row instead.
-_tabulate() {
+# _envsetup_tabulate <heading>...: ':'-separated lines on stdin, as aligned columns
+# under those headings. util-linux's column (Linux) names them and truncates the last to
+# fit; BSD's (macOS) can't name columns, so it gets a heading row instead.
+_envsetup_tabulate() {
 	local args=() heading
 	if column -C name=x </dev/null >/dev/null 2>&1; then
 		for heading; do args+=(-C "name=$heading"); done
@@ -47,26 +63,20 @@ _tabulate() {
 
 # Branch, ahead/behind, latest semver tag and branch description of every repo.
 branchAll() {
-	local output tracking='\[([^]]*(ahead|behind)[^]]*)\]'
+	local output
 	output=$(
 		for dir in ./*/; do
 			[[ -d "$dir/.git" ]] || continue
 			repo_name=$(basename "$dir")
 			branch_name=$(git -C "$dir" rev-parse --abbrev-ref HEAD)
-			# "## main...origin/main [ahead 1, behind 2]" -> "[⤻ 1, ⤺ 2]"
-			branch_info=$(git -C "$dir" status -sb | head -n 1)
-			if [[ "$branch_info" =~ $tracking ]]; then
-				branch_info=${BASH_REMATCH[1]//behind/⤺}
-				branch_info="[${branch_info//ahead/⤻}]"
-			else
-				branch_info=
-			fi
+			branch_info=$(parse_git_tracking "$dir")
+			branch_info=${branch_info# }
 			branch_tag=$(git -C "$dir" tag -l --sort=-version:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$' | head -n 1)
 			branch_description=$(git -C "$dir" config branch."${branch_name}".description)
 			echo -e "${BOLD}$repo_name:${RESET}${BOLD_BLUE}$branch_name${RESET} ${BOLD_RED}$branch_info${RESET}:${BOLD_YELLOW}$branch_tag${RESET}:$branch_description"
 		done
 	)
-	printf "%s" "$output" | _tabulate Repository Tracking "Latest Tag" Description
+	printf "%s" "$output" | _envsetup_tabulate Repository Tracking "Latest Tag" Description
 }
 
 fetchAll() {

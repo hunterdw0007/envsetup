@@ -18,6 +18,13 @@ envsetup::has_cmd() { command -v "$1" &>/dev/null; }
 # shellcheck source=shell/shared/brew.sh
 envsetup::brew_shellenv() { source "$ENVSETUP_ROOT/shell/shared/brew.sh"; }
 
+# The checked-out release (v1.2.0), "v1.2.0-3-gabc1234" three commits past it, a bare
+# commit before the first release; "-dirty" when tracked files were edited. Bash
+# 3.2-safe: setup.sh --version calls it before switching to a newer bash.
+envsetup::version() {
+	git -C "$ENVSETUP_ROOT" describe --tags --match 'v[0-9]*' --always --dirty 2>/dev/null || echo unknown
+}
+
 # Runs a command as root: directly when already root (containers, WSL), else via sudo
 # or doas (Alpine).
 envsetup::as_root() {

@@ -1,0 +1,15 @@
+name: commitizen
+description: >-
+  Installs commitizen and every dependency at the versions and hashes in requirements.txt
+  (next to this file), and puts cz on PATH. To update: edit requirements.in, then re-run
+  the command at the top of requirements.txt.
+runs:
+  using: composite
+  steps:
+    - name: Install commitizen (hash-locked)
+      shell: bash
+      run: |
+        python3 -m venv "$RUNNER_TEMP/commitizen"
+        "$RUNNER_TEMP/commitizen/bin/pip" install --quiet --disable-pip-version-check \
+          --require-hashes --no-deps -r "$GITHUB_ACTION_PATH/requirements.txt"
+        echo "$RUNNER_TEMP/commitizen/bin" >>"$GITHUB_PATH"

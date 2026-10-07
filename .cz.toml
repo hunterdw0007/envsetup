@@ -1,0 +1,21 @@
+# commitizen (https://commitizen-tools.github.io/commitizen/): checks commit messages
+# against Conventional Commits, and works out the next version and its CHANGELOG.md
+# entry from them. CI releases main with it (.github/scripts/release.sh); see "Releases"
+# in AGENTS.md.
+[tool.commitizen]
+name = "cz_conventional_commits"
+# The current version is the newest vX.Y.Z tag. Each release is a "bump:" commit on main
+# that adds its CHANGELOG.md entry, tagged with the new version.
+version_provider = "scm"
+version_scheme = "semver2"
+tag_format = "v$version"
+annotated_tag = true
+update_changelog_on_bump = true
+# 0.x: a breaking change bumps the minor version, not the major. Going to 1.0.0 is a
+# deliberate PR that sets this to false and is itself a breaking change (see AGENTS.md).
+major_version_zero = true
+# Entries: like commitizen's default changelog, plus one "Breaking changes" section for
+# every kind of breaking commit, which the default scatters or leaves unmarked.
+template = ".github/changelog.md.j2"
+change_type_map = { feat = "Features", fix = "Fixes", perf = "Performance", refactor = "Refactoring" }
+change_type_order = ["BREAKING CHANGE", "Features", "Fixes", "Performance", "Refactoring"]

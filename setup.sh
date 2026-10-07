@@ -33,6 +33,8 @@ template: config.example.sh), outside this repo, so updates never conflict.
 
 To see what it would do first, use --dry-run, or "Preview everything" in the menu.
 To take it all back out, use --uninstall, or "Uninstall" in the menu.
+To update, run install.sh again: it moves this checkout to the newest release, or to
+the one in ENVSETUP_VERSION (e.g. ENVSETUP_VERSION=v0.2.0 ~/envsetup/install.sh).
 
 "Link shell config" links ~/.bashrc and your login shell's rc file (~/.zshrc for zsh,
 ~/.bash_profile for bash on macOS).
@@ -52,6 +54,7 @@ Options:
       --uninstall  remove what envsetup added (rc-file block, git include, saved
                    state), asking before anything that might be yours; packages
                    and tools stay. Combine with --dry-run to preview it
+      --version    show which release this checkout is and exit
   -h, --help       show this help and exit
 EOF
 }
@@ -63,6 +66,10 @@ while (($#)); do
 	case $1 in
 	-h | --help)
 		envsetup::usage
+		exit 0
+		;;
+	--version)
+		envsetup::version
 		exit 0
 		;;
 	-n | --dry-run) ENVSETUP_DRY_RUN=1 ;;
@@ -313,7 +320,7 @@ envsetup::main_menu() {
 	done
 }
 
-gum style --border rounded --padding "1 2" --bold "envsetup"
+gum style --border rounded --padding "1 2" --bold "envsetup $(envsetup::version)"
 envsetup::dry_run && gum style --foreground 6 "Dry run: nothing is saved, installed or linked. Picks and config edits last until you quit."
 if ((UNINSTALL)); then
 	# Loaded so it knows which shell envsetup would have set up for your profile.

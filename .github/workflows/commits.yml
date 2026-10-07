@@ -1,0 +1,33 @@
+name: commits
+
+# Versions and release notes are worked out from commit messages (see "Releases" in
+# AGENTS.md), so every commit in a PR, and the PR title (the commit message when it's
+# squash-merged), has to be a Conventional Commit.
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  conventional-commits:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the PR's commits and its base
+
+      - uses: ./.github/actions/commitizen
+
+      - name: PR title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: cz check --message "$TITLE"
+
+      - name: Commits
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: cz check --rev-range "$BASE..$HEAD"

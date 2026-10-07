@@ -64,6 +64,9 @@ git init -q --bare "$O"
 git -C "$O" symbolic-ref HEAD refs/heads/main
 git init -q "$T/seed"
 (cd "$root" && git ls-files -z --cached --others --exclude-standard | tar --null -T - -cf -) | tar -xf - -C "$T/seed"
+# No releases yet, so CHANGELOG.md is just its header: the real one has every entry,
+# for tags this origin doesn't have.
+sed -i '/^## /,$d' "$T/seed/CHANGELOG.md"
 git -C "$T/seed" add -A
 git -C "$T/seed" "${dev[@]}" commit -qm "chore: the code under test"
 git -C "$T/seed" push -q "$O" HEAD:main

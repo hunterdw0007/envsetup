@@ -10,9 +10,6 @@ on:
 permissions:
   contents: read
 
-env:
-  COMMITIZEN_VERSION: "4.19.2" # keep in step with ci.yml
-
 jobs:
   conventional-commits:
     runs-on: ubuntu-latest
@@ -22,8 +19,7 @@ jobs:
         with:
           fetch-depth: 0 # the PR's commits and its base
 
-      - name: Install commitizen
-        run: pipx install "commitizen==$COMMITIZEN_VERSION"
+      - uses: ./.github/actions/commitizen
 
       - name: PR title
         env:

@@ -8,9 +8,6 @@ on:
 permissions:
   contents: read
 
-env:
-  COMMITIZEN_VERSION: "4.19.2" # keep in step with commits.yml
-
 jobs:
   shell-checks:
     runs-on: ubuntu-latest
@@ -47,12 +44,25 @@ jobs:
       - name: smoke test (ubuntu:24.04)
         run: docker run --rm -t -v "$PWD:/src:ro" ubuntu:24.04 bash /src/tests/smoke.sh
 
+  release-script:
+    # .github/scripts/release.sh, the only code that pushes to main, run the way the
+    # release job below runs it, against a scratch origin. See tests/release.sh.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/commitizen
+
+      - name: tests/release.sh
+        run: tests/release.sh
+
   release:
     # Every push to main whose commits call for a version bump (feat, fix, "!", ...) is
     # released once the checks above pass: a "bump:" commit on main adds its CHANGELOG.md
     # entry and is tagged vX.Y.Z, and a GitHub release is published. See
     # .github/scripts/release.sh.
-    needs: [shell-checks, smoke]
+    needs: [shell-checks, smoke, release-script]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -67,14 +77,19 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # every commit and tag: the bump is worked out from the commits since the last tag
-          # Pushes the bump commit to main. GITHUB_TOKEN can while main has no branch
-          # protection; once it does, set a RELEASE_TOKEN secret that's allowed to bypass it.
-          token: ${{ secrets.RELEASE_TOKEN || github.token }}
+          # No token left in .git/config: commitizen and its dependencies run in the next
+          # steps, and only the publish step, which doesn't run them, gets a token.
+          persist-credentials: false
 
-      - name: Install commitizen
-        run: pipx install "commitizen==$COMMITIZEN_VERSION"
+      - uses: ./.github/actions/commitizen
 
-      - name: Bump, tag and release
+      - name: Bump (commit and tag, locally)
+        run: .github/scripts/release.sh bump
+
+      - name: Push and release
         env:
+          # GITHUB_TOKEN can push while main has no branch protection; once it does, set
+          # a RELEASE_TOKEN secret that's allowed to bypass it.
+          PUSH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
           GH_TOKEN: ${{ github.token }}
-        run: .github/scripts/release.sh
+        run: .github/scripts/release.sh publish

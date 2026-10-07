@@ -70,11 +70,14 @@ GitHub release with the same entry as its notes. The current version is the newe
 - If the `release` job fails, re-run it: when the commit is already released, it only
   creates the missing GitHub release. If `main` moved on while it ran, it pushes nothing
   and warns; the next commit on `main` to pass CI releases both.
-- The job runs `release.sh bump` (commitizen, no token in the checkout) and then
-  `release.sh publish` (the push and the GitHub release; never runs commitizen), so the
-  PyPI code never runs with a token that can push. commitizen and all its dependencies
-  are hash-locked in `.github/actions/commitizen/requirements.txt`: change the version
-  in `requirements.in` and re-run the command at the top of the `.txt`.
+- commitizen and all its dependencies are hash-locked in
+  `.github/actions/commitizen/requirements.txt` (change the version in `requirements.in`
+  and re-run the command at the top of the `.txt`). That lock is what keeps third-party
+  code out of the job that can push to `main`; don't loosen it. The job also runs
+  `release.sh bump` (commitizen, no token in the checkout) and then `release.sh publish`
+  (the push and the GitHub release; never runs commitizen), which keeps the token out of
+  commitizen's process, but steps of one job share the runner (`$GITHUB_PATH`,
+  `$GITHUB_ENV`, the workspace), so that split is defense in depth, not a boundary.
 - `tests/release.sh` runs the release job's two steps against a scratch origin (first
   release, re-runs, no-op, race, refused push). CI runs it on every push and PR, and the
   release job waits for it; extend it with any change to the release flow.

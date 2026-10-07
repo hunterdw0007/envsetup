@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Releases main's HEAD when the commits since the last release call for a new version
-# (see .cz.toml and "Releases" in AGENTS.md). Two steps, so commitizen and its PyPI
-# dependencies never run with a token that can push to main:
+# (see .cz.toml and "Releases" in AGENTS.md). Two steps, so the push token is never in
+# the checkout or in commitizen's process. That's defense in depth, not a boundary: later
+# steps of a job inherit what earlier ones leave ($GITHUB_PATH, $GITHUB_ENV, the
+# workspace). The control is commitizen's hash lock (.github/actions/commitizen).
 #
 #   release.sh bump     cz bump: a "bump:" commit adding the version's CHANGELOG.md entry,
 #                       tagged vX.Y.Z, both only local. Needs commitizen, no token.
@@ -71,8 +73,8 @@ envsetup::publish() {
 		return 0
 	fi
 	if [[ "$(git rev-parse HEAD)" != "$base" ]]; then # bump made a commit: push it
-		# Git config through the environment, so the token is in no file or argv: no hooks
-		# (nothing the bump step could have planted runs with the token), and the token.
+		# Git config through the environment, so the token is in no file or argv. Hooks off,
+		# so one left in .git/hooks doesn't run with the token (defense in depth, as above).
 		export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/dev/null
 		if [[ -n "${PUSH_TOKEN:-}" ]]; then
 			export GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_1="http.$server/.extraheader"

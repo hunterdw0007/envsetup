@@ -63,7 +63,7 @@ dev=(-c user.name=dev -c user.email=dev@example.com)
 git init -q --bare "$O"
 git -C "$O" symbolic-ref HEAD refs/heads/main
 git init -q "$T/seed"
-(cd "$root" && git ls-files -z --cached --others --exclude-standard | xargs -0 tar -cf - --) | tar -xf - -C "$T/seed"
+(cd "$root" && git ls-files -z --cached --others --exclude-standard | tar --null -T - -cf -) | tar -xf - -C "$T/seed"
 git -C "$T/seed" add -A
 git -C "$T/seed" "${dev[@]}" commit -qm "chore: the code under test"
 git -C "$T/seed" push -q "$O" HEAD:main

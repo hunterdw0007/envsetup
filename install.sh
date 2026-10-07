@@ -3,13 +3,16 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | bash
 #
-# Clones (or updates) the repo, then hands off into setup.sh's TUI. Arguments go to
-# setup.sh, e.g. `... | bash -s -- --dry-run` to look around without changing anything
-# beyond the clone. See README.md for how to run this while the repo is still private.
+# Clones (or updates) the repo, checks out the newest release, then hands off into
+# setup.sh's TUI. Arguments go to setup.sh, e.g. `... | bash -s -- --dry-run` to look
+# around without changing anything beyond the clone. ENVSETUP_VERSION picks another
+# release (v1.2.0 or 1.2.0), or a branch or commit. See README.md for how to run this
+# while the repo is still private.
 set -euo pipefail
 
 REPO_URL="${ENVSETUP_REPO_URL:-https://github.com/hunterdw0007/envsetup.git}"
 ENVSETUP_DIR="${ENVSETUP_DIR:-$HOME/envsetup}"
+ENVSETUP_VERSION="${ENVSETUP_VERSION:-latest}"
 
 # As root already (containers, WSL), via sudo, or via doas (Alpine).
 envsetup::as_root() {
@@ -90,12 +93,57 @@ envsetup::bootstrap_git() {
 	fi
 }
 
+# Release tags (vX.Y.Z), newest first. Pre-releases (v1.2.0-rc.1) aren't listed.
+envsetup::releases() {
+	local tag
+	while read -r tag; do
+		if [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "$tag"; fi
+	done < <(git -C "$ENVSETUP_DIR" tag --list 'v*' --sort=-v:refname)
+}
+
+# use_version <version>: checks out "latest" (the newest release, or the default branch
+# before the first one), a release (v1.2.0 or 1.2.0), or a branch or commit. Releases
+# and commits are checked out detached; a branch is fast-forwarded to origin's.
+envsetup::use_version() {
+	local ref=$1 releases
+	local git=(git -C "$ENVSETUP_DIR")
+	if [[ "$ref" == latest ]]; then
+		read -r ref < <(envsetup::releases) || true
+		if [[ -z "$ref" ]]; then
+			ref=$("${git[@]}" symbolic-ref -q --short refs/remotes/origin/HEAD || true)
+			ref=${ref#origin/}
+		fi
+		if [[ -z "$ref" ]]; then
+			echo "No releases yet, and no default branch to fall back to; staying on what's checked out."
+			return 0
+		fi
+	fi
+	if [[ "$ref" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then ref=v$ref; fi
+
+	if "${git[@]}" show-ref -q --verify "refs/tags/$ref"; then
+		"${git[@]}" checkout -q --detach "refs/tags/$ref"
+	elif "${git[@]}" show-ref -q --verify "refs/remotes/origin/$ref"; then
+		"${git[@]}" show-ref -q --verify "refs/heads/$ref" || "${git[@]}" branch -q --track "$ref" "origin/$ref"
+		"${git[@]}" checkout -q "$ref" --
+		"${git[@]}" merge -q --ff-only "origin/$ref"
+	elif "${git[@]}" rev-parse -q --verify "$ref^{commit}" >/dev/null; then
+		"${git[@]}" checkout -q --detach "$ref"
+	else
+		echo "envsetup has no release, branch or commit called \"$1\"." >&2
+		releases=$(envsetup::releases)
+		if [[ -n "$releases" ]]; then
+			printf 'Releases, newest first:\n  %s\n' "${releases//$'\n'/$'\n'  }" >&2
+		fi
+		exit 1
+	fi
+}
+
 envsetup::bootstrap_macos
 envsetup::bootstrap_git
 
 if [[ -d "$ENVSETUP_DIR/.git" ]]; then
 	echo "Updating existing envsetup checkout at $ENVSETUP_DIR..."
-	git -C "$ENVSETUP_DIR" pull --ff-only
+	git -C "$ENVSETUP_DIR" fetch -q --tags origin
 elif [[ -e "$ENVSETUP_DIR" ]]; then
 	echo "$ENVSETUP_DIR already exists and isn't a git checkout. Set ENVSETUP_DIR to another path or remove it first." >&2
 	exit 1
@@ -103,6 +151,8 @@ else
 	echo "Cloning envsetup into $ENVSETUP_DIR..."
 	git clone "$REPO_URL" "$ENVSETUP_DIR"
 fi
+envsetup::use_version "$ENVSETUP_VERSION"
+echo "envsetup $(git -C "$ENVSETUP_DIR" describe --tags --always) is checked out at $ENVSETUP_DIR."
 
 # Reopen stdin from the controlling terminal: when this script is run via
 # `curl ... | bash`, stdin is the pipe from curl, not the terminal, which would

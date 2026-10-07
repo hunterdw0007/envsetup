@@ -81,6 +81,11 @@ chmod 755 "$stubs/gum"
 # No git yet, so the safe.directory exception is written by hand.
 cp -a /src /srv/envsetup
 printf '[safe]\n\tdirectory = *\n' >>/etc/gitconfig
+# Pinned with ENVSETUP_VERSION, or install.sh would check out the newest release: the
+# branch checked out in /src, or its commit if that's detached.
+read -r version </srv/envsetup/.git/HEAD
+version=${version#ref: refs/heads/}
+install="ENVSETUP_VERSION=${version@Q} ENVSETUP_REPO_URL=/srv/envsetup ENVSETUP_DIR=\$HOME/envsetup bash /srv/envsetup/install.sh --help"
 
 echo "== $slug ($pm)"
 
@@ -89,7 +94,7 @@ mkuser beta
 if command -v git >/dev/null; then
 	result bootstrap WARN "git was already in the image, so install.sh's git install wasn't exercised"
 fi
-if as beta "ENVSETUP_REPO_URL=/srv/envsetup ENVSETUP_DIR=\$HOME/envsetup bash /srv/envsetup/install.sh --help" >"$out/bootstrap.log" 2>&1 &&
+if as beta "$install" >"$out/bootstrap.log" 2>&1 &&
 	[[ -x /home/beta/envsetup/setup.sh ]]; then
 	result bootstrap PASS "install.sh installed git, cloned and ran setup.sh --help"
 else
@@ -115,7 +120,7 @@ declare -A expect=(
 for run in home work-full work-lite; do
 	user=t-$run log=$out/$run.log
 	mkuser "$user"
-	as "$user" "ENVSETUP_REPO_URL=/srv/envsetup ENVSETUP_DIR=\$HOME/envsetup bash /srv/envsetup/install.sh --help" >/dev/null 2>&1
+	as "$user" "$install" >/dev/null 2>&1
 	mkdir -p "/home/$user/.config/envsetup"
 	{
 		[[ $run == home ]] && echo 'ENVSETUP_XDG_NINJA=1'

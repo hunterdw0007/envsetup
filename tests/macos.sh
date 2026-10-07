@@ -138,7 +138,9 @@ else
 	mkdir -p "$h"
 	: >"$MT_LOG"
 	# script(1) gives it a terminal: it hands off to setup.sh with stdin from /dev/tty.
-	HOME=$h PATH="$stubs:/usr/bin:/bin:/usr/sbin:/sbin" ENVSETUP_REPO_URL=$root ENVSETUP_DIR=$h/envsetup \
+	# ENVSETUP_VERSION: this commit, not the newest release install.sh would pick.
+	HOME=$h PATH="$stubs:/usr/bin:/bin:/usr/sbin:/sbin" ENVSETUP_VERSION=$(git -C "$root" rev-parse HEAD) \
+		ENVSETUP_REPO_URL=$root ENVSETUP_DIR=$h/envsetup \
 		script -q /dev/null /bin/bash "$root/install.sh" --help </dev/null >"$out/install.log" 2>&1
 	rc=$?
 	handed_off() { ((rc == 0)) && grep -q '^Usage: ' "$out/install.log"; }

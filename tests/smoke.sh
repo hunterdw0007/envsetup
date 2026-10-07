@@ -46,6 +46,12 @@ same_commit() { # both must resolve, so two failed lookups can't compare equal
 	a=$(git -C "$1" rev-parse --verify -q HEAD) && b=$(git -C "$2" rev-parse --verify -q HEAD) && [ "$a" = "$b" ]
 }
 
+# The commit under test, for install.sh's ENVSETUP_VERSION (it would otherwise pick the
+# newest release): the branch /src has checked out, or the commit itself when that's
+# detached, as in CI. Read by hand, since there's no git until install.sh installs it.
+read -r UNDER_TEST <"$SRC/.git/HEAD"
+UNDER_TEST=${UNDER_TEST#ref: refs/heads/}
+
 { : </dev/tty; } 2>/dev/null || {
 	echo "No TTY: run the container with -t (see the header of this file)." >&2
 	exit 2
@@ -159,7 +165,7 @@ echo "== install.sh on a bare box: real apt for git, real clone, hand-off to set
 printf '[safe]\n\tdirectory = *\n' >"$HOME/.gitconfig" # /src is owned by the host's user
 printf 'Quit\n' >"$SMOKE_CHOICES"
 : >"$SMOKE_LOG"
-if PATH="$STUBS:$PATH" ENVSETUP_REPO_URL=$SRC ENVSETUP_DIR=$CLONE bash "$SRC/install.sh" >$W/install.out 2>&1; then
+if PATH="$STUBS:$PATH" ENVSETUP_VERSION=$UNDER_TEST ENVSETUP_REPO_URL=$SRC ENVSETUP_DIR=$CLONE bash "$SRC/install.sh" >$W/install.out 2>&1; then
 	pass "install.sh exited 0"
 else
 	fail "install.sh exited non-zero"
@@ -339,13 +345,61 @@ check "still saved the profile you picked" [ "$(cat "$h/.config/envsetup/profile
 
 echo "== install.sh passes options to setup.sh"
 : >"$SMOKE_LOG"
-if PATH="$STUBS:$PATH" ENVSETUP_REPO_URL=$SRC ENVSETUP_DIR=$W/clone2 bash "$SRC/install.sh" --help >$W/install2.out 2>&1 </dev/null; then
+if PATH="$STUBS:$PATH" ENVSETUP_VERSION=$UNDER_TEST ENVSETUP_REPO_URL=$SRC ENVSETUP_DIR=$W/clone2 bash "$SRC/install.sh" --help >$W/install2.out 2>&1 </dev/null; then
 	pass "install.sh --help exited 0"
 else
 	fail "install.sh --help exited non-zero"
 	show $W/install2.out
 fi
 check "  ...and printed setup.sh's help" grep -qF -- '--dry-run' $W/install2.out
+
+echo "== install.sh: the newest release by default, or the one asked for"
+# An origin whose every commit is the code under test: releases come later.
+R=$W/releases
+git init -q -b main "$R"
+git -C "$CLONE" archive HEAD | tar -x -C "$R"
+rel() { git -C "$R" -c user.name=smoke -c user.email=smoke@example.com "$@"; }
+# release <message> [tag]: a commit on the origin's main, tagged as given.
+release() {
+	rel add -A
+	rel commit -q --allow-empty -m "$1"
+	if [ -n "${2:-}" ]; then rel tag -a "$2" -m "$2"; fi
+}
+# install_version <ENVSETUP_VERSION>: install.sh into one checkout, from that origin, then
+# setup.sh --version. No gum on PATH: --version must work before it's installed.
+V=$W/versioned
+install_version() {
+	ENVSETUP_VERSION=$1 ENVSETUP_REPO_URL=$R ENVSETUP_DIR=$V PATH=/usr/bin:/bin \
+		bash "$SRC/install.sh" --version >$W/version.out 2>&1
+}
+reports() { [ "$(tail -n 1 $W/version.out)" = "$1" ]; }
+at() { # the checkout is at <ref> of the origin, which must exist
+	local want
+	want=$(git -C "$R" rev-parse -q --verify "$1^{commit}") && [ "$want" = "$(git -C "$V" rev-parse HEAD)" ]
+}
+on_branch() { [ "$(git -C "$V" symbolic-ref -q --short HEAD)" = "$1" ]; }
+fails() { ! "$@"; }
+release "feat: first"
+check "with no releases yet, exits 0" install_version ""
+check "  ...and checks out main" on_branch main
+rel tag -a v1.0.0 -m v1.0.0
+release "feat: second" v1.1.0
+release "fix: third" v1.2.0-rc.1
+check "again, now there are releases" install_version ""
+check "  ...moves to the newest one, skipping the pre-release" reports v1.1.0
+check "  ...detached at its commit" at v1.1.0
+check "ENVSETUP_VERSION=1.0.0 exits 0" install_version 1.0.0
+check "  ...and checks out v1.0.0" reports v1.0.0
+check "ENVSETUP_VERSION=main exits 0" install_version main
+check "  ...and follows the branch" on_branch main
+check "  ...at its newest commit" at main
+check "an unknown version fails" fails install_version 9.9.9
+check "  ...listing the releases" grep -qF '  v1.1.0' $W/version.out
+check "  ...and leaves the checkout alone" at main
+release "fix: fourth" v1.2.0
+check "a new release upstream: exits 0" install_version ""
+check "  ...and updates to it" reports v1.2.0
+((failures)) && show $W/version.out
 
 echo "== --uninstall: work/full"
 h=$(new_home)

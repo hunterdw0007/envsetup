@@ -1,0 +1,38 @@
+name: macos
+
+# Manual only, since macOS minutes cost 10x: Actions tab > macos > Run workflow, or add
+# the "macos" label to a PR (again to re-run; the label also works before this file is
+# on main, which the Actions tab needs). See tests/macos.sh. The report lands in the run
+# summary and as an artifact.
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  macos:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'macos'
+    runs-on: macos-latest
+    timeout-minutes: 20
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      MACOS_TEST_OUT: ${{ runner.temp }}/macos-report
+    steps:
+      - uses: actions/checkout@v4
+
+      # Most scenarios need Homebrew's bash, as install.sh would set up.
+      - name: brew install bash
+        run: brew install bash
+
+      - name: Run tests/macos.sh
+        run: tests/macos.sh
+
+      - name: Report
+        if: always()
+        run: cat "$MACOS_TEST_OUT/report.md" >>"$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-report
+          path: ${{ runner.temp }}/macos-report

@@ -357,4 +357,6 @@ tests/macos.sh
 ```
 
 It tests the commit you have checked out and writes `macos-report/<time>/report.md`, with
-logs alongside.
+logs alongside. The `macos` workflow runs it on GitHub's macOS runners and puts the report
+in the run summary. It's manual, since macOS minutes cost 10x: Actions tab > macos > Run
+workflow, or add the `macos` label to a PR (add it again to re-run).

@@ -5,12 +5,13 @@
 # the formulas envsetup asks for are checked against Homebrew itself. The one download
 # is oh-my-zsh, into a throwaway $HOME.
 #
-#   tests/macos.sh            # writes macos-report/<time>/report.md; paste that back
+#   tests/macos.sh            # writes macos-report/<time>/report.md
 #
-# Tests the commit checked out here, so commit first. Runs under macOS's bash 3.2 or
+# CI runs it on GitHub's macOS runners when asked (.github/workflows/macos.yml). Tests
+# the commit checked out here, so commit first. Runs under macOS's bash 3.2 or
 # Homebrew's, so it sticks to bash 3.2 (no readarray, associative arrays, ${x,,}).
 # shellcheck disable=SC2016 # single-quoted code is meant to expand in the stubs and test shells
-set -o pipefail # no -e/-u: every check reports its own outcome and the next one runs
+set -uo pipefail # no -e: every check reports its own outcome and the next one runs
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 if [[ "$OSTYPE" != darwin* && -z "${MACOS_TEST_FORCE:-}" ]]; then
@@ -41,9 +42,8 @@ count() { grep -cF -- "$1" "$2"; }
 # Startup noise from shells without a terminal; anything else on stderr is an error.
 clean() { ! grep -vE 'job control|terminal process group|pgrp|cannot set terminal|^$' "$1" | grep -q .; }
 
-real_brew=$(command -v brew)
-for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do
-	if [[ -z "$real_brew" && -x "$b" ]]; then real_brew=$b; fi
+real_brew=$(command -v brew) || for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+	if [[ -x "$b" ]]; then real_brew=$b && break; fi
 done
 brew_prefix=${real_brew%/bin/brew}
 new_bash=
@@ -80,6 +80,9 @@ esac
 exec "$REAL_BREW" "$@"
 EOF
 printf '#!/bin/sh\necho "chsh $*" >>"$MT_LOG"\n' >"$stubs/chsh"
+# The real one would open Apple's installer dialog on a Mac without the Command Line
+# Tools; whether they're installed is checked on its own, with /usr/bin/xcode-select.
+printf '#!/bin/sh\necho /Library/Developer/CommandLineTools\n' >"$stubs/xcode-select"
 chmod +x "$stubs"/*
 # A newer bash first on PATH, as Homebrew's bin dir would be.
 [[ -n "$new_bash" ]] && ln -s "$new_bash" "$stubs/bash"
@@ -115,7 +118,7 @@ in_shell() {
 
 {
 	echo "macOS $(sw_vers -productVersion 2>/dev/null) ($(uname -m)), commit $(git -C "$root" rev-parse --short HEAD)"
-	echo "/bin/bash $(/bin/bash -c 'echo $BASH_VERSION'), zsh $(zsh --version 2>/dev/null | awk '{print $2}'), login shell $SHELL"
+	echo "/bin/bash $(/bin/bash -c 'echo $BASH_VERSION'), zsh $(zsh --version 2>/dev/null | awk '{print $2}'), login shell ${SHELL:-unset}"
 	echo "Homebrew: ${real_brew:-none} ($([[ -n "$real_brew" ]] && "$real_brew" --version 2>/dev/null | head -n 1))"
 	echo "newer bash: ${new_bash:-none}${new_bash:+ ($("$new_bash" -c 'echo $BASH_VERSION'))}"
 	echo "Command Line Tools: $(xcode-select -p 2>/dev/null || echo 'not installed')"
@@ -123,20 +126,28 @@ in_shell() {
 sed 's/^/  /' "$out/environment.txt"
 [[ -n "$(git -C "$root" status --porcelain)" ]] && result WARN "working tree" "uncommitted changes aren't tested; commit first"
 
+clt_installed() { /usr/bin/xcode-select -p >/dev/null 2>&1; }
+check "Command Line Tools are installed (install.sh needs them)" clt_installed
+
 echo "== install.sh (from macOS's bash 3.2, cloning this checkout)"
-h=$T/home-install
-mkdir -p "$h"
-: >"$MT_LOG"
-HOME=$h PATH="$stubs:/usr/bin:/bin:/usr/sbin:/sbin" ENVSETUP_REPO_URL=$root ENVSETUP_DIR=$h/envsetup \
-	/bin/bash "$root/install.sh" --help </dev/null >"$out/install.log" 2>&1
-rc=$?
-check "Command Line Tools are installed (install.sh needs them)" eval 'xcode-select -p >/dev/null 2>&1'
-check "install.sh exits 0 and hands off to setup.sh --help" eval "[[ $rc == 0 ]] && grep -q '^Usage: ' '$out/install.log'"
-check "  ...after cloning" test -x "$h/envsetup/setup.sh"
-if [[ -n "$new_bash" ]]; then
-	check "  ...without reinstalling bash (Homebrew's is 4+)" hasnt "brew install bash" "$MT_LOG"
+if [[ -z "$real_brew" ]]; then
+	# It would stop to ask about installing Homebrew.
+	result SKIP "install.sh" "Homebrew isn't installed"
 else
-	check "  ...asking Homebrew for a newer bash" has "brew install bash" "$MT_LOG"
+	h=$T/home-install
+	mkdir -p "$h"
+	: >"$MT_LOG"
+	HOME=$h PATH="$stubs:/usr/bin:/bin:/usr/sbin:/sbin" ENVSETUP_REPO_URL=$root ENVSETUP_DIR=$h/envsetup \
+		/bin/bash "$root/install.sh" --help </dev/null >"$out/install.log" 2>&1
+	rc=$?
+	handed_off() { ((rc == 0)) && grep -q '^Usage: ' "$out/install.log"; }
+	check "install.sh exits 0 and hands off to setup.sh --help" handed_off
+	check "  ...after cloning" test -x "$h/envsetup/setup.sh"
+	if [[ -n "$new_bash" ]]; then
+		check "  ...without reinstalling bash (Homebrew's is 4+)" hasnt "brew install bash" "$MT_LOG"
+	else
+		check "  ...asking Homebrew for a newer bash" has "brew install bash" "$MT_LOG"
+	fi
 fi
 
 echo "== setup.sh under macOS's bash 3.2"
@@ -196,6 +207,7 @@ if [[ -n "$new_bash" ]]; then
 	hi=$(new_home installers)
 	printf '#!/bin/sh\necho "curl $*" >>"$MT_LOG"\nexit 1\n' >"$T/curl"
 	chmod +x "$T/curl"
+	brewed() { has "brew install $1" "$MT_LOG" && hasnt 'curl ' "$MT_LOG"; }
 	for pair in work/kubectl:kubernetes-cli work/helm:helm work/gh:gh work/awscli:awscli \
 		work/terraform:hashicorp/tap/terraform extras/starship:starship extras/lazygit:lazygit \
 		extras/k9s:k9s extras/yq:yq extras/mise:mise extras/uv:uv; do
@@ -204,7 +216,7 @@ if [[ -n "$new_bash" ]]; then
 		# Only system dirs on PATH, so tools you already have don't turn this into a no-op.
 		ENVSETUP_ROOT=$hi/envsetup PATH="$stubs:$T:/usr/bin:/bin:/usr/sbin:/sbin" \
 			bash "$hi/envsetup/installers/$script.sh" >"$out/installer-${script##*/}.log" 2>&1
-		check "${script##*/}: brew install $formula, no download" eval "has 'brew install $formula' '$MT_LOG' && hasnt 'curl ' '$MT_LOG'"
+		check "${script##*/}: brew install $formula, no download" brewed "$formula"
 	done
 	ENVSETUP_ROOT=$hi/envsetup PATH="$stubs:/usr/bin:/bin:/usr/sbin:/sbin" bash "$hi/envsetup/installers/home/docker.sh" >"$out/installer-docker.log" 2>&1
 	check "docker: points at Docker Desktop" has "Docker Desktop" "$out/installer-docker.log"
@@ -219,8 +231,10 @@ if [[ -n "$new_bash" ]]; then
 	check "  ...without errors" clean "$hh/shell.err"
 	cp "$hh/shell.err" "$out/zsh-omz.err"
 	check "/bin/bash login shell: loads the aliases" test "$(in_shell "$hb" /bin/bash -l -i -- 'alias ll')" = "alias ll='ls -alh'"
-	check "  ...and the prompt" eval "[[ \$(in_shell '$hb' /bin/bash -l -i -- 'printf %s \"\$PS1\"') == *collapsed_directory* ]]"
-	check "  ...skips the bash 4 functions" test -z "$(in_shell "$hb" /bin/bash -l -i -- 'type -t branchAll')"
+	prompt_set() { [[ $(in_shell "$hb" /bin/bash -l -i -- 'printf %s "$PS1"') == *collapsed_directory* ]]; }
+	check "  ...and the prompt" prompt_set
+	needs_bash4() { [[ $(in_shell "$hb" /bin/bash -l -i -- 'branchAll 2>&1; echo "rc=$?"') == *"needs bash 4"*rc=1 ]]; }
+	check "  ...where the bash 4 functions say they need bash 4" needs_bash4
 	check "  ...without errors" clean "$hb/shell.err"
 	cp "$hb/shell.err" "$out/bash32.err"
 	check "Homebrew's bash: gets the functions" test "$(in_shell "$hz" "$new_bash" -i -- 'type -t branchAll')" = function
@@ -232,20 +246,28 @@ if [[ -n "$new_bash" ]]; then
 	(cd "$r/one" && git -c user.email=t@t -c user.name=t commit -q --allow-empty -m one && git push -q origin HEAD 2>/dev/null &&
 		git -c user.email=t@t -c user.name=t commit -q --allow-empty -m two)
 	git clone -q "$T/remote.git" "$r/two" 2>/dev/null
-	ba=$(in_shell "$hz" "$new_bash" -i -- "cd '$r' && branchAll")
+	export MT_REPOS=$r
+	ba=$(in_shell "$hz" "$new_bash" -i -- 'cd "$MT_REPOS" && branchAll')
 	echo "$ba" >"$out/branchAll.txt"
-	check "  ...branchAll prints its table with BSD column" eval "[[ \"\$ba\" == *Repository* && \"\$ba\" == *one* && \"\$ba\" == *two* ]]"
+	table() { [[ $ba == *Repository* && $ba == *one* && $ba == *two* ]]; }
+	check "  ...branchAll prints its table with BSD column" table
 	check "  ...without column errors" hasnt "illegal option" "$hz/shell.err"
-	check "  ...prompt shows a commit ahead" eval "[[ \$(in_shell '$hz' '$new_bash' -i -- \"cd '$r/one' && parse_git_tracking\") == *'⤻ 1'* ]]"
+	ahead() { [[ $(in_shell "$hz" "$new_bash" -i -- 'cd "$MT_REPOS/one" && parse_git_tracking') == *'⤻ 1'* ]]; }
+	check "  ...prompt shows a commit ahead" ahead
 	if command -v bat >/dev/null || command -v batcat >/dev/null; then
-		check "MANPAGER strips overstrikes with col" eval "[[ \$(in_shell '$hz' '$new_bash' -i -- 'printf %s \"\$MANPAGER\"') == *'col -bx'* ]]"
+		manpager() { [[ $(in_shell "$hz" "$new_bash" -i -- 'printf %s "$MANPAGER"') == *'col -bx'* ]]; }
+		check "MANPAGER strips overstrikes with col" manpager
 	else
 		result SKIP "MANPAGER" "bat isn't installed"
 	fi
 	if [[ -n "$real_brew" ]]; then
-		check "a shell without Homebrew on PATH still finds brew" eval "[[ -n \$(HOME='$hz' PATH=/usr/bin:/bin zsh -i -c 'command -v brew' 2>/dev/null) ]]"
+		# A zsh whose PATH has none of Homebrew's dirs.
+		bare_zsh() { HOME=$hz PATH=/usr/bin:/bin zsh -i -c "$1" 2>/dev/null; }
+		finds_brew() { [[ -n $(bare_zsh 'command -v brew') ]]; }
+		check "a shell without Homebrew on PATH still finds brew" finds_brew
 		if [[ -x "$brew_prefix/bin/bat" ]]; then
-			check "  ...and its bat, for the cat alias" eval "[[ \$(HOME='$hz' PATH=/usr/bin:/bin zsh -i -c 'alias cat' 2>/dev/null) == *bat* ]]"
+			cat_is_bat() { [[ $(bare_zsh 'alias cat') == *bat* ]]; }
+			check "  ...and its bat, for the cat alias" cat_is_bat
 		else
 			result SKIP "cat alias without Homebrew on PATH" "Homebrew's bat isn't installed"
 		fi
@@ -260,7 +282,8 @@ if [[ -n "$new_bash" ]]; then
 	done
 	if command -v fzf >/dev/null; then
 		# Key bindings need a terminal; script(1) gives the shell one.
-		check "zsh binds fzf to Ctrl-R" eval "HOME='$hz' PATH='$stubs:$PATH' script -q /dev/null zsh -i -c 'bindkey \"^R\"' </dev/null 2>/dev/null | grep -q fzf"
+		fzf_bound() { HOME=$hz PATH="$stubs:$PATH" script -q /dev/null zsh -i -c 'bindkey "^R"' </dev/null 2>/dev/null | grep -q fzf; }
+		check "zsh binds fzf to Ctrl-R" fzf_bound
 	else
 		result SKIP "fzf key bindings" "fzf isn't installed"
 	fi
@@ -268,7 +291,8 @@ if [[ -n "$new_bash" ]]; then
 	echo "== uninstall"
 	SETUP_ARGS=--uninstall menu "$hz" /bin/zsh yes --
 	check "zsh login shell envsetup didn't set: exits 0" test $? = 0
-	check "  ...unlinks ~/.bashrc and ~/.zshrc" eval "hasnt '# >>> envsetup >>>' '$hz/.bashrc' && hasnt '# >>> envsetup >>>' '$hz/.zshrc'"
+	unlinked() { hasnt '# >>> envsetup >>>' "$hz/.bashrc" && hasnt '# >>> envsetup >>>' "$hz/.zshrc"; }
+	check "  ...unlinks ~/.bashrc and ~/.zshrc" unlinked
 	check "  ...without offering to change the login shell" hasnt "Keep zsh as your login shell" "$MT_LOG"
 	SETUP_ARGS=--uninstall menu "$hh" /bin/zsh yes no --
 	cp "$MT_LOG" "$out/uninstall-home.calls"
@@ -323,5 +347,5 @@ fi
 	while IFS=$'\t' read -r status name detail; do echo "- $status $name${detail:+ ($detail)}"; done <"$results"
 } >"$out/report.md"
 echo
-echo "Report: $out/report.md (paste it back, plus any *.log it points at)"
+echo "Report: $out/report.md"
 ! grep -q '^FAIL' "$results"

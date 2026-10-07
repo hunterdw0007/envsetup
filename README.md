@@ -12,9 +12,34 @@ curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.
 ```
 
 `install.sh` installs `git` if it's missing, clones this repo into `~/envsetup` (or
-`$ENVSETUP_DIR` if set), and hands off straight into `./setup.sh`. Running it again later
-just fast-forwards the existing checkout instead of re-cloning. Point it at a different
-remote (e.g. an SSH URL) with `ENVSETUP_REPO_URL`.
+`$ENVSETUP_DIR` if set), checks out the newest release, and hands off straight into
+`./setup.sh`. Running it again later updates the existing checkout to the newest release
+instead of re-cloning. Point it at a different remote (e.g. an SSH URL) with
+`ENVSETUP_REPO_URL`.
+
+### Picking a version
+
+Releases are numbered `vMAJOR.MINOR.PATCH` and listed, with what changed in each, in
+[`CHANGELOG.md`](CHANGELOG.md) and on the
+[releases page](https://github.com/hunterdw0007/envsetup/releases). envsetup is still on
+0.x, where a new minor version can include changes to something you're used to; those
+are listed first, under "Breaking changes" (from 1.0.0 on, only a new major version
+will). To install a particular version, or go back to one, name it in
+`ENVSETUP_VERSION`:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | ENVSETUP_VERSION=v0.2.0 bash
+# the same, from an existing checkout
+ENVSETUP_VERSION=v0.2.0 ~/envsetup/install.sh
+```
+
+`0.2.0` works too. A branch (`main`, for changes that haven't been released yet) or a
+commit also works. An unknown version lists the releases there are. Running `install.sh`
+without `ENVSETUP_VERSION` moves you to the newest release again, and
+`./setup.sh --version` shows which one you're on.
+
+A release is checked out as a detached commit, so update with `install.sh` rather than
+`git pull`; `ENVSETUP_VERSION=main` puts the checkout back on the `main` branch.
 
 ### Try it without changing anything
 
@@ -76,6 +101,9 @@ git clone git@github.com:hunterdw0007/envsetup.git ~/envsetup
 cd ~/envsetup
 ./setup.sh
 ```
+
+This runs the newest commit on `main`. For a release instead, `git checkout v0.2.0` first
+(`git tag` lists them), or use `install.sh`, which does that for you.
 
 Nothing changes until you pick an action. `./setup.sh --help` gives an overview without
 launching the menu (it works before `gum` is installed), and the profile and mode pickers
@@ -176,7 +204,7 @@ desktop launcher, cron) won't see them.
 Everything shipped here (packages, installers, aliases, git settings) is a *default*. To
 change any of it for yourself, put your changes in one file,
 `~/.config/envsetup/config.sh`, instead of editing this repo. It lives outside the
-checkout, so `git pull` and re-running `install.sh` never conflict with it — editing
+checkout, so updating (re-running `install.sh`) never conflicts with it — editing
 tracked files, by contrast, makes the next update abort.
 
 Pick **Edit config** in the menu to create it from [`config.example.sh`](config.example.sh)
@@ -259,9 +287,10 @@ checkout itself.
 ## Layout
 
 ```
-install.sh           # curl | bash entry point: clones/updates the repo, then runs setup.sh
+install.sh           # curl | bash entry point: clones/updates the repo, checks out a release, runs setup.sh
 setup.sh             # gum TUI: profile/mode selection, linking, package installs
 config.example.sh    # template for your ~/.config/envsetup/config.sh overrides
+CHANGELOG.md         # every release and what changed in it (written by CI)
 shell/
   shared/            # ps1, aliases, exports, functions loaded on every machine
                       # (work/lite only loads ps1 + aliases), plus colors.sh
@@ -310,6 +339,14 @@ stop the others — failures are collected and reported at the end.
 See `AGENTS.md` for commit/branch conventions and code standards. CI
 (`.github/workflows/ci.yml`) runs `bash -n` and `shellcheck` on every shell script for
 every push and PR.
+
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org), and
+they decide the version: once CI passes on `main`, a merge with a `fix` releases a new
+patch version and a `feat` or breaking change (`feat!:`) a new minor version (a major one
+from 1.0.0 on). CI commits the release's entry to `CHANGELOG.md`, tags it and publishes it
+as a GitHub release. `docs`, `ci`, `test` and `chore` changes don't release anything.
+[commitizen](https://commitizen-tools.github.io/commitizen/) (`.cz.toml`) does the
+checking, versioning and changelog; see "Releases" in `AGENTS.md`.
 
 ### Testing on other distros
 

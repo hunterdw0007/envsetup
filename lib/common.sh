@@ -134,8 +134,8 @@ envsetup::pkg_name() {
 	while read -ra fields; do
 		if [[ "${fields[0]:-}" == "$2" ]]; then
 			name=${fields[${col[$1]:-0}]:-=}
-			# The macos column overrides brew's on a Mac; its = means "as brew".
-			if [[ "$1" == brew && "$OSTYPE" == darwin* && "${fields[7]:-=}" != = ]]; then
+			# The macos column overrides brew's on a Mac, unless it's ^ ("as brew").
+			if [[ "$1" == brew && "$OSTYPE" == darwin* && "${fields[7]:-^}" != ^ ]]; then
 				name=${fields[7]}
 			fi
 			break

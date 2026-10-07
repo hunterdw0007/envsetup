@@ -7,17 +7,6 @@
 _envsetup_sh=bash
 [[ -n "${ZSH_VERSION:-}" ]] && _envsetup_sh=zsh
 
-# Homebrew (macOS, some Linux setups) installs outside the default PATH; without this, a
-# shell that wasn't set up for it can't see brew or anything it installed.
-if ! command -v brew >/dev/null; then
-	for _envsetup_f in /opt/homebrew/bin/brew /usr/local/bin/brew /home/linuxbrew/.linuxbrew/bin/brew; do
-		if [[ -x "$_envsetup_f" ]]; then
-			eval "$("$_envsetup_f" shellenv)"
-			break
-		fi
-	done
-fi
-
 if command -v direnv >/dev/null; then eval "$(direnv hook "$_envsetup_sh")"; fi
 if command -v zoxide >/dev/null; then eval "$(zoxide init "$_envsetup_sh")"; fi
 if command -v mise >/dev/null; then eval "$(mise activate "$_envsetup_sh")"; fi

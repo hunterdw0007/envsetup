@@ -14,6 +14,14 @@ jobs:
       - name: bash -n (syntax check)
         run: find . -name '*.sh' -not -path './.git/*' -print0 | xargs -0 -n1 bash -n
 
+      # macOS's /bin/bash: install.sh and the start of setup.sh run under it, and the
+      # login shell sources shell/ (AGENTS.md).
+      - name: bash 3.2 (macOS) syntax check
+        run: >-
+          docker run --rm -v "$PWD:/src:ro" -w /src bash:3.2 bash -c
+          'for f in install.sh setup.sh lib/*.sh shell/init.sh shell/shared/*.sh shell/profiles/*/*.sh; do bash -n "$f" || exit 1; done;
+          ./setup.sh --help >/dev/null'
+
       - name: shellcheck
         run: find . -name '*.sh' -not -path './.git/*' -print0 | xargs -0 shellcheck
 

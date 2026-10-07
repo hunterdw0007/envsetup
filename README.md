@@ -130,8 +130,8 @@ those; everything else also gets the exports and functions.
   when it's installed. On work there are also kubectl shortcuts (`kc`, `kcaMem`).
 - **Tool hooks**, for whichever of these is installed: `direnv` (loads `.envrc`),
   `zoxide` (`z`), `fzf` key bindings (Ctrl-R history, Ctrl-T files, Alt-C cd) and `mise`
-  (per-project runtimes). On Debian/Ubuntu, `fd` points at `fdfind`. Homebrew and what it
-  installed are put on `PATH` if the shell wasn't set up for it.
+  (per-project runtimes). On Debian/Ubuntu, `fd` points at `fdfind`. On macOS, Homebrew
+  and what it installed are put on `PATH` if the shell wasn't set up for it.
 - **Exports**: XDG base directories, `EDITOR=vim`, and man pages through `bat`.
 - **Functions** (bash): multi-repo git helpers for a directory of checkouts. They are
   `branchAll` (`ba`), `fetchAll` (`fa`), `pullMainAll` (`pma`), `mainOriginAll`,

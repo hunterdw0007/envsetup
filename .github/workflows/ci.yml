@@ -57,7 +57,7 @@ jobs:
           docker pull -q ubuntu:24.04 >/dev/null
           echo "digest=$(docker inspect --format '{{index .RepoDigests 0}}' ubuntu:24.04 | cut -d@ -f2)" >>"$GITHUB_OUTPUT"
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         id: apt
         with:
           path: ${{ runner.temp }}/smoke-apt

@@ -1,0 +1,10 @@
+# Weekly PRs that bump the GitHub Actions the workflows use (checkout, upload-artifact,
+# setup-python, ...), so they stay on supported releases.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci

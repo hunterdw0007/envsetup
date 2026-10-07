@@ -27,11 +27,15 @@ parse_git_branch() {
 	if [[ -n "$branch" ]]; then echo " $branch"; fi
 }
 
-# [ahead N], [behind N] or both, with arrows instead of words.
+# parse_git_tracking [repo]: " [⤻ ahead, ⤺ behind]" against the upstream, if either
+# isn't 0. One git call for the current branch only, run at every prompt (and by
+# branchAll for each repo).
 parse_git_tracking() {
-	local tracking
-	tracking=$(git branch -v 2>/dev/null | grep "^\*" | grep -o "\[\(ahead \+[0-9]\+\(, behind \+[0-9]\+\)\?\|behind \+[0-9]\+\(, ahead \+[0-9]\+\)\?\)\]" | sed -e 's/behind/⤺/g ; s/ahead/⤻/g')
-	if [[ -n "$tracking" ]]; then echo " $tracking"; fi
+	local behind ahead out=
+	read -r behind ahead < <(git ${1:+-C "$1"} rev-list --left-right --count '@{u}...HEAD' 2>/dev/null) || return 0
+	((ahead)) && out="⤻ $ahead"
+	((behind)) && out+="${out:+, }⤺ $behind"
+	if [[ -n "$out" ]]; then echo " [$out]"; fi
 }
 
 get_current_context() {

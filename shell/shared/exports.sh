@@ -11,7 +11,12 @@ export EDITOR=vim
 for _envsetup_bat in bat batcat; do
 	# A real binary: aliases.sh may already have made `bat` an alias, which sh -c can't see.
 	[[ "$(command -v "$_envsetup_bat")" == /* ]] || continue
-	export MANPAGER="sh -c 'sed -u -e \"s/\\x1B\[[0-9;]*m//g; s/.\\x08//g\" | $_envsetup_bat -p -lman'"
+	if [[ "$OSTYPE" == darwin* ]]; then
+		# macOS's sed has no \x escapes; its man output is plain overstrikes, which col strips.
+		export MANPAGER="sh -c 'col -bx | $_envsetup_bat -p -lman'"
+	else
+		export MANPAGER="sh -c 'sed -u -e \"s/\\x1B\[[0-9;]*m//g; s/.\\x08//g\" | $_envsetup_bat -p -lman'"
+	fi
 	break
 done
 unset _envsetup_bat

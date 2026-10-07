@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 # envsetup user config. Lives at ~/.config/envsetup/config.sh, outside this repo, so
-# updating envsetup (git pull / re-running install.sh) never conflicts with it.
+# updating envsetup (re-running install.sh) never conflicts with it.
 # "Edit config" in ./setup.sh copies this file there and opens it in $EDITOR.
 #
 # It's plain bash, sourced *after* the repo defaults in two places:

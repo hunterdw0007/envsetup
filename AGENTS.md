@@ -17,7 +17,8 @@ commitizen. `cz check --rev-range origin/main..HEAD` runs the same check locally
   `README.md`-only change).
 - A breaking change (e.g. the workflow/menu structure changes such that a prior habit
   no longer works) uses `!` after the type/scope: `feat!: ...`. It bumps the major
-  version and is listed under "Breaking changes" in the release notes.
+  version (the minor one while on 0.x; see Releases) and is listed under "Breaking
+  changes" in the release notes.
 - PRs are squash-merged, so the PR title becomes the commit on `main` that the release
   is worked out from: it follows the same format, with the type and `!` of the most
   significant change in the PR.
@@ -69,6 +70,14 @@ GitHub release with the same entry as its notes. The current version is the newe
 - If the `release` job fails, re-run it: when the commit is already released, it only
   creates the missing GitHub release. If `main` moved on while it ran, it pushes nothing
   and warns; the next commit on `main` to pass CI releases both.
+- The job runs `release.sh bump` (commitizen, no token in the checkout) and then
+  `release.sh publish` (the push and the GitHub release; never runs commitizen), so the
+  PyPI code never runs with a token that can push. commitizen and all its dependencies
+  are hash-locked in `.github/actions/commitizen/requirements.txt`: change the version
+  in `requirements.in` and re-run the command at the top of the `.txt`.
+- `tests/release.sh` runs the release job's two steps against a scratch origin (first
+  release, re-runs, no-op, race, refused push). CI runs it on every push and PR, and the
+  release job waits for it; extend it with any change to the release flow.
 - The job pushes with `GITHUB_TOKEN`, which works while `main` has no branch protection.
   If `main` gets protection or a ruleset, add a `RELEASE_TOKEN` secret (a fine-grained
   token or GitHub App token allowed to bypass it, with contents: write).
@@ -187,8 +196,8 @@ GitHub release with the same entry as its notes. The current version is the newe
 
 ## Testing
 
-CI (`.github/workflows/ci.yml`) runs two jobs on every push and PR, plus `release` (see
-Releases) on pushes to `main` once both pass; `.github/workflows/commits.yml` checks
+CI (`.github/workflows/ci.yml`) runs three jobs on every push and PR, plus `release` (see
+Releases) on pushes to `main` once they pass; `.github/workflows/commits.yml` checks
 commit messages and the PR title on every PR:
 
 - `shell-checks`: `bash -n` and `shellcheck` over every `*.sh` file.
@@ -200,6 +209,8 @@ commit messages and the PR title on every PR:
   A new menu action, profile or mode needs a scenario there, and every check must be
   able to fail: compare against a non-empty expected value, never two things that
   could both come back empty.
+- `release-script`: `tests/release.sh`, the release flow against a scratch origin, with
+  the hash-locked commitizen. Run it locally with `cz` on PATH.
 
 `tests/distros/run.sh` (manual, not CI; see the README) runs the real tool against a
 dozen distros with real installs. Run it after changing anything distro-specific: package

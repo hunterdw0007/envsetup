@@ -32,6 +32,11 @@ jobs:
         if: always()
         run: cat "$RUNNER_TEMP/macos-report/report.md" >>"$GITHUB_STEP_SUMMARY"
 
+      # The logs, in the job log too, so a failure can be read without the artifact.
+      - name: Logs
+        if: failure()
+        run: tail -n +1 "$RUNNER_TEMP"/macos-report/*.{log,calls,err,txt}
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:

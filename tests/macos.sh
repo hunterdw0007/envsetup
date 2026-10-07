@@ -137,8 +137,9 @@ else
 	h=$T/home-install
 	mkdir -p "$h"
 	: >"$MT_LOG"
+	# script(1) gives it a terminal: it hands off to setup.sh with stdin from /dev/tty.
 	HOME=$h PATH="$stubs:/usr/bin:/bin:/usr/sbin:/sbin" ENVSETUP_REPO_URL=$root ENVSETUP_DIR=$h/envsetup \
-		/bin/bash "$root/install.sh" --help </dev/null >"$out/install.log" 2>&1
+		script -q /dev/null /bin/bash "$root/install.sh" --help </dev/null >"$out/install.log" 2>&1
 	rc=$?
 	handed_off() { ((rc == 0)) && grep -q '^Usage: ' "$out/install.log"; }
 	check "install.sh exits 0 and hands off to setup.sh --help" handed_off
@@ -233,10 +234,12 @@ if [[ -n "$new_bash" ]]; then
 	check "/bin/bash login shell: loads the aliases" test "$(in_shell "$hb" /bin/bash -l -i -- 'alias ll')" = "alias ll='ls -alh'"
 	prompt_set() { [[ $(in_shell "$hb" /bin/bash -l -i -- 'printf %s "$PS1"') == *collapsed_directory* ]]; }
 	check "  ...and the prompt" prompt_set
-	needs_bash4() { [[ $(in_shell "$hb" /bin/bash -l -i -- 'branchAll 2>&1; echo "rc=$?"') == *"needs bash 4"*rc=1 ]]; }
-	check "  ...where the bash 4 functions say they need bash 4" needs_bash4
+	check "  ...and, in lite, none of the functions" test "$(in_shell "$hb" /bin/bash -l -i -- 'type -t branchAll || echo none')" = none
 	check "  ...without errors" clean "$hb/shell.err"
 	cp "$hb/shell.err" "$out/bash32.err"
+	# The home profile (full mode) linked ~/.bash_profile too: its login shell was still bash.
+	needs_bash4() { [[ $(in_shell "$hh" /bin/bash -l -i -- 'branchAll 2>&1; echo "rc=$?"') == *"needs bash 4"*rc=1 ]]; }
+	check "/bin/bash login shell, full mode: the functions say they need bash 4" needs_bash4
 	check "Homebrew's bash: gets the functions" test "$(in_shell "$hz" "$new_bash" -i -- 'type -t branchAll')" = function
 	# Two repos, one a commit ahead of its remote, for the prompt and branchAll.
 	r=$T/repos

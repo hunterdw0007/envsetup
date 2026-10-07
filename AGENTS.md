@@ -30,7 +30,8 @@ Conventional Commits, always: `<type>(<scope>)?: <summary>`.
 ## Shell script standards
 
 - Shebang `#!/usr/bin/env bash`, and `set -euo pipefail` at the top of every
-  executable script (`setup.sh`, `install.sh`, everything under `installers/`).
+  executable script (`setup.sh`, `install.sh`, everything under `installers/`). Test
+  harnesses under `tests/` may leave out `-e`, so one failed check doesn't stop the rest.
 - `install.sh`, and `setup.sh` up to where it re-runs itself under a newer bash, run under
   macOS's bash 3.2: no `readarray`/`mapfile`, associative arrays, `${x,,}`, or bare
   `"${arr[@]}"` of a possibly empty array under `set -u` (use `${arr[@]+"${arr[@]}"}`).
@@ -155,6 +156,9 @@ CI (`.github/workflows/ci.yml`) runs two jobs on every push and PR:
 `tests/distros/run.sh` (manual, not CI; see the README) runs the real tool against a
 dozen distros with real installs. Run it after changing anything distro-specific: package
 lists, `envsetup::pkg_install`/`pkg_manager`, installers, `install.sh`.
+`tests/macos.sh` is the same for macOS, on GitHub's macOS runners (the `macos` workflow,
+opt-in by label or dispatch, since their minutes cost 10x) or on a Mac. Run it after changing anything a Mac
+takes a different path through (`brew`, bash 3.2 code, BSD tools).
 
 The smoke test proves the flows run; it doesn't prove every branch. Behavior is still
 verified and described in the PR:

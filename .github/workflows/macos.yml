@@ -1,0 +1,51 @@
+name: macos
+
+# Opt-in, since macOS minutes cost 10x: Actions tab > macos > Run workflow, or add the
+# "macos" label to a PR, which then re-runs it on every push so its check stays current
+# (the label also works before this file is on main, which the Actions tab needs). See
+# tests/macos.sh. The report lands in the run summary and as an artifact.
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [labeled, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.action == 'labeled' && github.event.label.name == 'macos') ||
+      (github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'macos'))
+    runs-on: macos-latest
+    timeout-minutes: 20
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      # Most scenarios need Homebrew's bash, as install.sh would set up. The others are
+      # what the MANPAGER, cat alias and shell hook checks look for.
+      - name: brew install
+        run: brew install bash bat direnv zoxide mise fzf
+
+      - name: Run tests/macos.sh
+        env:
+          MACOS_TEST_OUT: ${{ runner.temp }}/macos-report
+        run: tests/macos.sh
+
+      - name: Report
+        if: always()
+        run: cat "$RUNNER_TEMP/macos-report/report.md" >>"$GITHUB_STEP_SUMMARY"
+
+      # The logs, in the job log too, so a failure can be read without the artifact.
+      - name: Logs
+        if: failure()
+        run: tail -n +1 "$RUNNER_TEMP"/macos-report/*.{log,calls,err,txt}
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-report
+          path: ${{ runner.temp }}/macos-report

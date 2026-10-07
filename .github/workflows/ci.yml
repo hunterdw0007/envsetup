@@ -8,6 +8,12 @@ on:
 permissions:
   contents: read
 
+# A newer push to a PR replaces its run still in progress. Pushes to main all finish,
+# since the release job runs there.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   shell-checks:
     runs-on: ubuntu-latest
@@ -37,12 +43,39 @@ jobs:
     # Runs the real tool on a bare Ubuntu box (install.sh -> setup.sh -> real bash/zsh);
     # only gum's UI, package installs and vendor downloads are stubbed. See tests/smoke.sh.
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20 # a cache miss fetches from Ubuntu's archive; a hit takes seconds
     steps:
       - uses: actions/checkout@v4
 
-      - name: smoke test (ubuntu:24.04)
-        run: docker run --rm -t -v "$PWD:/src:ro" ubuntu:24.04 bash /src/tests/smoke.sh
+      # Ubuntu's archive is slow from CI often enough (minutes for a few packages, or a
+      # stall), so the smoke test runs offline. What it installs with real apt (git for
+      # install.sh, zsh and jq) and apt's lists are fetched once per ubuntu:24.04 image and
+      # cached; offline, install.sh's apt-get update fails and it installs git from them.
+      - name: ubuntu:24.04's digest
+        id: image
+        run: |
+          docker pull -q ubuntu:24.04 >/dev/null
+          echo "digest=$(docker inspect --format '{{index .RepoDigests 0}}' ubuntu:24.04 | cut -d@ -f2)" >>"$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        id: apt
+        with:
+          path: ${{ runner.temp }}/smoke-apt
+          key: smoke-apt-${{ steps.image.outputs.digest }}-git-zsh-jq
+
+      - name: Fetch the smoke test's packages
+        if: steps.apt.outputs.cache-hit != 'true'
+        timeout-minutes: 15
+        run: >-
+          docker run --rm -v "$RUNNER_TEMP/smoke-apt:/out" ubuntu:24.04 bash -euc
+          'rm /etc/apt/apt.conf.d/docker-clean; apt-get update -q; apt-get install -y -q --download-only git zsh jq;
+          mkdir -p /out/lists /out/archives; cp -a /var/lib/apt/lists/. /out/lists/;
+          cp /var/cache/apt/archives/*.deb /out/archives/; chmod -R a+rX /out'
+
+      - name: smoke test (ubuntu:24.04, offline)
+        run: >-
+          docker run --rm -t --network none -e SMOKE_APT_CACHE=/apt-cache
+          -v "$RUNNER_TEMP/smoke-apt:/apt-cache:ro" -v "$PWD:/src:ro" ubuntu:24.04 bash /src/tests/smoke.sh
 
   release-script:
     # .github/scripts/release.sh, the only code that pushes to main, run the way the

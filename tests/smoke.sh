@@ -7,7 +7,9 @@
 #   docker run --rm -t -v "$PWD:/src:ro" ubuntu:24.04 bash /src/tests/smoke.sh
 #
 # Needs a TTY (-t: install.sh hands off to setup.sh via /dev/tty) and a throwaway
-# container, since it installs git and zsh and writes to /root.
+# container, since it installs git and zsh and writes to /root. SMOKE_APT_CACHE is a dir
+# of apt lists and .debs for git, zsh and jq (lists/, archives/), so it can run offline,
+# as CI does (see the smoke job in ci.yml): from CI, Ubuntu's archive often takes minutes.
 # shellcheck disable=SC2016 # single-quoted code is meant to expand in the stubs / test shells
 set -euo pipefail
 
@@ -56,6 +58,11 @@ UNDER_TEST=${UNDER_TEST#ref: refs/heads/}
 	echo "No TTY: run the container with -t (see the header of this file)." >&2
 	exit 2
 }
+if [[ -n "${SMOKE_APT_CACHE:-}" ]]; then
+	rm -f /etc/apt/apt.conf.d/docker-clean # it deletes the .debs once they're installed
+	cp -a "$SMOKE_APT_CACHE/lists/." /var/lib/apt/lists/
+	cp "$SMOKE_APT_CACHE"/archives/*.deb /var/cache/apt/archives/
+fi
 
 mkdir -p "$STUBS" "$OFFLINE"
 : >"$SMOKE_CONFIRMS"

@@ -3,27 +3,34 @@
 # that isn't in this table is installed under that same name everywhere.
 #   =  same name as the list
 #   -  nothing to install there: it comes with the base system or with another package
-# A path (dnf) installs whichever package provides that file, so an already-installed
-# variant (Amazon Linux's curl-minimal) counts instead of conflicting.
+#   ^  (macos only) same as brew
+# macos is Homebrew on macOS, where it differs from brew (Homebrew on Linux). A path (dnf)
+# installs whichever package provides that file, so an already-installed variant (Amazon
+# Linux's curl-minimal) counts instead of conflicting.
 #
-# list name      apt     dnf                 zypper                           pacman       apk              brew    nix
-vim              =       vim-enhanced        =                                =            =                =       =
-curl             =       /usr/bin/curl       =                                =            =                =       =
-bsdextrautils    =       util-linux          util-linux                       util-linux   util-linux-misc  -       util-linux
-python3          =       =                   =                                python       =                python  =
-python3-pip      =       =                   =                                python-pip   py3-pip          -       python3Packages.pip
-nodejs           =       =                   nodejs-default                   =            =                node    =
-npm              =       =                   npm-default                      =            =                -       -
-shellcheck       =       ShellCheck          ShellCheck                       =            =                =       =
-net-tools        =       =                   net-tools-deprecated             =            =                =       =
-dnsutils         =       bind-utils          bind-utils                       bind         bind-tools       bind    =
+# list name      apt     dnf                 zypper                           pacman       apk              brew    macos  nix
+vim              =       vim-enhanced        =                                =            =                =       ^      =
+curl             =       /usr/bin/curl       =                                =            =                =       ^      =
+bsdextrautils    =       util-linux          util-linux                       util-linux   util-linux-misc  -       ^      util-linux
+python3          =       =                   =                                python       =                python  ^      =
+python3-pip      =       =                   =                                python-pip   py3-pip          -       ^      python3Packages.pip
+nodejs           =       =                   nodejs-default                   =            =                node    ^      =
+npm              =       =                   npm-default                      =            =                -       ^      -
+shellcheck       =       ShellCheck          ShellCheck                       =            =                =       ^      =
+net-tools        =       =                   net-tools-deprecated             =            =                =       -      =
+dnsutils         =       bind-utils          bind-utils                       bind         bind-tools       bind    ^      =
+# Linux-only, or part of macOS: nothing for Homebrew to install there.
+strace           =       =                   =                                =            =                =       -      =
+iotop            =       =                   =                                =            =                =       -      =
+sysstat          =       =                   =                                =            =                =       -      =
+tar              =       =                   =                                =            =                =       -      =
 # Popular extras for ENVSETUP_PACKAGES (not in the default lists), where names differ.
-fd-find          =       =                   fd                               fd           fd               fd      fd
-git-delta        =       =                   =                                =            delta            =       delta
-golang-go        =       golang              go                               go           go               go      go
-build-essential  =       @development-tools  patterns-devel-base-devel_basis  base-devel   build-base       -       gcc
+fd-find          =       =                   fd                               fd           fd               fd      ^      fd
+git-delta        =       =                   =                                =            delta            =       ^      delta
+golang-go        =       golang              go                               go           go               go      ^      go
+build-essential  =       @development-tools  patterns-devel-base-devel_basis  base-devel   build-base       -       ^      gcc
 # Debian splits venv out of python3; everywhere else it's built in.
-python3-venv     =       -                   -                                -            -                -       -
-pipx             =       =                   python3-pipx                     python-pipx  =                =       =
+python3-venv     =       -                   -                                -            -                -       ^      -
+pipx             =       =                   python3-pipx                     python-pipx  =                =       ^      =
 # Not in the lists: install_zsh installs it when chsh is missing (Fedora, Alpine).
-chsh             passwd  util-linux-user     shadow                           util-linux   shadow           -       -
+chsh             passwd  util-linux-user     shadow                           util-linux   shadow           -       ^      -

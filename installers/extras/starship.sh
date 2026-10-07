@@ -5,6 +5,7 @@ set -euo pipefail
 source "$ENVSETUP_ROOT/lib/common.sh"
 
 envsetup::has_cmd starship && exit 0
+[[ "$OSTYPE" == darwin* ]] && exec brew install starship
 
 # Installing doesn't switch your prompt: add `eval "$(starship init bash)"` (or zsh) to
 # config.sh, which loads after envsetup's own prompt.

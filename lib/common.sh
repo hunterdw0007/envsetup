@@ -129,11 +129,15 @@ envsetup::pkg_manager() {
 # pkg_name <manager> <package>: what <package> (as packages/*.txt name it) is called by
 # <manager>, from packages/names.txt. Prints nothing if that manager needs nothing.
 envsetup::pkg_name() {
-	local -A col=([apt]=1 [dnf]=2 [zypper]=3 [pacman]=4 [apk]=5 [brew]=6 [nix]=7)
+	local -A col=([apt]=1 [dnf]=2 [zypper]=3 [pacman]=4 [apk]=5 [brew]=6 [nix]=8)
 	local fields=() name=$2
 	while read -ra fields; do
 		if [[ "${fields[0]:-}" == "$2" ]]; then
 			name=${fields[${col[$1]:-0}]:-=}
+			# The macos column overrides brew's on a Mac, unless it's ^ ("as brew").
+			if [[ "$1" == brew && "$OSTYPE" == darwin* && "${fields[7]:-^}" != ^ ]]; then
+				name=${fields[7]}
+			fi
 			break
 		fi
 	done <"$ENVSETUP_ROOT/packages/names.txt"

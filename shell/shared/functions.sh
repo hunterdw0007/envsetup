@@ -1,26 +1,8 @@
 # shellcheck shell=bash
-# Shell functions loaded on every machine except work lite. Bash only (arrays,
-# mapfile), so zsh skips them.
+# Shell functions loaded on every machine except work lite. Bash only (arrays), so zsh
+# skips them. Bash 3.2-safe (no mapfile), since that's macOS's /bin/bash.
 
 [[ -n "${BASH_VERSION:-}" ]] || return 0
-# They need bash 4+ (mapfile), and macOS's own bash is 3.2: there each one, and its
-# alias, says so instead of "command not found". The names come from this file.
-if ((BASH_VERSINFO[0] < 4)); then
-	_envsetup_needs_bash4() {
-		echo "$1 needs bash 4 or newer, and this is bash $BASH_VERSION. Run it from Homebrew's bash (brew install bash)." >&2
-		return 1
-	}
-	_envsetup_re='^([a-zA-Z]+)\(\) '
-	while IFS= read -r _envsetup_f; do
-		if [[ "$_envsetup_f" =~ $_envsetup_re ]]; then
-			eval "${BASH_REMATCH[1]}() { _envsetup_needs_bash4 ${BASH_REMATCH[1]}; }"
-		elif [[ "$_envsetup_f" == "alias "* ]]; then
-			eval "$_envsetup_f"
-		fi
-	done <"$ENVSETUP_ROOT/shell/shared/functions.sh"
-	unset _envsetup_f _envsetup_re
-	return 0
-fi
 
 # shellcheck source=/dev/null # sibling file, resolved at runtime
 source "$ENVSETUP_ROOT/shell/shared/colors.sh"
@@ -31,8 +13,8 @@ fi
 
 # Prefixes piped lines with │, and the last one with └.
 format_with_pipes() {
-	local lines=() i
-	mapfile -t lines
+	local lines=() line i
+	while IFS= read -r line || [[ -n "$line" ]]; do lines+=("$line"); done
 	for i in "${!lines[@]}"; do
 		if ((i + 1 == ${#lines[@]})); then echo "└ ${lines[i]}"; else echo "│ ${lines[i]}"; fi
 	done
@@ -61,7 +43,8 @@ _envsetup_tabulate() {
 # All of them work on the git repos directly under the current directory.
 # ============================================================================
 
-# Branch, ahead/behind, latest semver tag and branch description of every repo.
+# Branch, ahead/behind, latest semver tag and branch description of every repo. The
+# ahead/behind is ps1.sh's parse_git_tracking, which init.sh loads in every mode.
 branchAll() {
 	local output
 	output=$(
@@ -168,13 +151,13 @@ mainOriginAll() {
 # main, master and the current branch are always kept.
 pruneBranches() {
 	local keep=${1:-5} current branch count=0
-	local -a branches
+	local -a branches=()
 	git rev-parse --is-inside-work-tree &>/dev/null || {
 		echo "Not a git repo: $PWD" >&2
 		return 1
 	}
 	current=$(git symbolic-ref --short HEAD 2>/dev/null)
-	mapfile -t branches < <(git for-each-ref --sort=-committerdate refs/heads/ --format='%(refname:short)')
+	while IFS= read -r branch; do branches+=("$branch"); done < <(git for-each-ref --sort=-committerdate refs/heads/ --format='%(refname:short)')
 	for branch in "${branches[@]}"; do
 		[[ $branch == main || $branch == master || $branch == "$current" ]] && continue
 		((++count > keep)) && git branch -D "$branch"

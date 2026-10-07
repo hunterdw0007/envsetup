@@ -6,8 +6,7 @@
 # Clones (or updates) the repo, checks out the newest release, then hands off into
 # setup.sh's TUI. Arguments go to setup.sh, e.g. `... | bash -s -- --dry-run` to look
 # around without changing anything beyond the clone. ENVSETUP_VERSION picks another
-# release (v1.2.0 or 1.2.0), or a branch or commit. See README.md for how to run this
-# while the repo is still private.
+# release (v1.2.0 or 1.2.0), or a branch or commit.
 set -euo pipefail
 
 REPO_URL="${ENVSETUP_REPO_URL:-https://github.com/hunterdw0007/envsetup.git}"

@@ -5,7 +5,7 @@ back to a working shell: aliases, exports, functions, and your usual CLI tools.
 
 ## Quick install
 
-Once this repo is public, one line gets you from a bare machine into the setup menu:
+One line gets you from a bare machine into the setup menu:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | bash
@@ -56,20 +56,6 @@ and "Edit config" still work, so you can try different setups, but they're forgo
 you quit. The menu needs `gum`, so if it isn't installed yet the dry run asks before
 installing it; that's the only change it can make. In a normal session, **Preview
 everything** does the same for "Run everything".
-
-### While the repo is private
-
-`raw.githubusercontent.com` won't serve a private repo to an anonymous request, so until
-this repo is made public, use one of these instead:
-
-```sh
-# authenticate the fetch with a token that can read this repo
-curl -fsSL -H "Authorization: token $GITHUB_TOKEN" \
-  https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | bash
-
-# or just clone over SSH and run it locally
-git clone git@github.com:hunterdw0007/envsetup.git ~/envsetup && ~/envsetup/install.sh
-```
 
 ## Supported systems
 
@@ -395,5 +381,10 @@ tests/macos.sh
 
 It tests the commit you have checked out and writes `macos-report/<time>/report.md`, with
 logs alongside. The `macos` workflow runs it on GitHub's macOS runners and puts the report
-in the run summary. It's opt-in, since macOS minutes cost 10x: Actions tab > macos > Run
-workflow, or add the `macos` label to a PR, which then re-runs it on every push.
+in the run summary. It's opt-in, since macOS runners are slower to start and the run takes
+a couple of minutes: Actions tab > macos > Run workflow, or add the `macos` label to a PR,
+which then re-runs it on every push.
+
+## License
+
+MIT; see `LICENSE`. To report a security problem, see `SECURITY.md`.

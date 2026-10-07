@@ -1,9 +1,10 @@
 name: macos
 
-# Opt-in, since macOS minutes cost 10x: Actions tab > macos > Run workflow, or add the
-# "macos" label to a PR, which then re-runs it on every push so its check stays current
-# (the label also works before this file is on main, which the Actions tab needs). See
-# tests/macos.sh. The report lands in the run summary and as an artifact.
+# Opt-in, since macOS runners are slow to start and the run takes minutes: Actions tab >
+# macos > Run workflow, or add the "macos" label to a PR, which then re-runs it on every
+# push so its check stays current (the label also works before this file is on main,
+# which the Actions tab needs). See tests/macos.sh. The report lands in the run summary
+# and as an artifact.
 on:
   workflow_dispatch:
   pull_request:

@@ -220,8 +220,9 @@ commit messages and the PR title on every PR:
 dozen distros with real installs. Run it after changing anything distro-specific: package
 lists, `envsetup::pkg_install`/`pkg_manager`, installers, `install.sh`.
 `tests/macos.sh` is the same for macOS, on GitHub's macOS runners (the `macos` workflow,
-opt-in by label or dispatch, since their minutes cost 10x) or on a Mac. Run it after changing anything a Mac
-takes a different path through (`brew`, bash 3.2 code, BSD tools).
+opt-in by label or dispatch, since macOS runners are slow to start) or on a Mac. Run it
+after changing anything a Mac takes a different path through (`brew`, bash 3.2 code, BSD
+tools).
 
 The smoke test proves the flows run; it doesn't prove every branch. Behavior is still
 verified and described in the PR:

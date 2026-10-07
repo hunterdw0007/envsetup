@@ -76,7 +76,8 @@ branchAll() {
 			echo -e "${BOLD}$repo_name:${RESET}${BOLD_BLUE}$branch_name${RESET} ${BOLD_RED}$branch_info${RESET}:${BOLD_YELLOW}$branch_tag${RESET}:$branch_description"
 		done
 	)
-	printf "%s" "$output" | _envsetup_tabulate Repository Tracking "Latest Tag" Description
+	# The trailing newline matters: BSD column drops a last line without one.
+	printf "%s\n" "$output" | _envsetup_tabulate Repository Tracking "Latest Tag" Description
 }
 
 fetchAll() {

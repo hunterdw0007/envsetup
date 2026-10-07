@@ -105,7 +105,7 @@ envsetup::releases() {
 # before the first one), a release (v1.2.0 or 1.2.0), or a branch or commit. Releases
 # and commits are checked out detached; a branch is fast-forwarded to origin's.
 envsetup::use_version() {
-	local ref=$1 releases
+	local ref=$1 releases target branch='' file
 	local git=(git -C "$ENVSETUP_DIR")
 	if [[ "$ref" == latest ]]; then
 		read -r ref < <(envsetup::releases) || true
@@ -121,13 +121,11 @@ envsetup::use_version() {
 	if [[ "$ref" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then ref=v$ref; fi
 
 	if "${git[@]}" show-ref -q --verify "refs/tags/$ref"; then
-		"${git[@]}" checkout -q --detach "refs/tags/$ref"
+		target=refs/tags/$ref
 	elif "${git[@]}" show-ref -q --verify "refs/remotes/origin/$ref"; then
-		"${git[@]}" show-ref -q --verify "refs/heads/$ref" || "${git[@]}" branch -q --track "$ref" "origin/$ref"
-		"${git[@]}" checkout -q "$ref" --
-		"${git[@]}" merge -q --ff-only "origin/$ref"
+		target=origin/$ref branch=$ref
 	elif "${git[@]}" rev-parse -q --verify "$ref^{commit}" >/dev/null; then
-		"${git[@]}" checkout -q --detach "$ref"
+		target=$ref
 	else
 		echo "envsetup has no release, branch or commit called \"$1\"." >&2
 		releases=$(envsetup::releases)
@@ -135,6 +133,23 @@ envsetup::use_version() {
 			printf 'Releases, newest first:\n  %s\n' "${releases//$'\n'/$'\n'  }" >&2
 		fi
 		exit 1
+	fi
+	# Edits to tracked files would block switching, or be carried into another version.
+	if [[ "$("${git[@]}" rev-parse HEAD)" != "$("${git[@]}" rev-parse "$target^{commit}")" ]] &&
+		! "${git[@]}" diff --quiet HEAD; then
+		echo "$ENVSETUP_DIR has local changes, so it can't switch to $1:" >&2
+		while read -r file; do echo "  $file" >&2; done < <("${git[@]}" diff --name-only HEAD)
+		echo "Your own settings belong in ~/.config/envsetup/config.sh (see the README), which" >&2
+		echo "updates never touch. To set the changes aside: git -C $ENVSETUP_DIR stash" >&2
+		exit 1
+	fi
+
+	if [[ -n "$branch" ]]; then
+		"${git[@]}" show-ref -q --verify "refs/heads/$branch" || "${git[@]}" branch -q --track "$branch" "$target"
+		"${git[@]}" checkout -q "$branch" --
+		"${git[@]}" merge -q --ff-only "$target"
+	else
+		"${git[@]}" checkout -q --detach "$target"
 	fi
 }
 

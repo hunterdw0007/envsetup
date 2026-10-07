@@ -35,7 +35,7 @@ Conventional Commits, always: `<type>(<scope>)?: <summary>`.
   macOS's bash 3.2: no `readarray`/`mapfile`, associative arrays, `${x,,}`, or bare
   `"${arr[@]}"` of a possibly empty array under `set -u` (use `${arr[@]+"${arr[@]}"}`).
   The `lib/` and `shell/` files may use bash 4+ inside functions, but must still parse
-  under 3.2. CI's `bash 3.2` step checks the parsing and `setup.sh --help`.
+  under 3.2. CI's bash 3.2 step checks the parsing, `setup.sh --help` and its "needs bash 4" exit.
 - Indent with tabs, matching the rest of the repo.
 - Use `[[ ]]` over `[ ]`, quote variable expansions, prefer bash builtins
   (`readarray`, `[[ =~ ]]`, parameter expansion) over spawning external tools where

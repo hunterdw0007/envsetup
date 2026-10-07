@@ -5,7 +5,7 @@ set -euo pipefail
 source "$ENVSETUP_ROOT/lib/common.sh"
 
 envsetup::has_cmd k9s && exit 0
-envsetup::macos_brew k9s
+[[ "$OSTYPE" == darwin* ]] && exec brew install k9s
 
 asset="k9s_Linux_$(envsetup::arch).tar.gz"
 base=https://github.com/derailed/k9s/releases/latest/download

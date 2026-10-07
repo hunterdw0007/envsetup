@@ -5,7 +5,7 @@ set -euo pipefail
 source "$ENVSETUP_ROOT/lib/common.sh"
 
 envsetup::has_cmd kubectl && exit 0
-envsetup::macos_brew kubernetes-cli
+[[ "$OSTYPE" == darwin* ]] && exec brew install kubernetes-cli
 
 version="$(curl -fsSL https://dl.k8s.io/release/stable.txt)"
 tmp="$(mktemp -d)"

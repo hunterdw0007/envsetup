@@ -5,7 +5,7 @@ set -euo pipefail
 source "$ENVSETUP_ROOT/lib/common.sh"
 
 envsetup::has_cmd aws && exit 0
-envsetup::macos_brew awscli
+[[ "$OSTYPE" == darwin* ]] && exec brew install awscli
 
 # AWS's build needs glibc; Alpine (musl) packages its own.
 if [[ "$OSTYPE" == linux-musl* ]]; then

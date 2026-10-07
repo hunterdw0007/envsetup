@@ -78,15 +78,6 @@ envsetup::github_latest() {
 	echo "${BASH_REMATCH[1]}"
 }
 
-# macos_brew <formula>: on macOS, installs the tool with Homebrew and ends the installer
-# there; the release downloads after it are Linux builds.
-envsetup::macos_brew() {
-	if [[ "$OSTYPE" == darwin* ]]; then
-		brew install "$1"
-		exit
-	fi
-}
-
 # release_sha256 <checksums url> <file>: <file>'s hash from a project's sha256 list,
 # either "<hash>  <file>" lines (sha256sum's format, "*file" and "./file" too) or the
 # bare hash of a one-file .sha256.
@@ -138,11 +129,15 @@ envsetup::pkg_manager() {
 # pkg_name <manager> <package>: what <package> (as packages/*.txt name it) is called by
 # <manager>, from packages/names.txt. Prints nothing if that manager needs nothing.
 envsetup::pkg_name() {
-	local -A col=([apt]=1 [dnf]=2 [zypper]=3 [pacman]=4 [apk]=5 [brew]=6 [nix]=7)
+	local -A col=([apt]=1 [dnf]=2 [zypper]=3 [pacman]=4 [apk]=5 [brew]=6 [nix]=8)
 	local fields=() name=$2
 	while read -ra fields; do
 		if [[ "${fields[0]:-}" == "$2" ]]; then
 			name=${fields[${col[$1]:-0}]:-=}
+			# The macos column overrides brew's on a Mac; its = means "as brew".
+			if [[ "$1" == brew && "$OSTYPE" == darwin* && "${fields[7]:-=}" != = ]]; then
+				name=${fields[7]}
+			fi
 			break
 		fi
 	done <"$ENVSETUP_ROOT/packages/names.txt"

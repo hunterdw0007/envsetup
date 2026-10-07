@@ -5,7 +5,7 @@ set -euo pipefail
 source "$ENVSETUP_ROOT/lib/common.sh"
 
 envsetup::has_cmd yq && exit 0
-envsetup::macos_brew yq
+[[ "$OSTYPE" == darwin* ]] && exec brew install yq
 
 # Not from the package manager: Debian and Ubuntu's "yq" is a different tool (a jq
 # wrapper in Python) with other syntax.

@@ -93,8 +93,8 @@ Conventional Commits, always: `<type>(<scope>)?: <summary>`.
   this; don't add a `set -e`-defeating workaround inside an individual script to try
   to do the same thing.
 - On macOS, hand over to Homebrew right after the already-installed check:
-  `envsetup::macos_brew <formula>` installs it and ends the script (the downloads that
-  follow are Linux builds).
+  `[[ "$OSTYPE" == darwin* ]] && exec brew install <formula>`, which ends the script there
+  (the downloads that follow are Linux builds).
 - Download the build for the machine (`envsetup::arch` gives `amd64`/`arm64`), run root
   steps through `envsetup::as_root` (sudo, doas, or already root), and document any
   remaining OS/arch assumption in a comment.
@@ -112,7 +112,8 @@ Conventional Commits, always: `<type>(<scope>)?: <summary>`.
 - A tool installable by name from the distros' package managers → `packages/common.txt`
   or `packages/<profile>.txt`, by its Debian/Ubuntu name. If another manager (`dnf`,
   `zypper`, `pacman`, `apk`, `brew`, `nix`) calls it something else, or has it in the base
-  system, add a row to `packages/names.txt`.
+  system, add a row to `packages/names.txt` (its `macos` column is for where Homebrew on
+  macOS differs from Homebrew on Linux).
 - Anything else — a vendor installer script, a manual binary download, an arbitrary
   custom setup step → `installers/common/` or `installers/<profile>/`. A popular tool
   that only some users want and that major distros (Ubuntu LTS, Fedora) don't package →

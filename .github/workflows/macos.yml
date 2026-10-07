@@ -1,17 +1,23 @@
 name: macos
 
-# Manual only, since macOS minutes cost 10x: Actions tab > macos > Run workflow, or add
-# the "macos" label to a PR (again to re-run; the label also works before this file is
-# on main, which the Actions tab needs). See tests/macos.sh. The report lands in the run
-# summary and as an artifact.
+# Opt-in, since macOS minutes cost 10x: Actions tab > macos > Run workflow, or add the
+# "macos" label to a PR, which then re-runs it on every push so its check stays current
+# (the label also works before this file is on main, which the Actions tab needs). See
+# tests/macos.sh. The report lands in the run summary and as an artifact.
 on:
   workflow_dispatch:
   pull_request:
-    types: [labeled]
+    types: [labeled, synchronize]
+
+permissions:
+  contents: read
 
 jobs:
   macos:
-    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'macos'
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.action == 'labeled' && github.event.label.name == 'macos') ||
+      (github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'macos'))
     runs-on: macos-latest
     timeout-minutes: 20
     env:

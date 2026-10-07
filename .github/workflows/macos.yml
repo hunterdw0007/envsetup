@@ -24,7 +24,7 @@ jobs:
     env:
       HOMEBREW_NO_AUTO_UPDATE: "1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Most scenarios need Homebrew's bash, as install.sh would set up. The others are
       # what the MANPAGER, cat alias and shell hook checks look for.

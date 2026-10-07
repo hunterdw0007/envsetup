@@ -237,10 +237,6 @@ if [[ -n "$new_bash" ]]; then
 	check "  ...and, in lite, none of the functions" test "$(in_shell "$hb" /bin/bash -l -i -- 'type -t branchAll || echo none')" = none
 	check "  ...without errors" clean "$hb/shell.err"
 	cp "$hb/shell.err" "$out/bash32.err"
-	# The home profile (full mode) linked ~/.bash_profile too: its login shell was still bash.
-	needs_bash4() { [[ $(in_shell "$hh" /bin/bash -l -i -- 'branchAll 2>&1; echo "rc=$?"') == *"needs bash 4"*rc=1 ]]; }
-	check "/bin/bash login shell, full mode: the functions say they need bash 4" needs_bash4
-	check "Homebrew's bash: gets the functions" test "$(in_shell "$hz" "$new_bash" -i -- 'type -t branchAll')" = function
 	# Two repos, one a commit ahead of its remote, for the prompt and branchAll.
 	r=$T/repos
 	mkdir -p "$r"
@@ -250,13 +246,18 @@ if [[ -n "$new_bash" ]]; then
 		git -c user.email=t@t -c user.name=t commit -q --allow-empty -m two)
 	git clone -q "$T/remote.git" "$r/two" 2>/dev/null
 	export MT_REPOS=$r
+	table() { [[ $1 == *Repository* && $1 == *one* && $1 == *two* ]]; }
+	# The home profile (full mode) linked ~/.bash_profile too: its login shell was still bash.
+	ba=$(in_shell "$hh" /bin/bash -l -i -- 'cd "$MT_REPOS" && branchAll')
+	echo "$ba" >"$out/branchAll-bash32.txt"
+	check "/bin/bash login shell, full mode: branchAll works under bash 3.2" table "$ba"
 	ba=$(in_shell "$hz" "$new_bash" -i -- 'cd "$MT_REPOS" && branchAll')
 	echo "$ba" >"$out/branchAll.txt"
-	table() { [[ $ba == *Repository* && $ba == *one* && $ba == *two* ]]; }
-	check "  ...branchAll prints its table with BSD column" table
+	check "Homebrew's bash: branchAll prints its table with BSD column" table "$ba"
 	check "  ...without column errors" hasnt "illegal option" "$hz/shell.err"
-	ahead() { [[ $(in_shell "$hz" "$new_bash" -i -- 'cd "$MT_REPOS/one" && parse_git_tracking') == *'⤻ 1'* ]]; }
-	check "  ...prompt shows a commit ahead" ahead
+	ahead() { [[ $(in_shell "$@" -- 'cd "$MT_REPOS/one" && parse_git_tracking') == *'⤻ 1'* ]]; }
+	check "  ...prompt shows a commit ahead" ahead "$hz" "$new_bash" -i
+	check "  ...and so does /bin/bash's" ahead "$hh" /bin/bash -l -i
 	if command -v bat >/dev/null || command -v batcat >/dev/null; then
 		manpager() { [[ $(in_shell "$hz" "$new_bash" -i -- 'printf %s "$MANPAGER"') == *'col -bx'* ]]; }
 		check "MANPAGER strips overstrikes with col" manpager

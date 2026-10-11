@@ -147,11 +147,33 @@ mainOriginAll() {
 	branchAll
 }
 
-# Deletes (-D) all but the N most recently committed local branches (default 5);
-# main, master and the current branch are always kept.
+# pruneBranches [N] [--force] [--yes] [--dry-run]: deletes all but the N most recently
+# committed local branches (default 5), after listing them and asking. main, master and
+# the current branch always stay, and so do unmerged branches unless --force.
 pruneBranches() {
-	local keep=${1:-5} current branch count=0
-	local -a branches=()
+	local keep=5 force=false yes=false dry=false current branch upstream reply arg count=0 failed=0
+	local -a branches=() merged=() unmerged=()
+	for arg; do
+		case $arg in
+		--force) force=true ;;
+		--yes) yes=true ;;
+		--dry-run) dry=true ;;
+		--help)
+			echo "Deletes all but the N most recently committed local branches (default 5), after"
+			echo "listing them and asking. main, master and the current branch always stay."
+			echo "Usage: pruneBranches [N] [--force] [--yes] [--dry-run]"
+			echo "    --force   - also delete branches that aren't merged, losing their commits"
+			echo "    --yes     - don't ask first"
+			echo "    --dry-run - only list what it would delete"
+			return 0
+			;;
+		'' | *[!0-9]*)
+			echo "pruneBranches: unknown option: $arg (see --help)" >&2
+			return 2
+			;;
+		*) keep=$arg ;;
+		esac
+	done
 	git rev-parse --is-inside-work-tree &>/dev/null || {
 		echo "Not a git repo: $PWD" >&2
 		return 1
@@ -160,11 +182,39 @@ pruneBranches() {
 	while IFS= read -r branch; do branches+=("$branch"); done < <(git for-each-ref --sort=-committerdate refs/heads/ --format='%(refname:short)')
 	for branch in "${branches[@]}"; do
 		[[ $branch == main || $branch == master || $branch == "$current" ]] && continue
-		((++count > keep)) && git branch -D "$branch"
+		((++count > keep)) || continue
+		# Merged the way `git branch -d` means it: into its upstream, or into HEAD if none.
+		upstream=$(git rev-parse -q --verify "$branch@{upstream}" 2>/dev/null) || upstream=HEAD
+		if git merge-base --is-ancestor "$branch" "$upstream"; then merged+=("$branch"); else unmerged+=("$branch"); fi
 	done
-	return 0
+	if $force; then
+		merged+=(${unmerged[@]+"${unmerged[@]}"})
+	elif ((${#unmerged[@]})); then
+		echo "Keeping ${#unmerged[@]} unmerged (--force deletes them too, with their commits):"
+		printf '  %s\n' "${unmerged[@]}"
+	fi
+	if ((${#merged[@]} == 0)); then
+		echo "Nothing to delete."
+		return 0
+	fi
+	echo "Would delete ${#merged[@]}:"
+	printf '  %s\n' "${merged[@]}"
+	$dry && return 0
+	if ! $yes; then
+		read -r -p "Delete them? [y/N] " reply
+		if [[ $reply != [yY]* ]]; then
+			echo "Nothing deleted."
+			return 0
+		fi
+	fi
+	for branch in "${merged[@]}"; do
+		if $force; then git branch -D "$branch"; else git branch -d "$branch"; fi || failed=1
+	done
+	return "$failed"
 }
 
+# pruneBranchesAll [pruneBranches options]: pruneBranches in every repo under the
+# current directory, asking once per repo.
 pruneBranchesAll() {
 	local dir
 	for dir in */; do

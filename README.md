@@ -149,7 +149,8 @@ those; everything else also gets the exports and functions.
 - **Exports**: XDG base directories, `EDITOR=vim`, and man pages through `bat`.
 - **Functions** (bash, macOS's 3.2 included): multi-repo git helpers for a directory of checkouts. They are
   `branchAll` (`ba`), `fetchAll` (`fa`), `pullMainAll` (`pma`), `mainOriginAll`,
-  `pruneBranches` (`pb`) and `pruneBranchesAll` (`pba`); most take `--help`. On work
+  `pruneBranches` (`pb`) and `pruneBranchesAll` (`pba`), which list the old branches and ask
+  before deleting, and keep unmerged ones unless `--force`; most take `--help`. On work
   there is also `resetNode` for helm charts.
 
 Git shortcuts are git aliases (`git s`, `git d`, `git l`, ...) in `git/gitconfig`, not

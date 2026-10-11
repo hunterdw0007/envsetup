@@ -135,7 +135,9 @@ everything".
 ### What your shell gets
 
 Every profile and mode gets the prompt, aliases and tool hooks. Work lite gets only
-those; everything else also gets the exports and functions.
+those; everything else also gets the exports and functions. That's in interactive shells:
+a non-interactive one (`ssh host cmd`, scp, rsync, scripts) only gets Homebrew on `PATH`
+(macOS), the exports for dotfiles moved to XDG directories, and your `config.sh`.
 
 - **Prompt** (bash): time, kube context, a collapsed path (`~/d/envsetup`), git branch and
   ahead/behind, then `❯` on its own line. In zsh, the oh-my-zsh theme owns the prompt

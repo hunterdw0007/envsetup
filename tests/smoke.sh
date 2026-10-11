@@ -168,6 +168,14 @@ in_shell() {
 	echo "$out"
 }
 
+# not_interactive <home> <cmd>: cmd in a non-interactive bash that still runs envsetup's
+# rc block, as `ssh host cmd` does where ~/.bashrc doesn't return early (Fedora's).
+# Ubuntu's does, so the block is pulled out and run through BASH_ENV. stderr included.
+not_interactive() {
+	sed -n '/^# >>> envsetup >>>$/,/^# <<< envsetup <<<$/p' "$1/.bashrc" >"$1/rc-block.sh"
+	HOME=$1 BASH_ENV=$1/rc-block.sh bash -c "$2" 2>&1 </dev/null
+}
+
 echo "== install.sh on a bare box: real apt for git, real clone, hand-off to setup.sh"
 printf '[safe]\n\tdirectory = *\n' >"$HOME/.gitconfig" # /src is owned by the host's user
 printf 'Quit\n' >"$SMOKE_CHOICES"
@@ -205,6 +213,10 @@ check "bash gets the functions" [ "$(in_shell "$h" bash 'type -t fetchAll')" = f
 check "bash gets the work aliases" [ "$(in_shell "$h" bash 'alias kc')" = "alias kc='kubectl'" ]
 check "bash starts without errors" [ ! -s "$h/shell.err" ]
 [ -s "$h/shell.err" ] && show "$h/shell.err"
+check "a non-interactive bash (ssh host cmd) runs the rc block" [ "$(not_interactive "$h" 'printf %s "$ENVSETUP_ROOT"')" = "$CLONE" ]
+check "  ...but gets no functions" [ "$(not_interactive "$h" 'type -t fetchAll || echo none')" = none ]
+check "  ...no aliases" [ "$(not_interactive "$h" 'alias ll >/dev/null 2>&1 || echo none')" = none ]
+check "  ...and prints nothing of its own (scp needs a silent shell)" [ "$(not_interactive "$h" 'echo marker')" = marker ]
 check "git gets the shipped defaults" same_list "$(git config --file "$CLONE/git/gitconfig" alias.l)" "$(HOME=$h git config --global --includes alias.l)"
 check "re-run exited 0" run_menu "$h" "Run everything" Quit
 check "re-run didn't link twice" [ "$(count '# >>> envsetup >>>' "$h/.bashrc")" = 1 ]
@@ -525,6 +537,7 @@ check "moved ~/.htoprc (program reads the XDG path)" cmp -s <(echo 'color_scheme
 check "moved ~/.docker" [ -f "$h/.config/docker/config.json" ]
 check "  ...out of \$HOME" [ ! -e "$h/.docker" ]
 check "  ...and new shells get DOCKER_CONFIG" [ "$(in_shell "$h" bash 'printf %s "$DOCKER_CONFIG"')" = "$h/.config/docker" ]
+check "    ...non-interactive ones too" [ "$(not_interactive "$h" 'printf %s "$DOCKER_CONFIG"')" = "$h/.config/docker" ]
 check "left ~/.wgetrc: .bashrc references it" [ -f "$h/.wgetrc" ]
 check "  ...and said why" grep -qF 'leaving ~/.wgetrc (wget): referenced from' "$h/setup.out"
 SETUP_ARGS=(--uninstall) CONFIRMS=(yes yes)

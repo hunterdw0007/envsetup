@@ -154,6 +154,11 @@ GitHub release with the same entry as its notes. The current version is the newe
 - On macOS, hand over to Homebrew right after the already-installed check:
   `[[ "$OSTYPE" == darwin* ]] && exec brew install <formula>`, which ends the script there
   (the downloads that follow are Linux builds).
+- Every download that gets installed or run is verified before it is, and a failed check
+  stops the script. Use `envsetup::release_sha256` + `envsetup::install_release` when the
+  project publishes checksums. When it only publishes a signature (awscli), use
+  `envsetup::gpg_verify` against the vendor's key, kept next to the script with its
+  fingerprint pinned in the script.
 - Download the build for the machine (`envsetup::arch` gives `amd64`/`arm64`), run root
   steps through `envsetup::as_root` (sudo, doas, or already root), and document any
   remaining OS/arch assumption in a comment.

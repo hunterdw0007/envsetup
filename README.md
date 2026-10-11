@@ -313,6 +313,10 @@ file, whatever). Either kind goes in `installers/`:
    "Run installers" may run again later. `installers/work/kubectl.sh` is a working example.
 3. It runs as its own `bash` process, so source `$ENVSETUP_ROOT/lib/common.sh` yourself if you
    want helpers like `envsetup::has_cmd`.
+4. Verify what you download before installing or running it. If the project publishes
+   checksums, use `envsetup::release_sha256` + `envsetup::install_release` (kubectl.sh again).
+   If it only signs its releases, keep its public key next to the script and call
+   `envsetup::gpg_verify` with the key's fingerprint (awscli.sh).
 
 To add your own installers without touching this repo, keep them in a directory of your own
 and add it via `ENVSETUP_INSTALLER_DIRS` in `config.sh`.

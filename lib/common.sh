@@ -103,20 +103,59 @@ envsetup::release_sha256() {
 	return 1
 }
 
-# install_release <url> <sha256> <member>...: downloads a release (a .tar.gz, or a bare
-# binary), checks its hash, and installs each member (a path inside the archive, or
-# the binary's name) into /usr/local/bin under its base name.
+# install_release <url> <sha256> <member>...: downloads a release (a .tar.gz, a .zip, or
+# a bare binary), checks its hash, and installs each member (a path inside the archive,
+# or the binary's name) into /usr/local/bin under its base name.
 envsetup::install_release() (
 	url=$1 sha=$2 tmp=$(mktemp -d)
 	shift 2
 	trap 'rm -rf "$tmp"' EXIT
-	file=$tmp/${url##*/}
+	file=$tmp/download-${url##*/}
 	curl -fsSL -o "$file" "$url"
-	echo "$sha  $file" | sha256sum -c >/dev/null
-	if [[ "$file" == *.tar.gz ]]; then tar -xzf "$file" -C "$tmp"; else mv "$file" "$tmp/$1"; fi
+	if ! echo "$sha  $file" | sha256sum -c >/dev/null 2>&1; then
+		echo "${url##*/} doesn't match its published checksum; not installing it." >&2
+		exit 1
+	fi
+	case $file in
+	*.tar.gz) tar -xzf "$file" -C "$tmp" ;;
+	*.zip) unzip -q "$file" -d "$tmp" ;;
+	*) mv "$file" "$tmp/$1" ;;
+	esac
 	for member; do
 		envsetup::as_root install -m 0755 "$tmp/$member" "/usr/local/bin/${member##*/}"
 	done
+)
+
+# gpg_verify <file> <signature> <key.asc> <fingerprint>: checks a detached signature
+# against a key kept in this repo, and passes only if it's a valid signature by exactly
+# that key. "Expired" alone doesn't fail it: vendors extend a key's expiry date and keep
+# signing with it, so the copy here goes stale while the key stays the same. gpgv (which
+# Debian and Ubuntu always have; gpg often isn't installed) reads only binary keyrings,
+# hence the dearmoring.
+envsetup::gpg_verify() (
+	file=$1 sig=$2 key=$3 fpr=$4 tmp=$(mktemp -d) body=false status=
+	trap 'rm -rf "$tmp"' EXIT
+	while IFS= read -r line; do
+		[[ $line == -----END* ]] && break
+		if $body; then
+			[[ $line == =* ]] || printf '%s\n' "$line" # skip the armor's checksum line
+		elif [[ -z ${line//[[:space:]]/} ]]; then
+			body=true
+		fi
+	done <"$key" | base64 -d >"$tmp/key.gpg"
+	if envsetup::has_cmd gpgv; then
+		status=$(gpgv --keyring "$tmp/key.gpg" --status-fd 1 "$sig" "$file" 2>/dev/null) || true
+	elif envsetup::has_cmd gpg; then
+		status=$(gpg --homedir "$tmp" --no-default-keyring --keyring "$tmp/key.gpg" --batch \
+			--status-fd 1 --verify "$sig" "$file" 2>/dev/null) || true
+	else
+		echo "Can't check ${file##*/}'s signature without gpgv or gpg (install gnupg)." >&2
+		exit 1
+	fi
+	if [[ $'\n'"$status" != *$'\n[GNUPG:] VALIDSIG '"$fpr "* ]]; then
+		echo "${file##*/} isn't validly signed by $fpr; not installing it." >&2
+		exit 1
+	fi
 )
 
 envsetup::pkg_manager() {

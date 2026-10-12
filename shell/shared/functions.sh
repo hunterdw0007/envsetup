@@ -107,7 +107,7 @@ _envsetup_fetch_all_repos() {
 	for dir in ./*/; do
 		[[ -d "$dir/.git" ]] || continue
 		echo "🚛 Fetching $dir"
-		git -C "$dir" fetch --force --prune --prune-tags 2>&1 | _envsetup_format_with_pipes
+		git -C "$dir" fetch --force --prune 2>&1 | _envsetup_format_with_pipes
 		# The status of git, not of the formatter at the end of the pipe.
 		if ((PIPESTATUS[0] != 0)); then failed+=" $dir"; fi
 	done

@@ -1,0 +1,1 @@
+envsetup smoke test: signed with tests/fixtures/smoke-key.asc

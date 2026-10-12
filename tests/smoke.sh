@@ -42,6 +42,7 @@ none_exist_in() {
 	shift
 	for f; do ! grep -qF -- "$text" "$f" || return 1; done
 }
+not() { ! "$@"; }
 same_list() { [ -n "$1" ] && [ "$1" = "$2" ]; } # an empty expected list is a broken test, not a pass
 same_commit() { # both must resolve, so two failed lookups can't compare equal
 	local a b
@@ -535,6 +536,37 @@ check "  ...moved ~/.docker back" [ -f "$h/.docker/config.json" ]
 check "  ...and removed the exports and the notes" none_exist "$h/.config/envsetup/xdg.sh" "$h/.cache/envsetup"
 unset ENVSETUP_XDG_NINJA_URL
 ((failures)) && show "$h/setup.out"
+
+echo "== download verification (lib/common.sh), offline"
+# install_release gets a file:// URL from a curl that only copies local files. gpg_verify
+# checks tests/fixtures/signed.txt against a throwaway key made for this test (its secret
+# half was never kept), with the real gpgv.
+v=$W/verify
+mkdir -p "$v/bin"
+printf '#!/bin/sh\nfor a; do out=$url; url=$a; done\n[ "$out" != "${out#-}" ] && exit 2\ncp "${url#file://}" "$out"\n' >"$v/bin/curl"
+chmod +x "$v/bin/curl"
+printf '#!/bin/sh\necho smoke-verified\n' >"$v/smoke-good"
+cp "$v/smoke-good" "$v/smoke-bad"
+good_sha=$(sha256sum "$v/smoke-good" | cut -d' ' -f1)
+verify() { env PATH="${VPATH:-$v/bin:$PATH}" ENVSETUP_ROOT="$CLONE" "$BASH" -c 'source "$ENVSETUP_ROOT/lib/common.sh" && "$@"' _ "$@" >"$v/out" 2>&1; }
+check "install_release installs a download that matches its checksum" verify envsetup::install_release "file://$v/smoke-good" "$good_sha" smoke-good
+check "  ...the binary it installed runs" [ "$(/usr/local/bin/smoke-good 2>&1)" = smoke-verified ]
+echo tampered >>"$v/smoke-bad"
+check "install_release refuses one that doesn't" not verify envsetup::install_release "file://$v/smoke-bad" "$good_sha" smoke-bad
+check "  ...says why" grep -qF "smoke-bad doesn't match its published checksum" "$v/out"
+check "  ...and installs nothing" [ ! -e /usr/local/bin/smoke-bad ]
+check "  ...nor with an empty checksum (none was published)" not verify envsetup::install_release "file://$v/smoke-good" "" smoke-empty
+fx=$CLONE/tests/fixtures
+fpr=33BA29D63A94A1F8D01A594286EFD1F2522F6FD0
+check "gpg_verify passes a good signature by the pinned key" verify envsetup::gpg_verify "$fx/signed.txt" "$fx/signed.txt.sig" "$fx/smoke-key.asc" "$fpr"
+sed 's/smoke test/smoke tesT/' "$fx/signed.txt" >"$v/signed.txt"
+check "  ...fails a file with one byte changed" not verify envsetup::gpg_verify "$v/signed.txt" "$fx/signed.txt.sig" "$fx/smoke-key.asc" "$fpr"
+check "  ...says why" grep -qF "signed.txt isn't validly signed by $fpr" "$v/out"
+check "  ...fails another key's fingerprint, even a prefix of the right one" not verify envsetup::gpg_verify "$fx/signed.txt" "$fx/signed.txt.sig" "$fx/smoke-key.asc" "${fpr%?}"
+mkdir -p "$v/nogpg"
+for t in mktemp base64 rm; do ln -sf "$(command -v "$t")" "$v/nogpg/$t"; done
+VPATH=$v/nogpg check "  ...fails closed with neither gpgv nor gpg" not verify envsetup::gpg_verify "$fx/signed.txt" "$fx/signed.txt.sig" "$fx/smoke-key.asc" "$fpr"
+check "  ...saying what to install" grep -qF "without gpgv or gpg (install gnupg)" "$v/out"
 
 echo "== cancelling"
 h=$(new_home)

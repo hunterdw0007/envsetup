@@ -167,7 +167,21 @@ your `config.sh`. Tool hooks are left out too, so runtimes installed with mise a
   envsetup does not change it.
 
 Git shortcuts are git aliases (`git s`, `git d`, `git l`, ...) in `git/gitconfig`, not
-shell aliases.
+shell aliases. Some settings in that file change what git does by default:
+
+- `pull.rebase = true`: a bare `git pull` rebases your commits, and does not merge.
+- `fetch.prune = true` and `fetch.all = true`: each fetch fetches every remote, and
+  removes the remote-tracking branches of deleted branches. Local tags stay.
+- `push.default = current`, and `status.showUntrackedFiles = all`.
+- `credential.helper = cache --timeout=3600`: git keeps HTTPS credentials in memory for
+  an hour. On macOS or WSL, you can use the helper of the OS (see `config.example.sh`).
+- `git p`, `git pf` and `git su` push to, or track, a remote called `origin` and a branch
+  called `main`.
+- `git aa` is `git add .`: it also stages files that `.gitignore` does not cover, for
+  example an `.env` file.
+
+To change one of them, put your own value in `ENVSETUP_GIT_CONFIG` in `config.sh` (for
+example `"pull.rebase=false"`), and run "Configure git" again.
 
 ### Moving dotfiles to XDG directories (optional)
 

@@ -21,7 +21,7 @@ envsetup::git_unset() {
 }
 
 envsetup::configure_git() {
-	local generated=$ENVSETUP_GIT_GENERATED kv key
+	local generated=$ENVSETUP_GIT_GENERATED kv key value
 	local -A hint=([name]='Your name' [email]='you@example.com')
 	if envsetup::dry_run; then
 		if envsetup::git_included; then
@@ -51,9 +51,19 @@ envsetup::configure_git() {
 		gum style --foreground 2 "Included $generated in \$HOME/.gitconfig"
 	fi
 
-	# --includes: identity may come from config.sh via the generated file above.
+	# --includes: identity may come from config.sh via the generated file above. An
+	# empty answer, or Esc or Ctrl-C (gum then exits non-zero), skips the key. Thus
+	# ~/.gitconfig never gets an empty user.name or user.email.
 	for key in name email; do
-		[[ -n "$(git config --global --includes "user.$key" 2>/dev/null)" ]] ||
-			git config --global "user.$key" "$(gum input --placeholder "${hint[$key]}")"
+		[[ -z "$(git config --global --includes "user.$key" 2>/dev/null)" ]] || continue
+		if value=$(gum input --placeholder "${hint[$key]}") && [[ -n "${value//[[:space:]]/}" ]]; then
+			if [[ "$key" == email && "$value" != *@* ]]; then
+				gum style --foreground 3 "Skipped user.email: \"$value\" is not an email address"
+			else
+				git config --global "user.$key" "$value"
+			fi
+		else
+			gum style --foreground 3 "Skipped user.$key. git needs it before your first commit: git config --global user.$key ..."
+		fi
 	done
 }

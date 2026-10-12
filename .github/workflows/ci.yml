@@ -18,7 +18,7 @@ jobs:
   shell-checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: bash -n (syntax check)
         run: find . -name '*.sh' -not -path './.git/*' -print0 | xargs -0 -n1 bash -n
@@ -45,7 +45,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20 # a cache miss fetches from Ubuntu's archive; a hit takes seconds
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Ubuntu's archive is slow from CI often enough (minutes for a few packages, or a
       # stall), so the smoke test runs offline. What it installs with real apt (git for
@@ -83,7 +83,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: ./.github/actions/commitizen
 
@@ -107,7 +107,7 @@ jobs:
       group: release
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # every commit and tag: the bump is worked out from the commits since the last tag
           # No token left in .git/config: commitizen runs in the next steps, and only the

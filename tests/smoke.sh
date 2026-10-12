@@ -159,7 +159,9 @@ rejects_unknown() {
 }
 includes() { git config --file "$1/.gitconfig" --get-all include.path || true; }
 # PS1 comes from shell/shared/ps1.sh, not the distro's .bashrc.
-has_prompt() { [[ "$(in_shell "$1" bash 'printf %s "$PS1"')" == *'$(collapsed_directory)'* ]]; }
+has_prompt() { [[ "$(in_shell "$1" bash 'printf %s "$PROMPT_COMMAND $PS1"')" == *_envsetup_prompt*'${_envsetup_prompt_dir}'* ]]; }
+# prompt_var <home> <dir> <var>: what _envsetup_prompt (PROMPT_COMMAND) sets <var> to in <dir>.
+prompt_var() { in_shell "$1" bash "cd '$2' && _envsetup_prompt && printf %s \"\$_envsetup_prompt_$3\""; }
 # in_shell <home> <bash|zsh> <cmd>: runs cmd in a real interactive shell that loads
 # the linked rc file; stderr (minus no-TTY job-control notices) goes to <home>/shell.err.
 in_shell() {
@@ -209,7 +211,11 @@ done
 check "no downloads (vendor tools already installed)" not_grep '^curl ' "$SMOKE_LOG"
 check "bash loads the aliases" [ "$(in_shell "$h" bash 'alias ll')" = "alias ll='ls -alh'" ]
 check "bash gets the prompt" has_prompt "$h"
-check "  ...which collapses the path" [ "$(in_shell "$h" bash 'cd /usr/share/doc && collapsed_directory')" = /u/s/doc ]
+check "  ...which collapses the path" [ "$(prompt_var "$h" /usr/share/doc dir)" = /u/s/doc ]
+mkdir -p "$h/.kube" && printf 'current-context: smoke-ctx\n' >"$h/.kube/config"
+check "  ...shows the kube context" [ "$(prompt_var "$h" /tmp context)" = "smoke-ctx " ]
+git init -q -b smoke-branch "$h/repo"
+check "  ...and the git branch" [ "$(prompt_var "$h" "$h/repo" git)" = " smoke-branch" ]
 check "bash gets the functions" [ "$(in_shell "$h" bash 'type -t fetchAll')" = function ]
 check "bash gets the work aliases" [ "$(in_shell "$h" bash 'alias kc')" = "alias kc='kubectl'" ]
 check "bash starts without errors" [ ! -s "$h/shell.err" ]
@@ -436,12 +442,16 @@ run_menu "$h" "Select profile" work full "Run everything" Quit
 gc=$h/.config/envsetup/gitconfig
 check "(before: git includes envsetup's file)" [ "$(includes "$h")" = "$gc" ]
 check "(before: a profile is saved)" [ -f "$h/.config/envsetup/profile" ]
+mkdir -p "$h/.kube" && printf 'current-context: smoke-ctx\n' >"$h/.kube/config"
+prompt_var "$h" /tmp context >/dev/null
+check "(before: the prompt cached the kube context)" [ -f "$h/.cache/envsetup/kube-context" ]
 SETUP_ARGS=(--uninstall) CONFIRMS=(yes)
 check "exited 0" run_menu "$h"
 check ".bashrc is byte-for-byte what it was" cmp -s /etc/skel/.bashrc "$h/.bashrc"
 check "removed the git include" [ -z "$(includes "$h")" ]
 check "kept the git identity" [ "$(git config --file "$h/.gitconfig" user.name)" = "Smoke Test" ]
 check "removed envsetup's saved state" [ ! -e "$h/.config/envsetup" ]
+check "removed the prompt's cache" none_exist "$h/.cache/envsetup/kube-context" "$h/.cache/envsetup"
 check "bash is back to the distro's aliases" [ "$(in_shell "$h" bash 'alias ll')" = "alias ll='ls -alF'" ]
 check "didn't touch the login shell" not_grep '^chsh ' "$SMOKE_LOG"
 before=$(snapshot "$h")

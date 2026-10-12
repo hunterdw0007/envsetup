@@ -44,7 +44,7 @@ _envsetup_tabulate() {
 # ============================================================================
 
 # Branch, ahead/behind, latest semver tag and branch description of every repo. The
-# ahead/behind is ps1.sh's parse_git_tracking, which init.sh loads in every mode.
+# ahead/behind is ps1.sh's _envsetup_prompt_tracking, which init.sh loads in every mode.
 branchAll() {
 	local output
 	output=$(
@@ -52,8 +52,9 @@ branchAll() {
 			[[ -d "$dir/.git" ]] || continue
 			repo_name=$(basename "$dir")
 			branch_name=$(git -C "$dir" rev-parse --abbrev-ref HEAD)
-			branch_info=$(parse_git_tracking "$dir")
-			branch_info=${branch_info# }
+			_envsetup_prompt_tracking "$dir"
+			# shellcheck disable=SC2154 # set by _envsetup_prompt_tracking, in ps1.sh
+			branch_info=${_envsetup_prompt_tracking# }
 			branch_tag=$(git -C "$dir" tag -l --sort=-version:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$' | head -n 1)
 			branch_description=$(git -C "$dir" config branch."${branch_name}".description)
 			echo -e "${BOLD}$repo_name:${RESET}${BOLD_BLUE}$branch_name${RESET} ${BOLD_RED}$branch_info${RESET}:${BOLD_YELLOW}$branch_tag${RESET}:$branch_description"

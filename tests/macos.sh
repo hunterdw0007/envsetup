@@ -234,7 +234,7 @@ if [[ -n "$new_bash" ]]; then
 	check "  ...without errors" clean "$hh/shell.err"
 	cp "$hh/shell.err" "$out/zsh-omz.err"
 	check "/bin/bash login shell: loads the aliases" test "$(in_shell "$hb" /bin/bash -l -i -- 'alias ll')" = "alias ll='ls -alh'"
-	prompt_set() { [[ $(in_shell "$hb" /bin/bash -l -i -- 'printf %s "$PS1"') == *collapsed_directory* ]]; }
+	prompt_set() { [[ $(in_shell "$hb" /bin/bash -l -i -- 'printf %s "$PROMPT_COMMAND $PS1"') == *_envsetup_prompt*_envsetup_prompt_dir* ]]; }
 	check "  ...and the prompt" prompt_set
 	check "  ...and, in lite, none of the functions" test "$(in_shell "$hb" /bin/bash -l -i -- 'type -t branchAll || echo none')" = none
 	check "  ...without errors" clean "$hb/shell.err"
@@ -257,9 +257,11 @@ if [[ -n "$new_bash" ]]; then
 	echo "$ba" >"$out/branchAll.txt"
 	check "Homebrew's bash: branchAll prints its table with BSD column" table "$ba"
 	check "  ...without column errors" hasnt "illegal option" "$hz/shell.err"
-	ahead() { [[ $(in_shell "$@" -- 'cd "$MT_REPOS/one" && parse_git_tracking') == *'⤻ 1'* ]]; }
+	ahead() { [[ $(in_shell "$@" -- 'cd "$MT_REPOS/one" && _envsetup_prompt && printf %s "$_envsetup_prompt_git"') == *'⤻ 1'* ]]; }
+	home_dir() { test "$(in_shell "$hh" /bin/bash -l -i -- 'cd ~ && _envsetup_prompt && printf %s "$_envsetup_prompt_dir"')" = '~'; }
 	check "  ...prompt shows a commit ahead" ahead "$hz" "$new_bash" -i
 	check "  ...and so does /bin/bash's" ahead "$hh" /bin/bash -l -i
+	check "  ...which shows ~ for home, not \\~" home_dir
 	if command -v bat >/dev/null || command -v batcat >/dev/null; then
 		manpager() { [[ $(in_shell "$hz" "$new_bash" -i -- 'printf %s "$MANPAGER"') == *'col -bx'* ]]; }
 		check "MANPAGER strips overstrikes with col" manpager

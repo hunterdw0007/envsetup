@@ -46,7 +46,12 @@ _envsetup_tabulate() {
 # Branch, ahead/behind, latest semver tag and branch description of every repo. The
 # ahead/behind is ps1.sh's _envsetup_prompt_tracking, which init.sh loads in every mode.
 branchAll() {
-	local output
+	local output b='' blue='' red='' yellow='' r=''
+	# Its own colors, not the palette in colors.sh, which your shell can change. No color
+	# when NO_COLOR is set (https://no-color.org) or the output is not a terminal.
+	if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+		b=$'\033[1m' blue=$'\033[1;34m' red=$'\033[1;31m' yellow=$'\033[1;33m' r=$'\033[0m'
+	fi
 	output=$(
 		for dir in ./*/; do
 			[[ -d "$dir/.git" ]] || continue
@@ -57,7 +62,7 @@ branchAll() {
 			branch_info=${_envsetup_prompt_tracking# }
 			branch_tag=$(git -C "$dir" tag -l --sort=-version:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$' | head -n 1)
 			branch_description=$(git -C "$dir" config branch."${branch_name}".description)
-			echo -e "${BOLD}$repo_name:${RESET}${BOLD_BLUE}$branch_name${RESET} ${BOLD_RED}$branch_info${RESET}:${BOLD_YELLOW}$branch_tag${RESET}:$branch_description"
+			printf '%s\n' "$b$repo_name:$r$blue$branch_name$r $red$branch_info$r:$yellow$branch_tag$r:$branch_description"
 		done
 	)
 	# The trailing newline matters: BSD column drops a last line without one.

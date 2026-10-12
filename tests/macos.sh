@@ -12,6 +12,9 @@
 # Homebrew's, so it sticks to bash 3.2 (no readarray, associative arrays, ${x,,}).
 # shellcheck disable=SC2016 # single-quoted code is meant to expand in the stubs and test shells
 set -uo pipefail # no -e: every check reports its own outcome and the next one runs
+# This Mac's own rc block can export these. The tests use throwaway $HOMEs, and must not
+# use the real state dir.
+unset ENVSETUP_STATE ENVSETUP_STATE_HOME
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 if [[ "$OSTYPE" != darwin* && -z "${MACOS_TEST_FORCE:-}" ]]; then

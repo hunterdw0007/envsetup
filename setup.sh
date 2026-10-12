@@ -141,7 +141,7 @@ envsetup::link_rc() {
 	# (also 3.2) and zsh both read %q's output.
 	local root state
 	printf -v root 'export ENVSETUP_ROOT=%q' "$ENVSETUP_ROOT"
-	printf -v state 'export ENVSETUP_STATE=%q' "$ENVSETUP_STATE"
+	printf -v state 'export ENVSETUP_STATE=%q ENVSETUP_STATE_HOME=%q' "$ENVSETUP_STATE" "$HOME"
 	# shellcheck disable=SC2016 # the third line expands when the rc file runs, not now
 	printf '%s\n' "$ENVSETUP_RC_BEGIN" "$root" "$state" \
 		'[ -f "$ENVSETUP_ROOT/shell/init.sh" ] && source "$ENVSETUP_ROOT/shell/init.sh"' \

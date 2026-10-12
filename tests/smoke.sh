@@ -243,6 +243,14 @@ check "bash skips exports" [ -z "$(in_shell "$h" bash 'printf %s "${EDITOR:-}"')
 check "bash skips functions" [ -z "$(in_shell "$h" bash 'type -t fetchAll')" ]
 check "bash still gets the prompt" has_prompt "$h"
 
+echo "== an ENVSETUP_STATE for another \$HOME (as a test with a throwaway \$HOME gets it) is not used"
+h=$(new_home)
+f=$W/foreign-state
+ENVSETUP_STATE=$f ENVSETUP_STATE_HOME=$W/foreign-home check "exited 0" run_menu "$h" "Select profile" work lite Quit
+check "saved the profile in this \$HOME's state dir" [ "$(cat "$h/.config/envsetup/profile" 2>/dev/null)" = work ]
+check "  ...and nothing in the other one" [ ! -e "$f" ]
+((failures)) && show "$h/setup.out"
+
 echo "== work/lite with XDG_CONFIG_HOME set: envsetup keeps its state there"
 h=$(new_home)
 # A space, ", $(...) and a backtick in the path: the rc block must quote it (#46).

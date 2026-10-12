@@ -153,7 +153,9 @@ your `config.sh`. Tool hooks are left out too, so runtimes installed with mise a
   `zoxide` (`z`), `fzf` key bindings (Ctrl-R history, Ctrl-T files, Alt-C cd) and `mise`
   (per-project runtimes). On Debian/Ubuntu, `fd` points at `fdfind`. On macOS, Homebrew
   and what it installed are put on `PATH` if the shell wasn't set up for it.
-- **Exports**: XDG base directories, `EDITOR=vim`, and man pages through `bat`.
+- **Exports**: XDG base directories, `EDITOR=vim`, and man pages through `bat`. These are
+  defaults only. If you set one of them before envsetup's block (in `~/.profile`, or
+  earlier in your rc file), envsetup does not change it.
 - **Functions** (bash, macOS's 3.2 included): multi-repo git helpers for a directory of checkouts. They are
   `branchAll` (`ba`), `fetchAll` (`fa`), `pullMainAll` (`pma`), `mainOriginAll`,
   `pruneBranches` (`pb`) and `pruneBranchesAll` (`pba`), which list the old branches and ask
@@ -197,7 +199,9 @@ desktop launcher, cron) won't see them.
 
 Everything shipped here (packages, installers, aliases, git settings) is a *default*. To
 change any of it for yourself, put your changes in one file,
-`~/.config/envsetup/config.sh`, instead of editing this repo. It lives outside the
+`~/.config/envsetup/config.sh`, instead of editing this repo. (If you set
+`XDG_CONFIG_HOME`, the file is `$XDG_CONFIG_HOME/envsetup/config.sh`. If you already
+have `~/.config/envsetup`, envsetup continues to use it.) It lives outside the
 checkout, so updating (re-running `install.sh`) never conflicts with it — editing
 tracked files, by contrast, makes the next update abort.
 

@@ -225,6 +225,8 @@ check "  ...but gets no functions" [ "$(not_interactive "$h" 'type -t fetchAll |
 check "  ...no aliases" [ "$(not_interactive "$h" 'alias ll >/dev/null 2>&1 || echo none')" = none ]
 check "  ...but the exports (ssh host git commit gets EDITOR)" [ "$(not_interactive "$h" 'printf %s "${EDITOR:-}"')" = vim ]
 check "  ...and prints nothing of its own (scp needs a silent shell)" [ "$(not_interactive "$h" 'echo marker')" = marker ]
+check "values set before envsetup's block stay" [ "$(EDITOR=nano XDG_CONFIG_HOME=$h/mine MANPAGER=most in_shell "$h" bash 'printf %s "$EDITOR|$XDG_CONFIG_HOME|$MANPAGER"')" = "nano|$h/mine|most" ]
+check "  ...and with no envsetup dir in that XDG_CONFIG_HOME, ~/.config/envsetup stays in use" [ "$(XDG_CONFIG_HOME=$h/mine in_shell "$h" bash 'alias kc')" = "alias kc='kubectl'" ]
 check "git gets the shipped defaults" same_list "$(git config --file "$CLONE/git/gitconfig" alias.l)" "$(HOME=$h git config --global --includes alias.l)"
 check "re-run exited 0" run_menu "$h" "Run everything" Quit
 check "re-run didn't link twice" [ "$(count '# >>> envsetup >>>' "$h/.bashrc")" = 1 ]
@@ -240,6 +242,20 @@ check "bash loads the aliases" [ "$(in_shell "$h" bash 'alias ll')" = "alias ll=
 check "bash skips exports" [ -z "$(in_shell "$h" bash 'printf %s "${EDITOR:-}"')" ]
 check "bash skips functions" [ -z "$(in_shell "$h" bash 'type -t fetchAll')" ]
 check "bash still gets the prompt" has_prompt "$h"
+
+echo "== work/lite with XDG_CONFIG_HOME set: envsetup keeps its state there"
+h=$(new_home)
+x=$h/xdg-config
+XDG_CONFIG_HOME=$x check "exited 0" run_menu "$h" "Select profile" work lite "Run everything" Quit
+check "saved the profile in \$XDG_CONFIG_HOME/envsetup" [ "$(cat "$x/envsetup/profile" 2>/dev/null)" = work ]
+check "  ...and nothing in ~/.config/envsetup" [ ! -e "$h/.config/envsetup" ]
+# Lite mode loads no exports. Without its state, a shell would load full mode's EDITOR=vim.
+check "a shell with the same XDG_CONFIG_HOME finds it (lite: no EDITOR)" [ "$(XDG_CONFIG_HOME=$x in_shell "$h" bash 'printf %s "${EDITOR:-none}"')" = none ]
+SETUP_ARGS=(--uninstall) CONFIRMS=(yes)
+XDG_CONFIG_HOME=$x check "--uninstall exits 0" run_menu "$h"
+SETUP_ARGS=() CONFIRMS=()
+check "  ...and removed it" [ ! -e "$x/envsetup" ]
+((failures)) && show "$h/setup.out"
 
 echo "== home: Run everything (bash; zsh is opt-in)"
 h=$(new_home)

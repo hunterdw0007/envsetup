@@ -29,7 +29,8 @@ Profiles (pick one from the menu; switch any time):
           lite  no sudo: only the prompt, aliases and git config; installs nothing
 
 Your own changes go in ~/.config/envsetup/config.sh ("Edit config" in the menu,
-template: config.example.sh), outside this repo, so updates never conflict.
+template: config.example.sh), outside this repo, so updates never conflict. If you set
+XDG_CONFIG_HOME, the file is $XDG_CONFIG_HOME/envsetup/config.sh.
 
 To see what it would do first, use --dry-run, or "Preview everything" in the menu.
 To take it all back out, use --uninstall, or "Uninstall" in the menu.

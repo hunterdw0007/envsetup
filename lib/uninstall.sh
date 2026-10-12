@@ -62,8 +62,10 @@ envsetup::uninstall() {
 
 	envsetup::xdg_restore || failed=1
 
-	# The last is the prompt's kube-context cache (shell/shared/ps1.sh).
-	for f in "$gitconfig" "$gitconfig.tmp" "$state/profile" "$state/mode" "$ENVSETUP_CHSH_MARKER" "${XDG_CACHE_HOME:-$HOME/.cache}/envsetup/kube-context"; do
+	# The last two are the prompt's kube-context cache (shell/shared/ps1.sh) and the log
+	# of fetchAll --quiet (shell/shared/functions.sh).
+	for f in "$gitconfig" "$gitconfig.tmp" "$state/profile" "$state/mode" "$ENVSETUP_CHSH_MARKER" \
+		"${XDG_CACHE_HOME:-$HOME/.cache}/envsetup/kube-context" "${XDG_CACHE_HOME:-$HOME/.cache}/envsetup/fetchAll.log"; do
 		[[ -e "$f" ]] || continue
 		if envsetup::dry_run; then envsetup::would "delete $f"; else rm -f "$f"; fi
 	done

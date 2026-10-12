@@ -12,7 +12,7 @@ if command -v gio >/dev/null; then
 fi
 
 # Prefixes piped lines with │, and the last one with └.
-format_with_pipes() {
+_envsetup_format_with_pipes() {
 	local lines=() line i
 	while IFS= read -r line || [[ -n "$line" ]]; do lines+=("$line"); done
 	for i in "${!lines[@]}"; do
@@ -46,7 +46,8 @@ _envsetup_tabulate() {
 # Branch, ahead/behind, latest semver tag and branch description of every repo. The
 # ahead/behind is ps1.sh's _envsetup_prompt_tracking, which init.sh loads in every mode.
 branchAll() {
-	local output b='' blue='' red='' yellow='' r=''
+	local output dir repo_name branch_name branch_info branch_tag branch_description
+	local b='' blue='' red='' yellow='' r=''
 	# Its own colors, not the palette in colors.sh, which your shell can change. No color
 	# when NO_COLOR is set (https://no-color.org) or the output is not a terminal.
 	if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
@@ -55,7 +56,8 @@ branchAll() {
 	output=$(
 		for dir in ./*/; do
 			[[ -d "$dir/.git" ]] || continue
-			repo_name=$(basename "$dir")
+			repo_name=${dir%/}
+			repo_name=${repo_name##*/}
 			branch_name=$(git -C "$dir" rev-parse --abbrev-ref HEAD)
 			_envsetup_prompt_tracking "$dir"
 			# shellcheck disable=SC2154 # set by _envsetup_prompt_tracking, in ps1.sh
@@ -69,18 +71,17 @@ branchAll() {
 	printf "%s\n" "$output" | _envsetup_tabulate Repository Tracking "Latest Tag" Description
 }
 
+# fetchAll [--quiet]: fetches each repo, then lists the repos that it could not fetch.
+# Returns 1 if one or more failed.
 fetchAll() {
-	local quiet=false output_file="" arg
+	local quiet=false arg log status=0
 	for arg in "$@"; do
 		case $arg in
-		--quiet)
-			quiet=true
-			output_file=$(mktemp /tmp/fetch_all.XXXXXX)
-			;;
+		--quiet) quiet=true ;;
 		--help)
 			echo "Fetches all git repos located in the current directory"
 			echo "Options:"
-			echo "    --quiet - runs in the background and outputs to a temp file"
+			echo "    --quiet - runs in the background and writes the output to a log file"
 			echo "    --help  - prints this help message"
 			return 0
 			;;
@@ -88,27 +89,38 @@ fetchAll() {
 	done
 
 	if $quiet; then
-		_fetch_all_repos >>"$output_file" &
-		echo "🚛 Fetching repositories in the background. Output will be in $output_file"
+		# One log, written again on each run, so old logs do not collect. Uninstall removes it.
+		log=${XDG_CACHE_HOME:-$HOME/.cache}/envsetup/fetchAll.log
+		mkdir -p "${log%/*}" || return 1
+		_envsetup_fetch_all_repos >"$log" 2>&1 &
+		echo "🚛 Fetching repositories in the background. The output goes to $log"
 	else
-		_fetch_all_repos
+		_envsetup_fetch_all_repos || status=1
 		echo ""
 		branchAll
+		return "$status"
 	fi
 }
 
-_fetch_all_repos() {
-	local dir
+_envsetup_fetch_all_repos() {
+	local dir failed=''
 	for dir in ./*/; do
 		[[ -d "$dir/.git" ]] || continue
 		echo "🚛 Fetching $dir"
-		git -C "$dir" fetch --force --prune --prune-tags 2>&1 | format_with_pipes
+		git -C "$dir" fetch --force --prune --prune-tags 2>&1 | _envsetup_format_with_pipes
+		# The status of git, not of the formatter at the end of the pipe.
+		if ((PIPESTATUS[0] != 0)); then failed+=" $dir"; fi
 	done
+	if [[ -n "$failed" ]]; then
+		echo "Could not fetch:$failed"
+		return 1
+	fi
+	echo "Fetched all repositories."
 }
 
 # Pulls every repo that's on main/master and behind its remote.
 pullMainAll() {
-	local summary="" force=false arg dir
+	local summary="" failed="" force=false arg dir name
 	for arg in "$@"; do
 		case $arg in
 		--force) force=true ;;
@@ -125,9 +137,12 @@ pullMainAll() {
 	for dir in ./*/; do
 		if [[ -d "$dir/.git" && "$(git -C "$dir" rev-parse --abbrev-ref HEAD)" =~ ^(main|master)$ ]]; then
 			if $force || git -C "$dir" branch -v | grep -q "^\*.*\[.*behind [0-9]"; then
-				echo "🚜 Pulling $(basename "$dir")"
-				git -c color.ui=always -C "$dir" pull | format_with_pipes
-				summary+="$(basename "$dir")"$'\n'
+				name=${dir%/}
+				name=${name##*/}
+				echo "🚜 Pulling $name"
+				git -c color.ui=always -C "$dir" pull 2>&1 | _envsetup_format_with_pipes
+				# The status of git, not of the formatter at the end of the pipe.
+				if ((PIPESTATUS[0] == 0)); then summary+="$name"$'\n'; else failed+="$name"$'\n'; fi
 			fi
 		fi
 	done
@@ -136,21 +151,41 @@ pullMainAll() {
 		echo ""
 		echo "Pulled the following directories:"
 		printf "%s" "$summary"
-	else
-		echo "No directories were pulled."
 	fi
+	if [[ -n "$failed" ]]; then
+		echo ""
+		echo "Could not pull the following directories:"
+		printf "%s" "$failed"
+	fi
+	if [[ -z "$summary$failed" ]]; then echo "No directories were pulled."; fi
 	echo ""
 	branchAll
+	if [[ -n "$failed" ]]; then return 1; fi
 }
 
-# Sets every repo under $REPO (default: the current directory) to track origin/main.
+# mainOriginAll [dir]: sets each repo under dir (default: the current directory) to track
+# origin/main, and tells which repos it could not set. Returns 1 if one or more failed.
 mainOriginAll() {
-	local dir
-	for dir in "${REPO:-.}"/*/; do
-		[[ -d "$dir/.git" ]] && git -C "$dir" branch --set-upstream-to=origin/main >/dev/null 2>&1
+	local root=${1:-.} dir name failed=0
+	if [[ "$root" == --help ]]; then
+		echo "Sets all git repos in a directory (default: the current directory) to track origin/main"
+		echo "Usage: mainOriginAll [dir]"
+		return 0
+	fi
+	for dir in "$root"/*/; do
+		[[ -d "$dir/.git" ]] || continue
+		name=${dir%/}
+		name=${name##*/}
+		if git -C "$dir" branch --set-upstream-to=origin/main >/dev/null 2>&1; then
+			echo "⚓ $name tracks origin/main"
+		else
+			echo "✗ $name: could not track origin/main (no origin remote, or no main branch on it)"
+			failed=1
+		fi
 	done
-	echo "⚓ All repositories set to track origin/main"
-	branchAll
+	echo ""
+	(cd "$root" && branchAll)
+	return "$failed"
 }
 
 # pruneBranches [N] [--force] [--yes] [--dry-run]: deletes all but the N most recently

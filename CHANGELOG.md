@@ -4,6 +4,12 @@ Every release of envsetup, newest first, with what changed in it. CI writes each
 from the commits on `main` when it releases them (see "Releases" in AGENTS.md), so
 don't edit this file by hand.
 
+## v0.1.1 (2026-10-12)
+
+### Fixes
+
+- make pruneBranches list and ask, and keep unmerged branches (#62)
+
 ## v0.1.0 (2026-10-07)
 
 ### Breaking changes

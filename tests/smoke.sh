@@ -260,6 +260,17 @@ check "  ...saved the name, not the email" [ "$(identity "$h")" = "user.name not
 check "  ...and said why" grep -qF 'Skipped user.email: "not-an-email" is not an email address' "$h/setup.out"
 ((failures)) && show "$h/setup.out"
 
+echo "== config.sh with a failed command, then with a syntax error (#51)"
+h=$(new_home)
+mkdir -p "$h/.config/envsetup"
+printf 'ENVSETUP_EXTRAS=(lazygit)\nfalse\n' >"$h/.config/envsetup/config.sh"
+check "a failed command: exited 0" run_menu "$h" "Select profile" work lite "Configure git" Quit
+check "  ...warned once (the menu loads config.sh each time it shows)" [ "$(count 'the command on line 2 failed' "$h/setup.out")" = 1 ]
+printf 'ENVSETUP_EXTRAS=(lazygit\n' >"$h/.config/envsetup/config.sh"
+check "a syntax error: exited 0" run_menu "$h" "Configure git" Quit
+check "  ...warned once, with the line" [ "$(count 'did not load completely (line 1: unexpected EOF' "$h/setup.out")" = 1 ]
+((failures)) && show "$h/setup.out"
+
 echo "== an ENVSETUP_STATE for another \$HOME (as a test with a throwaway \$HOME gets it) is not used"
 h=$(new_home)
 f=$W/foreign-state

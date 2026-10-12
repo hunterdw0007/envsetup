@@ -19,12 +19,40 @@ envsetup::load_config() {
 	ENVSETUP_XDG_NINJA=0
 
 	[[ -f "$ENVSETUP_USER_CONFIG" ]] || return 0
-	# Every interactive shell sources this file too, so it may not be strict-mode
-	# clean; don't let that abort setup.
+	# Each interactive shell also sources config.sh, so it can fail under set -e or set -u.
+	# Thus it loads with -e and -u off. After it, the options of the caller come back,
+	# and a syntax error or a failed command gives one warning. The local names have a
+	# prefix, because config.sh can see (and change) the local variables of this function.
+	local _envsetup_opts=$- _envsetup_err='' _envsetup_line='' _envsetup_trap
+	if ! _envsetup_err=$("$BASH" -n "$ENVSETUP_USER_CONFIG" 2>&1); then
+		_envsetup_err=${_envsetup_err%%$'\n'*}
+		_envsetup_err="${_envsetup_err#"$ENVSETUP_USER_CONFIG: "}"
+	else
+		_envsetup_err=
+	fi
+	_envsetup_trap=$(trap -p ERR)
+	trap '_envsetup_line=${_envsetup_line:-$LINENO}' ERR
 	set +eu
 	# shellcheck source=/dev/null # user-supplied file
 	source "$ENVSETUP_USER_CONFIG"
-	set -eu
+	trap - ERR
+	eval "$_envsetup_trap"
+	if [[ $_envsetup_opts == *e* ]]; then set -e; fi
+	if [[ $_envsetup_opts == *u* ]]; then set -u; fi
+	if [[ -n "$_envsetup_err" ]]; then
+		envsetup::config_warning "$ENVSETUP_USER_CONFIG did not load completely ($_envsetup_err). envsetup uses the settings before the error."
+	elif [[ -n "$_envsetup_line" ]]; then
+		envsetup::config_warning "In $ENVSETUP_USER_CONFIG, the command on line $_envsetup_line failed. envsetup continues with the other settings."
+	fi
+}
+
+# config_warning <text>: shows the text once, until the text changes (the menu loads
+# config.sh again each time that it shows).
+envsetup::config_warning() {
+	if [[ "$1" != "${ENVSETUP_CONFIG_WARNED:-}" ]]; then
+		ENVSETUP_CONFIG_WARNED=$1
+		gum style --foreground 3 "$1" >&2
+	fi
 }
 
 # work lite assumes no sudo: no packages, no installers.

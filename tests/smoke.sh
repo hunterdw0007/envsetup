@@ -216,6 +216,7 @@ check "bash starts without errors" [ ! -s "$h/shell.err" ]
 check "a non-interactive bash (ssh host cmd) runs the rc block" [ "$(not_interactive "$h" 'printf %s "$ENVSETUP_ROOT"')" = "$CLONE" ]
 check "  ...but gets no functions" [ "$(not_interactive "$h" 'type -t fetchAll || echo none')" = none ]
 check "  ...no aliases" [ "$(not_interactive "$h" 'alias ll >/dev/null 2>&1 || echo none')" = none ]
+check "  ...but the exports (ssh host git commit gets EDITOR)" [ "$(not_interactive "$h" 'printf %s "${EDITOR:-}"')" = vim ]
 check "  ...and prints nothing of its own (scp needs a silent shell)" [ "$(not_interactive "$h" 'echo marker')" = marker ]
 check "git gets the shipped defaults" same_list "$(git config --file "$CLONE/git/gitconfig" alias.l)" "$(HOME=$h git config --global --includes alias.l)"
 check "re-run exited 0" run_menu "$h" "Run everything" Quit

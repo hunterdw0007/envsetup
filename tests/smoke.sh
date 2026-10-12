@@ -428,12 +428,16 @@ run_menu "$h" "Select profile" work full "Run everything" Quit
 gc=$h/.config/envsetup/gitconfig
 check "(before: git includes envsetup's file)" [ "$(includes "$h")" = "$gc" ]
 check "(before: a profile is saved)" [ -f "$h/.config/envsetup/profile" ]
+mkdir -p "$h/.kube" && printf 'current-context: smoke-ctx\n' >"$h/.kube/config"
+prompt_var "$h" /tmp context >/dev/null
+check "(before: the prompt cached the kube context)" [ -f "$h/.cache/envsetup/kube-context" ]
 SETUP_ARGS=(--uninstall) CONFIRMS=(yes)
 check "exited 0" run_menu "$h"
 check ".bashrc is byte-for-byte what it was" cmp -s /etc/skel/.bashrc "$h/.bashrc"
 check "removed the git include" [ -z "$(includes "$h")" ]
 check "kept the git identity" [ "$(git config --file "$h/.gitconfig" user.name)" = "Smoke Test" ]
 check "removed envsetup's saved state" [ ! -e "$h/.config/envsetup" ]
+check "removed the prompt's cache" none_exist "$h/.cache/envsetup/kube-context" "$h/.cache/envsetup"
 check "bash is back to the distro's aliases" [ "$(in_shell "$h" bash 'alias ll')" = "alias ll='ls -alF'" ]
 check "didn't touch the login shell" not_grep '^chsh ' "$SMOKE_LOG"
 before=$(snapshot "$h")

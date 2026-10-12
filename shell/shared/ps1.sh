@@ -65,21 +65,39 @@ _envsetup_prompt_tracking() {
 	if [[ -n "$_envsetup_prompt_tracking" ]]; then _envsetup_prompt_tracking=" [$_envsetup_prompt_tracking]"; fi
 }
 
-# kubectl's current context: the first kubeconfig file that sets one.
+# kubectl's current context: the first kubeconfig file that sets one. kubectl writes it
+# after every cluster, so a big kubeconfig is read again only when it changes: the cache
+# holds the files it's for and the context, and stays current while it's strictly newer
+# than each of them (a same-second change, at bash 3.2's whole-second mtimes, reads again).
 _envsetup_prompt_context() {
-	local IFS=: file line
-	local -a files
+	local IFS=: file line key='' cached value fresh=true cache=${XDG_CACHE_HOME:-$HOME/.cache}/envsetup/kube-context
+	local -a files=()
 	_envsetup_prompt_context=
 	read -ra files <<<"${KUBECONFIG:-$HOME/.kube/config}"
 	for file in ${files[@]+"${files[@]}"}; do
+		if [[ -r "$file" ]]; then key+="$file:"; fi
+	done
+	[[ -n "$key" ]] || return 0
+	if { IFS= read -r cached && IFS= read -r value; } 2>/dev/null <"$cache" && [[ "$cached" == "$key" ]]; then
+		for file in "${files[@]}"; do
+			if [[ -r "$file" && ! "$cache" -nt "$file" ]]; then fresh=false; fi
+		done
+		if $fresh; then
+			_envsetup_prompt_context=$value
+			return 0
+		fi
+	fi
+	for file in "${files[@]}"; do
 		[[ -r "$file" ]] || continue
 		while IFS= read -r line; do
 			if [[ "$line" =~ ^current-context:[[:space:]]*[\"\']?([^\"\'[:space:]]+) ]]; then
 				_envsetup_prompt_context="${BASH_REMATCH[1]} "
-				return 0
+				break 2
 			fi
 		done <"$file"
 	done
+	[[ -d "${cache%/*}" ]] || mkdir -p "${cache%/*}" 2>/dev/null
+	printf '%s\n%s\n' "$key" "$_envsetup_prompt_context" 2>/dev/null >"$cache"
 }
 
 _envsetup_prompt() {

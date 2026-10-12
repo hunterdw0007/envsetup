@@ -139,8 +139,9 @@ those; everything else also gets the exports and functions.
 
 - **Prompt** (bash): time, kube context, a collapsed path (`~/d/envsetup`), git branch and
   ahead/behind, then `❯` on its own line. It's set from `PROMPT_COMMAND` (added to any you
-  already have) and reads the context and branch from the files themselves, so the only
-  program it runs is one `git` call inside a repo. In zsh, the oh-my-zsh theme owns the
+  already have) and reads the context and branch from the files themselves (the context
+  is cached in `~/.cache/envsetup` until your kubeconfig changes), so the only program it
+  runs is one `git` call inside a repo. In zsh, the oh-my-zsh theme owns the
   prompt instead.
 - **Aliases**: `ls` in color, `la`, `ll`, `..`/`...`/`....`. `cat`/`less` go through `bat`
   when it's installed. On work there are also kubectl shortcuts (`kc`, `kcaMem`).

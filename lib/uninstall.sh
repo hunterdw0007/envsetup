@@ -62,7 +62,8 @@ envsetup::uninstall() {
 
 	envsetup::xdg_restore || failed=1
 
-	for f in "$gitconfig" "$gitconfig.tmp" "$state/profile" "$state/mode" "$ENVSETUP_CHSH_MARKER"; do
+	# The last is the prompt's kube-context cache (shell/shared/ps1.sh).
+	for f in "$gitconfig" "$gitconfig.tmp" "$state/profile" "$state/mode" "$ENVSETUP_CHSH_MARKER" "${XDG_CACHE_HOME:-$HOME/.cache}/envsetup/kube-context"; do
 		[[ -e "$f" ]] || continue
 		if envsetup::dry_run; then envsetup::would "delete $f"; else rm -f "$f"; fi
 	done
@@ -75,7 +76,7 @@ envsetup::uninstall() {
 			rm -f "$state/config.sh"
 		fi
 	fi
-	envsetup::dry_run || rmdir "$state" 2>/dev/null || true
+	envsetup::dry_run || rmdir "$state" "${XDG_CACHE_HOME:-$HOME/.cache}/envsetup" 2>/dev/null || true
 
 	# Only asked if envsetup switched you to zsh; a zsh you chose yourself is yours.
 	if [[ "${SHELL:-}" == */zsh ]] && ((chsh_by_us)); then

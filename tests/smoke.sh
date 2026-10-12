@@ -261,6 +261,17 @@ SETUP_ARGS=() CONFIRMS=()
 check "  ...and removed it" [ ! -e "$x/envsetup" ]
 ((failures)) && show "$h/setup.out"
 
+echo "== a checkout path with a space, \", \$(...) and a backtick in it (#46)"
+h=$(new_home)
+# If a shell ran $(exit 1) or `false`, ENVSETUP_ROOT would not be the path.
+odd="$W/env setup \"q\" \$(exit 1) \`false\`"
+cp -a "$CLONE" "$odd"
+CLONE=$odd check "exited 0" run_menu "$h" "Select profile" work lite "Run everything" Quit
+check "a shell finds the checkout" [ "$(in_shell "$h" bash 'printf %s "$ENVSETUP_ROOT"')" = "$odd" ]
+check "  ...and loads its aliases" [ "$(in_shell "$h" bash 'alias ll')" = "alias ll='ls -alh'" ]
+check "  ...with no errors" [ ! -s "$h/shell.err" ]
+((failures)) && show "$h/setup.out"
+
 echo "== home: Run everything (bash; zsh is opt-in)"
 h=$(new_home)
 check "exited 0" run_menu "$h" "Select profile" home "Run everything" Quit

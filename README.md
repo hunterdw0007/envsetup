@@ -201,7 +201,9 @@ Everything shipped here (packages, installers, aliases, git settings) is a *defa
 change any of it for yourself, put your changes in one file,
 `~/.config/envsetup/config.sh`, instead of editing this repo. (If you set
 `XDG_CONFIG_HOME`, the file is `$XDG_CONFIG_HOME/envsetup/config.sh`. If you already
-have `~/.config/envsetup`, envsetup continues to use it.) It lives outside the
+have `~/.config/envsetup`, envsetup continues to use it. "Link shell config" writes the
+directory into the rc block, so all your shells use the same one, also shells where
+`XDG_CONFIG_HOME` is not set.) It lives outside the
 checkout, so updating (re-running `install.sh`) never conflicts with it — editing
 tracked files, by contrast, makes the next update abort.
 

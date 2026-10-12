@@ -132,11 +132,14 @@ envsetup::link_rc() {
 		return 0
 	fi
 	if envsetup::dry_run; then
-		envsetup::would "add a 4-line block to $1 that loads shell/ from $ENVSETUP_ROOT"
+		envsetup::would "add a 5-line block to $1 that loads shell/ from $ENVSETUP_ROOT"
 		return 0
 	fi
+	# ENVSETUP_STATE is fixed here, so every shell uses the directory that setup used
+	# (see shell/state.sh).
 	# shellcheck disable=SC2016 # the last line expands when the rc file runs, not now
 	printf '%s\n' "$ENVSETUP_RC_BEGIN" "export ENVSETUP_ROOT=\"$ENVSETUP_ROOT\"" \
+		"export ENVSETUP_STATE=\"$ENVSETUP_STATE\"" \
 		'[ -f "$ENVSETUP_ROOT/shell/init.sh" ] && source "$ENVSETUP_ROOT/shell/init.sh"' \
 		"$ENVSETUP_RC_END" >>"$1"
 	gum style --foreground 2 "Linked shell config into $1 (restart your shell to pick it up)"

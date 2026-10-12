@@ -251,6 +251,7 @@ check "saved the profile in \$XDG_CONFIG_HOME/envsetup" [ "$(cat "$x/envsetup/pr
 check "  ...and nothing in ~/.config/envsetup" [ ! -e "$h/.config/envsetup" ]
 # Lite mode loads no exports. Without its state, a shell would load full mode's EDITOR=vim.
 check "a shell with the same XDG_CONFIG_HOME finds it (lite: no EDITOR)" [ "$(XDG_CONFIG_HOME=$x in_shell "$h" bash 'printf %s "${EDITOR:-none}"')" = none ]
+check "  ...and so does a shell without XDG_CONFIG_HOME (ssh, cron): the rc block keeps the dir" [ "$(in_shell "$h" bash 'printf %s "${EDITOR:-none}|$ENVSETUP_STATE"')" = "none|$x/envsetup" ]
 SETUP_ARGS=(--uninstall) CONFIRMS=(yes)
 XDG_CONFIG_HOME=$x check "--uninstall exits 0" run_menu "$h"
 SETUP_ARGS=() CONFIRMS=()
@@ -353,7 +354,7 @@ before=$(snapshot "$h")
 SETUP_ARGS=(--dry-run)
 check "exited 0" run_menu "$h" "Select profile" home "Run everything" Quit
 SETUP_ARGS=()
-check "said it would link ~/.bashrc" grep -qF "would add a 4-line block to $h/.bashrc" "$SMOKE_LOG"
+check "said it would link ~/.bashrc" grep -qF "would add a 5-line block to $h/.bashrc" "$SMOKE_LOG"
 check "  ...and nothing about zsh" not_grep 'would .*\(oh-my-zsh\|zshrc\)' "$SMOKE_LOG"
 check "said it would ask for a git identity" grep -qF 'would ask for your git user.name' "$SMOKE_LOG"
 check "said it would install common + home packages" described "$hm" "would install $hm packages"

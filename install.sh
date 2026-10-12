@@ -138,7 +138,7 @@ envsetup::use_version() {
 		! "${git[@]}" diff --quiet HEAD; then
 		echo "$ENVSETUP_DIR has local changes, so it can't switch to $1:" >&2
 		while read -r file; do echo "  $file" >&2; done < <("${git[@]}" diff --name-only HEAD)
-		echo "Your own settings belong in ~/.config/envsetup/config.sh (see the README), which" >&2
+		echo "Your own settings belong in ${ENVSETUP_STATE:-$HOME/.config/envsetup}/config.sh (see the README), which" >&2
 		echo "updates never touch. To set the changes aside: git -C $ENVSETUP_DIR stash" >&2
 		exit 1
 	fi

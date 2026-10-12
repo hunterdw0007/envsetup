@@ -29,7 +29,8 @@ Profiles (pick one from the menu; switch any time):
           lite  no sudo: only the prompt, aliases and git config; installs nothing
 
 Your own changes go in ~/.config/envsetup/config.sh ("Edit config" in the menu,
-template: config.example.sh), outside this repo, so updates never conflict.
+template: config.example.sh), outside this repo, so updates never conflict. If you set
+XDG_CONFIG_HOME, the file is $XDG_CONFIG_HOME/envsetup/config.sh.
 
 To see what it would do first, use --dry-run, or "Preview everything" in the menu.
 To take it all back out, use --uninstall, or "Uninstall" in the menu.
@@ -131,11 +132,18 @@ envsetup::link_rc() {
 		return 0
 	fi
 	if envsetup::dry_run; then
-		envsetup::would "add a 4-line block to $1 that loads shell/ from $ENVSETUP_ROOT"
+		envsetup::would "add a 5-line block to $1 that loads shell/ from $ENVSETUP_ROOT"
 		return 0
 	fi
-	# shellcheck disable=SC2016 # the last line expands when the rc file runs, not now
-	printf '%s\n' "$ENVSETUP_RC_BEGIN" "export ENVSETUP_ROOT=\"$ENVSETUP_ROOT\"" \
+	# ENVSETUP_STATE is fixed here, so every shell uses the directory that setup used
+	# (see shell/state.sh). %q quotes the two paths. Thus a space, ", $ or ` in a path
+	# does not stop the rc file, and the rc file does not run it as a command. bash
+	# (also 3.2) and zsh both read %q's output.
+	local root state
+	printf -v root 'export ENVSETUP_ROOT=%q' "$ENVSETUP_ROOT"
+	printf -v state 'export ENVSETUP_STATE=%q ENVSETUP_STATE_HOME=%q' "$ENVSETUP_STATE" "$HOME"
+	# shellcheck disable=SC2016 # the third line expands when the rc file runs, not now
+	printf '%s\n' "$ENVSETUP_RC_BEGIN" "$root" "$state" \
 		'[ -f "$ENVSETUP_ROOT/shell/init.sh" ] && source "$ENVSETUP_ROOT/shell/init.sh"' \
 		"$ENVSETUP_RC_END" >>"$1"
 	gum style --foreground 2 "Linked shell config into $1 (restart your shell to pick it up)"

@@ -2,7 +2,8 @@
 # Shared helpers for envsetup scripts.
 # shellcheck disable=SC2034 # the ENVSETUP_* constants are used by the other lib files
 
-ENVSETUP_STATE="$HOME/.config/envsetup"
+# shellcheck source=shell/state.sh
+source "$ENVSETUP_ROOT/shell/state.sh"
 ENVSETUP_RC_BEGIN="# >>> envsetup >>>"
 ENVSETUP_RC_END="# <<< envsetup <<<"
 ENVSETUP_CHSH_MARKER="$ENVSETUP_STATE/chsh" # exists once envsetup switched you to zsh

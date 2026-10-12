@@ -4,6 +4,14 @@ Every release of envsetup, newest first, with what changed in it. CI writes each
 from the commits on `main` when it releases them (see "Releases" in AGENTS.md), so
 don't edit this file by hand.
 
+## v0.1.2 (2026-10-12)
+
+### Fixes
+
+- **shell**: build the bash prompt without running kubectl or a subshell per part (#65)
+- load only PATH and exports in non-interactive shells (#64)
+- **installers**: verify kubectl, gh, terraform and awscli before installing them (#63)
+
 ## v0.1.1 (2026-10-12)
 
 ### Fixes

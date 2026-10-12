@@ -171,7 +171,7 @@ pruneBranches() {
 			echo "pruneBranches: unknown option: $arg (see --help)" >&2
 			return 2
 			;;
-		*) keep=$arg ;;
+		*) keep=$((10#$arg)) ;;
 		esac
 	done
 	git rev-parse --is-inside-work-tree &>/dev/null || {
@@ -187,18 +187,23 @@ pruneBranches() {
 		upstream=$(git rev-parse -q --verify "$branch@{upstream}" 2>/dev/null) || upstream=HEAD
 		if git merge-base --is-ancestor "$branch" "$upstream"; then merged+=("$branch"); else unmerged+=("$branch"); fi
 	done
-	if $force; then
-		merged+=(${unmerged[@]+"${unmerged[@]}"})
-	elif ((${#unmerged[@]})); then
+	if ! $force && ((${#unmerged[@]})); then
 		echo "Keeping ${#unmerged[@]} unmerged (--force deletes them too, with their commits):"
 		printf '  %s\n' "${unmerged[@]}"
+		unmerged=()
 	fi
-	if ((${#merged[@]} == 0)); then
+	if ((${#merged[@]} + ${#unmerged[@]} == 0)); then
 		echo "Nothing to delete."
 		return 0
 	fi
-	echo "Would delete ${#merged[@]}:"
-	printf '  %s\n' "${merged[@]}"
+	if ((${#merged[@]})); then
+		echo "Would delete ${#merged[@]}:"
+		printf '  %s\n' "${merged[@]}"
+	fi
+	if ((${#unmerged[@]})); then
+		echo "Would delete ${#unmerged[@]} unmerged, with their commits:"
+		printf '  %s\n' "${unmerged[@]}"
+	fi
 	$dry && return 0
 	if ! $yes; then
 		read -r -p "Delete them? [y/N] " reply
@@ -207,9 +212,8 @@ pruneBranches() {
 			return 0
 		fi
 	fi
-	for branch in "${merged[@]}"; do
-		if $force; then git branch -D "$branch"; else git branch -d "$branch"; fi || failed=1
-	done
+	for branch in ${merged[@]+"${merged[@]}"}; do git branch -d "$branch" || failed=1; done
+	for branch in ${unmerged[@]+"${unmerged[@]}"}; do git branch -D "$branch" || failed=1; done
 	return "$failed"
 }
 

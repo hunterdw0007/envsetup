@@ -245,13 +245,16 @@ check "bash still gets the prompt" has_prompt "$h"
 
 echo "== work/lite with XDG_CONFIG_HOME set: envsetup keeps its state there"
 h=$(new_home)
-x=$h/xdg-config
+# A space, ", $(...) and a backtick in the path: the rc block must quote it (#46).
+x="$h/xdg config \"q\" \$(touch $h/ran) \`touch $h/ran\`"
 XDG_CONFIG_HOME=$x check "exited 0" run_menu "$h" "Select profile" work lite "Run everything" Quit
 check "saved the profile in \$XDG_CONFIG_HOME/envsetup" [ "$(cat "$x/envsetup/profile" 2>/dev/null)" = work ]
 check "  ...and nothing in ~/.config/envsetup" [ ! -e "$h/.config/envsetup" ]
 # Lite mode loads no exports. Without its state, a shell would load full mode's EDITOR=vim.
 check "a shell with the same XDG_CONFIG_HOME finds it (lite: no EDITOR)" [ "$(XDG_CONFIG_HOME=$x in_shell "$h" bash 'printf %s "${EDITOR:-none}"')" = none ]
 check "  ...and so does a shell without XDG_CONFIG_HOME (ssh, cron): the rc block keeps the dir" [ "$(in_shell "$h" bash 'printf %s "${EDITOR:-none}|$ENVSETUP_STATE"')" = "none|$x/envsetup" ]
+quoted() { [ ! -s "$h/shell.err" ] && [ ! -e "$h/ran" ]; }
+check "  ...which the rc block quotes: no errors, and nothing in the path ran" quoted
 SETUP_ARGS=(--uninstall) CONFIRMS=(yes)
 XDG_CONFIG_HOME=$x check "--uninstall exits 0" run_menu "$h"
 SETUP_ARGS=() CONFIRMS=()

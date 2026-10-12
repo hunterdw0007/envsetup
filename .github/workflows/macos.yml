@@ -45,7 +45,7 @@ jobs:
         if: failure()
         run: tail -n +1 "$RUNNER_TEMP"/macos-report/*.{log,calls,err,txt}
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: macos-report

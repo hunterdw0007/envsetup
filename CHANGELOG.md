@@ -4,6 +4,12 @@ Every release of envsetup, newest first, with what changed in it. CI writes each
 from the commits on `main` when it releases them (see "Releases" in AGENTS.md), so
 don't edit this file by hand.
 
+## v0.1.10 (2026-10-23)
+
+### Fixes
+
+- **xdg**: refuse dotfile notes that export BASH_ENV, LD_* or leave the XDG dir (#79)
+
 ## v0.1.9 (2026-10-23)
 
 ### Fixes

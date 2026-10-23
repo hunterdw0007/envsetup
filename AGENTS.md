@@ -154,11 +154,19 @@ GitHub release with the same entry as its notes. The current version is the newe
 - On macOS, hand over to Homebrew right after the already-installed check:
   `[[ "$OSTYPE" == darwin* ]] && exec brew install <formula>`, which ends the script there
   (the downloads that follow are Linux builds).
-- Every download that gets installed or run is verified before it is, and a failed check
-  stops the script. Use `envsetup::release_sha256` + `envsetup::install_release` when the
-  project publishes checksums. When it only publishes a signature (awscli), use
-  `envsetup::gpg_verify` against the vendor's key, kept next to the script with its
-  fingerprint pinned in the script.
+- Every download that gets installed or run is a pinned version, verified before it is,
+  and a failed check stops the script. Never resolve "latest" at install time: the
+  version and each platform's sha256 live in `installers/versions.txt`, read with
+  `envsetup::pin`, and the download goes through `envsetup::install_release`. A new tool
+  gets a `pin_<name>` in `.github/scripts/bump-versions.sh` (which finds the newest
+  release and reads its published checksums) and a line in `versions.txt`, written by
+  running that script. When a project only publishes a signature (awscli), pin just the
+  version and use `envsetup::gpg_verify` against the vendor's key, kept next to the
+  script with its fingerprint pinned in the script.
+- Bumping tool versions is a PR: run `.github/scripts/bump-versions.sh`, review the
+  diff, and say in the test plan which installers were run against the new pins
+  (`tests/distros/run.sh`). It's a `fix(installers): ...` when it changes what users
+  get, so it releases.
 - Download the build for the machine (`envsetup::arch` gives `amd64`/`arm64`), run root
   steps through `envsetup::as_root` (sudo, doas, or already root), and document any
   remaining OS/arch assumption in a comment.
@@ -181,8 +189,8 @@ GitHub release with the same entry as its notes. The current version is the newe
 - Anything else — a vendor installer script, a manual binary download, an arbitrary
   custom setup step → `installers/common/` or `installers/<profile>/`. A popular tool
   that only some users want and that major distros (Ubuntu LTS, Fedora) don't package →
-  `installers/extras/`, opted into by name with `ENVSETUP_EXTRAS`; download with
-  `envsetup::release_sha256` + `envsetup::install_release` so the checksum is verified.
+  `installers/extras/`, opted into by name with `ENVSETUP_EXTRAS`; pinned and verified
+  like every installer (above).
 - A tool that needs a shell hook to work (direnv, zoxide) → `shell/shared/tools.sh`,
   guarded on the tool being installed.
 - A shared, non-identity git setting or alias → `git/gitconfig` (merged with the user's

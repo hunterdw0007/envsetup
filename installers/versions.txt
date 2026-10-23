@@ -1,0 +1,23 @@
+# The version of every tool envsetup downloads itself (rather than from a package
+# manager), and the sha256 of each platform's download: an install gets exactly these,
+# and refuses a download that doesn't match. Read by envsetup::pin (lib/common.sh).
+#
+#   <name> <version> [<platform>=<sha256>]...
+#
+# Don't edit by hand: .github/scripts/bump-versions.sh looks up the newest releases and
+# their published checksums and rewrites this file, and the bump goes through a PR.
+# awscli is checked against AWS's signing key instead, so it has no hashes; ohmyzsh is
+# the commit of ohmyzsh/ohmyzsh whose tools/install.sh runs.
+gum 2.0.2 linux-amd64=d842e06d93dbed90af48cb8dd10698db6f22e331fc40346bb37bbc753109edc2 linux-arm64=8ebf8b54ec1e8c81f2bb58b59ff9b70998186a4d11375f0cf357b80e0ccfa1d5 darwin-amd64=5374966c7c7199ea879fcaa525ddc6d447a098d3d35496e430a9a1ef38d30485 darwin-arm64=4777a69b1170b8db23c95d5889fb32186cfda1a3ac950d339aa17e3513633890 linux-armv7=a7ee9b68052e401c47335982fec7fc1d246868abfe6b542654432ee2df7a8141
+ohmyzsh 2100c630ba4bd67bb48802c3e7da893a4fdaa1a0
+awscli 2.38.5
+gh 2.103.2 linux-amd64=62ccf747115ddc61237efffdde66a3c8f70ba249433dc64f70801089b59c59c8 linux-arm64=4c3e99a50bd8b181a3fe9d69b25dd978bac768148d88f01507c6b4d1ef61a443
+helm 4.3.1 linux-amd64=0403a88ae20913d11b10a2467b50087721fea7581736da6b9d3992f5357fe54b linux-arm64=8cf8f66ecbc252ac8f7f06cca68aba88508ddfde3a6a34feb1678ad1694b4f88
+kubectl 1.37.1 linux-amd64=65691ff77eb6fa44c908b77a1082c9f092c3b9733b5cefabec0d1104890e21a8 linux-arm64=ff749f4b78d9c4f1ec87307df9b50119ed819e2094aa9810cb9acffc3286c8c7
+terraform 1.17.0 linux-amd64=c168cab7c637a8769fdb90089ddd19de701bc6ff8aca64dc2e2185fe46f59f67 linux-arm64=f32478134ffc6d710eec474bbd316652cdddc0f4e336973a3745e8d3a3309cdf
+k9s 0.51.0 linux-amd64=c3752ad51a5a4015a113819c4eeb6e55a4d0e4b8e652494797532f6fc8161dd7 linux-arm64=3ee05c82e5f9198928a4e86133608ba6a2c10a2244d6a7789e820f78319d640c
+lazygit 0.66.2 linux-amd64=158efc9ddfa1241fab5fb3526bb442c8dc6c4b1904d73213b9e4e93e03c52034 linux-arm64=79a3161eeb642f0473e23db6341f7baabd4a5933e921a9c1167c5d5c765c41a4
+mise 2026.10.18 linux-amd64=bb2f31a377789e85df9358f23aaadb4283e2d760cf657ca7449856f92c4230c4 linux-arm64=88bbc1480e196c45c67194b653a08170b9e45e6573e5036f643f288eee95120e
+starship 1.27.0 linux-amd64=10c8eb4cb3b761d9bf59ea828444c2dab36c900b7d69a69e08814b286969df89 linux-arm64=341f5cbf24699fa0b27ec88965ad25f862ea09e15d35a543fd6ffdff1d2aa00d
+uv 0.13.5 linux-amd64=57ef9d9ccb01fb1bd998df995b0dd221b52f7d7841fbea93f2d4463bf61fb7a9 linux-arm64=7906c79adb21c81abd559841ba76bb1d9af9d791acac7a041b2972e03ae16538
+yq 4.54.1 linux-amd64=8e34fc298390875de416e6a4afcb8cabeceb25d9aa8506c1a2f9353cf702ea5f linux-arm64=189088da0c6429ec5178dfaab1a114805f6cab0b61b165ab236efedf1d57a71b

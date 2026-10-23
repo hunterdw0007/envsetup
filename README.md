@@ -80,6 +80,12 @@ when you're already root (containers, a fresh WSL distro). `gum` comes from Home
 you have it, else from its GitHub release into `~/.local/bin`, so no sudo is needed for
 the menu itself. Installers download the amd64 or arm64 build to match the machine.
 
+The versions envsetup downloads itself (gum, the vendor tools below, the oh-my-zsh
+installer) are pinned in `installers/versions.txt`, with the sha256 of each download, so
+two machines set up from the same release get the same versions, and a release upstream
+that changes can't reach you without a PR here. Want a newer one? Install it yourself:
+every installer leaves a tool that's already on `PATH` alone.
+
 ## Manual install
 
 ```sh
@@ -270,8 +276,8 @@ managers:
 Older LTS releases can lack the newest of these (`git-delta` isn't in Ubuntu 22.04); the
 package step names whatever it couldn't install.
 
-The ones Ubuntu LTS or Fedora don't package come from their own releases (checksums
-verified, amd64 or arm64) when named in `ENVSETUP_EXTRAS`:
+The ones Ubuntu LTS or Fedora don't package come from their own releases (pinned and
+checksum-verified, amd64 or arm64) when named in `ENVSETUP_EXTRAS`:
 
 | `ENVSETUP_EXTRAS` | |
 | --- | --- |
@@ -327,6 +333,7 @@ installers/
   common/            # scripts run for every profile
   work/              # scripts run only for profile = work (full mode only)
   home/              # scripts run only for profile = home
+  versions.txt       # pinned version + sha256 of everything downloaded (bump-versions.sh writes it)
 git/
   gitconfig          # default git aliases/settings (no identity)
 ```
@@ -347,8 +354,10 @@ file, whatever). Either kind goes in `installers/`:
    "Run installers" may run again later. `installers/work/kubectl.sh` is a working example.
 3. It runs as its own `bash` process, so source `$ENVSETUP_ROOT/lib/common.sh` yourself if you
    want helpers like `envsetup::has_cmd`.
-4. Verify what you download before installing or running it. If the project publishes
-   checksums, use `envsetup::release_sha256` + `envsetup::install_release` (kubectl.sh again).
+4. Verify what you download before installing or running it. In this repo, pin the version
+   and checksums in `installers/versions.txt` and read them with `envsetup::pin`
+   (kubectl.sh again; see `AGENTS.md`). In your own installers, if the project publishes
+   checksums, `envsetup::release_sha256` + `envsetup::install_release` do the rest.
    If it only signs its releases, keep its public key next to the script and call
    `envsetup::gpg_verify` with the key's fingerprint (awscli.sh).
 

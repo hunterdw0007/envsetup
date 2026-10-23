@@ -707,6 +707,26 @@ check "install_release refuses one that doesn't" not verify envsetup::install_re
 check "  ...says why" grep -qF "smoke-bad doesn't match its published checksum" "$v/out"
 check "  ...and installs nothing" [ ! -e /usr/local/bin/smoke-bad ]
 check "  ...nor with an empty checksum (none was published)" not verify envsetup::install_release "file://$v/smoke-good" "" smoke-empty
+pins=$CLONE/installers/versions.txt
+pins_version() { verify envsetup::pin kubectl && same_list "$(awk '$1 == "kubectl" { print $2 }' "$pins")" "$(cat "$v/out")"; }
+pins_sha() { verify envsetup::pin kubectl linux-arm64 && grep -qxE '[0-9a-f]{64}' "$v/out"; }
+check "pin gives a tool's version from installers/versions.txt" pins_version
+check "  ...and the sha256 for a platform" pins_sha
+check "  ...fails for a platform with none" not verify envsetup::pin kubectl linux-riscv64
+check "  ...saying which" grep -qF "no checksum of kubectl for linux-riscv64" "$v/out"
+check "  ...fails for a name it doesn't pin" not verify envsetup::pin no-such-tool
+# Every name the code pins is in the file, with an amd64 and an arm64 hash if it has any.
+pins_complete() {
+	local n names
+	names=$(grep -rhoE 'envsetup::pin [a-z0-9]+' "$CLONE/installers" "$CLONE/lib" | cut -d' ' -f2 | sort -u)
+	[ "$(echo "$names" | wc -w)" -gt 10 ] || return 1
+	for n in $names; do
+		verify envsetup::pin "$n" || return 1
+		awk -v n="$n" '$1 == n && NF > 2' "$pins" | grep -q . || continue
+		verify envsetup::pin "$n" linux-amd64 && verify envsetup::pin "$n" linux-arm64 || return 1
+	done
+}
+check "every name the installers pin is in versions.txt" pins_complete
 fx=$CLONE/tests/fixtures
 fpr=33BA29D63A94A1F8D01A594286EFD1F2522F6FD0
 check "gpg_verify passes a good signature by the pinned key" verify envsetup::gpg_verify "$fx/signed.txt" "$fx/signed.txt.sig" "$fx/smoke-key.asc" "$fpr"

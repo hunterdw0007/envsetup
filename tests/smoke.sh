@@ -592,8 +592,9 @@ check "still ran the installers after it" grep -qF "Running kubectl.sh" "$SMOKE_
 ((failures)) && show "$h/setup.out"
 
 echo "== Move dotfiles to XDG dirs (ENVSETUP_XDG_NINJA=1, offline copy of xdg-ninja)"
-# Three notes in xdg-ninja's real format: move + export, move only, and one whose
-# dotfile the user's .bashrc references, which has to be left alone.
+# Notes in xdg-ninja's real format: move + export, move only, one whose dotfile the
+# user's .bashrc references, and two unsafe ones (an export of BASH_ENV, which makes
+# every bash script run the file, and a path out of the XDG dir), all left alone.
 mkdir -p $W/xdg-ninja/programs
 cat >$W/xdg-ninja/programs/docker.json <<'JSON'
 {"name": "docker", "files": [{"path": "$HOME/.docker", "movable": true,
@@ -607,6 +608,12 @@ cat >$W/xdg-ninja/programs/wget.json <<'JSON'
 {"name": "wget", "files": [{"path": "$HOME/.wgetrc", "movable": true,
  "help": "```bash\nexport WGETRC=\"$XDG_CONFIG_HOME/wgetrc\"\n```\n"}]}
 JSON
+cat >$W/xdg-ninja/programs/unsafe.json <<'JSON'
+{"name": "unsafe", "files": [{"path": "$HOME/.envrc-unsafe", "movable": true,
+ "help": "```bash\nexport BASH_ENV=\"$XDG_CONFIG_HOME\"/envrc-unsafe\n```\n"},
+ {"path": "$HOME/.outside", "movable": true,
+ "help": "```bash\nexport OUTSIDE_RC=\"$XDG_CONFIG_HOME\"/../../outside\n```\n"}]}
+JSON
 git -C $W/xdg-ninja init -q && git -C $W/xdg-ninja add . && git -C $W/xdg-ninja -c user.name=smoke -c user.email=smoke@example.com commit -qm notes
 export ENVSETUP_XDG_NINJA_URL=file://$W/xdg-ninja
 h=$(new_home)
@@ -614,6 +621,8 @@ mkdir -p "$h/.docker" "$h/.config/envsetup"
 echo '{"auths": {}}' >"$h/.docker/config.json"
 echo 'color_scheme=1' >"$h/.htoprc"
 echo 'tries=3' >"$h/.wgetrc"
+echo 'echo unsafe' >"$h/.envrc-unsafe"
+echo 'outside' >"$h/.outside"
 echo 'alias wget="wget --config ~/.wgetrc"' >>"$h/.bashrc"
 echo 'ENVSETUP_XDG_NINJA=1' >"$h/.config/envsetup/config.sh"
 before=$(snapshot "$h")
@@ -630,6 +639,10 @@ check "  ...and new shells get DOCKER_CONFIG" [ "$(in_shell "$h" bash 'printf %s
 check "    ...non-interactive ones too" [ "$(not_interactive "$h" 'printf %s "$DOCKER_CONFIG"')" = "$h/.config/docker" ]
 check "left ~/.wgetrc: .bashrc references it" [ -f "$h/.wgetrc" ]
 check "  ...and said why" grep -qF 'leaving ~/.wgetrc (wget): referenced from' "$h/setup.out"
+check "left the dotfile a note exports as BASH_ENV" [ -f "$h/.envrc-unsafe" ]
+check "  ...and exported no BASH_ENV" [ "$(grep -c BASH_ENV "$h/.config/envsetup/xdg.sh")" = 0 ]
+check "left the dotfile a note moves out of the XDG dir" [ -f "$h/.outside" ]
+check "  ...and said both need manual steps" [ "$(grep -cE 'leaving ~/\.(envrc-unsafe|outside) \(unsafe\): needs manual steps' "$h/setup.out")" = 2 ]
 mkdir "$h/.docker" # made again by a program that didn't get DOCKER_CONFIG (cron, a launcher)
 SETUP_ARGS=(--uninstall) CONFIRMS=(yes yes)
 check "--uninstall with ~/.docker made again exits non-zero" not run_menu "$h"

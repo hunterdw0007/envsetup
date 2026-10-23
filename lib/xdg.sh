@@ -43,6 +43,9 @@ envsetup::xdg_target() {
 	else
 		return 1
 	fi
+	# No path out of the XDG dir, and no variable that makes the shell or the program
+	# loader run the file. shortcut: known names only; the list you confirm shows each export.
+	[[ "$sub/" == */../* || "$var" =~ ^(BASH_ENV|ENV|LD_.*|DYLD_.*|.*_COMMAND)$ ]] && return 1
 	case $base in
 	CONFIG) base=${XDG_CONFIG_HOME:-$HOME/.config} ;;
 	DATA) base=${XDG_DATA_HOME:-$HOME/.local/share} ;;

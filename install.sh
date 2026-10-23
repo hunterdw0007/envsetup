@@ -104,7 +104,7 @@ envsetup::releases() {
 # before the first one), a release (v1.2.0 or 1.2.0), or a branch or commit. Releases
 # and commits are checked out detached; a branch is fast-forwarded to origin's.
 envsetup::use_version() {
-	local ref=$1 releases target branch='' file
+	local ref=$1 releases target branch='' file state
 	local git=(git -C "$ENVSETUP_DIR")
 	if [[ "$ref" == latest ]]; then
 		read -r ref < <(envsetup::releases) || true
@@ -138,7 +138,10 @@ envsetup::use_version() {
 		! "${git[@]}" diff --quiet HEAD; then
 		echo "$ENVSETUP_DIR has local changes, so it can't switch to $1:" >&2
 		while read -r file; do echo "  $file" >&2; done < <("${git[@]}" diff --name-only HEAD)
-		echo "Your own settings belong in ${ENVSETUP_STATE:-$HOME/.config/envsetup}/config.sh (see the README), which" >&2
+		# The directory envsetup reads (it follows XDG_CONFIG_HOME); older checkouts lack state.sh.
+		# shellcheck source=shell/state.sh
+		state=$(source "$ENVSETUP_DIR/shell/state.sh" 2>/dev/null; echo "${ENVSETUP_STATE:-$HOME/.config/envsetup}")
+		echo "Your own settings belong in $state/config.sh (see the README), which" >&2
 		echo "updates never touch. To set the changes aside: git -C $ENVSETUP_DIR stash" >&2
 		exit 1
 	fi

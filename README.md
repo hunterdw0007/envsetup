@@ -161,6 +161,11 @@ your `config.sh`. Tool hooks are left out too, so runtimes installed with mise a
   `pruneBranches` (`pb`) and `pruneBranchesAll` (`pba`), which list the old branches and ask
   before deleting, and keep unmerged ones unless `--force`; most take `--help`. On work
   there is also `resetNode` for helm charts.
+- **Colors** (with the functions): `shell/shared/colors.sh` sets a palette for your
+  interactive shell and `config.sh`, for example `echo -e "${RED}text${RESET}"`. It is not
+  exported, so a script that you run does not get it. Run `show_colors` to see it. Each
+  value is only a default. If you set a variable of the same name before the block,
+  envsetup does not change it.
 
 Git shortcuts are git aliases (`git s`, `git d`, `git l`, ...) in `git/gitconfig`, not
 shell aliases.

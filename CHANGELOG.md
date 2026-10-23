@@ -4,6 +4,24 @@ Every release of envsetup, newest first, with what changed in it. CI writes each
 from the commits on `main` when it releases them (see "Releases" in AGENTS.md), so
 don't edit this file by hand.
 
+## v0.1.6 (2026-10-23)
+
+### Fixes
+
+- **shell**: correct RESET_BOLD, keep the user's color variables, and stop colors when NO_COLOR is set (#69)
+
+## v0.1.5 (2026-10-23)
+
+### Fixes
+
+- keep the caller's set options in load_config, and warn about errors in config.sh (#68)
+
+## v0.1.4 (2026-10-23)
+
+### Fixes
+
+- **git**: save no empty user.name or user.email when the prompt is cancelled (#67)
+
 ## v0.1.3 (2026-10-12)
 
 ### Fixes

@@ -4,6 +4,12 @@ Every release of envsetup, newest first, with what changed in it. CI writes each
 from the commits on `main` when it releases them (see "Releases" in AGENTS.md), so
 don't edit this file by hand.
 
+## v0.1.6 (2026-10-23)
+
+### Fixes
+
+- **shell**: correct RESET_BOLD, keep the user's color variables, and stop colors when NO_COLOR is set (#69)
+
 ## v0.1.5 (2026-10-23)
 
 ### Fixes

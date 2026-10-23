@@ -278,7 +278,8 @@ running `install.sh`.
 This takes out everything envsetup added: its block in `~/.bashrc`/`~/.bash_profile`/`~/.zshrc` (the rest of
 the file is left byte-for-byte as it was), its include in `~/.gitconfig` and the generated
 file behind it, and its saved profile/mode. Dotfiles it moved to XDG directories go back
-where they were. It asks before removing anything that might be yours: your `config.sh`,
+where they were. If one can't (a program made the old path again), it stays where it is,
+uninstall says why, and running uninstall again once that's fixed moves it. It asks before removing anything that might be yours: your `config.sh`,
 and, if envsetup switched it to zsh, switching your login shell back to bash. Packages and tools stay, since they may have been there before
 envsetup, as do your git `user.name`/`user.email` and oh-my-zsh (it has its own
 `uninstall_oh_my_zsh`). It lists all of that at the end, along with how to delete the

@@ -176,25 +176,38 @@ envsetup::xdg_tidy() {
 }
 
 # For uninstall: moves everything back (newest first), then drops the exports, the
-# list of moves and the cached notes.
+# list of moves and the cached notes. A move it can't undo stays in the list, with its
+# export, so a later uninstall can try again.
 envsetup::xdg_restore() {
-	local lines=() i old new var failed=0
+	local lines=() kept=() i old new var reason failed=0 files=("$ENVSETUP_XDG_CACHE")
 	if [[ -f "$ENVSETUP_XDG_MOVES" ]]; then
 		readarray -t lines <"$ENVSETUP_XDG_MOVES"
 		for ((i = ${#lines[@]} - 1; i >= 0; i--)); do
 			IFS=$'\t' read -r old new var <<<"${lines[i]}"
-			[[ -e "$new" && ! -e "$old" ]] || continue
-			if envsetup::dry_run; then
+			[[ -e "$new" ]] || continue
+			if [[ -e "$old" ]]; then
+				reason="$old exists again"
+			elif envsetup::dry_run; then
 				envsetup::would "move $new back to $old"
-			elif mv -n "$new" "$old"; then
+				continue
+			elif mv -n "$new" "$old" && [[ ! -e "$new" ]]; then
 				rmdir "${new%/*}" 2>/dev/null || true # the directory the move created, if now empty
+				continue
 			else
-				gum style --foreground 1 "Couldn't move $new back to $old"
-				failed=1
+				reason="couldn't move it"
 			fi
+			gum style --foreground 1 "Leaving $new where it is: $reason. Fix that, then uninstall again."
+			kept=("${lines[i]}" ${kept[@]+"${kept[@]}"})
 		done
 	fi
-	for var in "$ENVSETUP_XDG_MOVES" "$ENVSETUP_XDG_ENV" "$ENVSETUP_XDG_CACHE"; do
+	if ((${#kept[@]} == 0)); then
+		files+=("$ENVSETUP_XDG_MOVES" "$ENVSETUP_XDG_ENV")
+	elif ! envsetup::dry_run; then
+		printf '%s\n' "${kept[@]}" >"$ENVSETUP_XDG_MOVES"
+		envsetup::xdg_write_env
+		failed=1
+	fi
+	for var in "${files[@]}"; do
 		[[ -e "$var" ]] || continue
 		if envsetup::dry_run; then envsetup::would "delete $var"; else rm -rf "$var"; fi
 	done

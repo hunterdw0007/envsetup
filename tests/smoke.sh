@@ -627,10 +627,16 @@ check "  ...and new shells get DOCKER_CONFIG" [ "$(in_shell "$h" bash 'printf %s
 check "    ...non-interactive ones too" [ "$(not_interactive "$h" 'printf %s "$DOCKER_CONFIG"')" = "$h/.config/docker" ]
 check "left ~/.wgetrc: .bashrc references it" [ -f "$h/.wgetrc" ]
 check "  ...and said why" grep -qF 'leaving ~/.wgetrc (wget): referenced from' "$h/setup.out"
+mkdir "$h/.docker" # made again by a program that didn't get DOCKER_CONFIG (cron, a launcher)
 SETUP_ARGS=(--uninstall) CONFIRMS=(yes yes)
-check "--uninstall exits 0" run_menu "$h"
-SETUP_ARGS=() CONFIRMS=()
+check "--uninstall with ~/.docker made again exits non-zero" not run_menu "$h"
 check "  ...moved ~/.htoprc back" cmp -s <(echo 'color_scheme=1') "$h/.htoprc"
+check "  ...left ~/.config/docker where it is" [ -f "$h/.config/docker/config.json" ]
+check "  ...said why" grep -qF "Leaving $h/.config/docker where it is: $h/.docker exists again" "$SMOKE_LOG"
+check "  ...and kept it in the list of moves" grep -qF "$h/.config/docker" "$h/.config/envsetup/xdg-moves"
+rmdir "$h/.docker"
+check "uninstalling again exits 0" run_menu "$h"
+SETUP_ARGS=() CONFIRMS=()
 check "  ...moved ~/.docker back" [ -f "$h/.docker/config.json" ]
 check "  ...and removed the exports and the notes" none_exist "$h/.config/envsetup/xdg.sh" "$h/.cache/envsetup"
 unset ENVSETUP_XDG_NINJA_URL

@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Gets a machine onto zsh + oh-my-zsh, opted into from the menu or with
-# ENVSETUP_SHELL=zsh. Called as `install_zsh || return 1`, which turns set -e off in
-# here, so every failure has an explicit return.
+# ENVSETUP_SHELL=zsh. Runs under envsetup::run_step's set -e.
 
 envsetup::install_zsh() {
 	local missing=() manager installer

@@ -170,7 +170,7 @@ envsetup::link_shell_config() {
 }
 
 envsetup::set_up_zsh() {
-	envsetup::install_zsh || return 1
+	envsetup::install_zsh
 	envsetup::link_rc "$HOME/.zshrc"
 }
 

@@ -236,6 +236,36 @@ check "re-run exited 0" run_menu "$h" "Run everything" Quit
 check "re-run didn't link twice" [ "$(count '# >>> envsetup >>>' "$h/.bashrc")" = 1 ]
 ((failures)) && show "$h/setup.out"
 
+echo "== pruneBranches: deletes only what it lists, and keeps unmerged branches (#62)"
+# In the work/full home above. A repo with main, 7 merged branches and an older unmerged one.
+r=$h/prune
+git init -q -b main "$r"
+pgit() { GIT_COMMITTER_DATE=$1 git -C "$r" -c user.name=smoke -c user.email=smoke@example.com "${@:2}"; }
+pgit 2020-01-01T00:00:00 commit -q --allow-empty -m base
+pgit 2020-01-02T00:00:00 switch -q -c wip
+pgit 2020-01-02T00:00:00 commit -q --allow-empty -m wip
+pgit 2020-01-03T00:00:00 switch -q main
+pgit 2020-01-03T00:00:00 commit -q --allow-empty -m newer
+for b in 1 2 3 4 5 6 7; do git -C "$r" branch "merged-$b"; done
+branches() { git -C "$r" for-each-ref --format='%(refname:short)' refs/heads | wc -l; }
+# Only what is left counts here; an unknown option returns 2, which set -e would stop on.
+prune() { in_shell "$h" bash "cd '$r' && pruneBranches $*" >/dev/null || true; }
+check "(before: 9 branches)" [ "$(branches)" = 9 ]
+prune --help
+prune foo
+prune --yes foo
+check "--help and an unknown option delete nothing" [ "$(branches)" = 9 ]
+prune 2 --dry-run --yes
+check "--dry-run deletes nothing" [ "$(branches)" = 9 ]
+prune 2
+check "no answer to its question deletes nothing" [ "$(branches)" = 9 ]
+prune 2 --yes
+check "keeping 2 deleted the other 5 merged branches" [ "$(branches)" = 4 ]
+check "  ...but not the unmerged one" git -C "$r" show-ref -q --verify refs/heads/wip
+prune 2 --yes --force
+check "--force deleted the unmerged one too" not git -C "$r" show-ref -q --verify refs/heads/wip
+check "  ...and kept main and the 2 newest" [ "$(branches)" = 3 ]
+
 echo "== work/lite: Run everything (no sudo: no packages, no installers)"
 h=$(new_home)
 check "exited 0" run_menu "$h" "Select profile" work lite "Run everything" Quit

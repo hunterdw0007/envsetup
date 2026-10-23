@@ -25,6 +25,10 @@ jobs:
       HOMEBREW_NO_AUTO_UPDATE: "1"
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The run installs and runs third-party tools: keep the token out of the
+          # checkout. Every clone in the tests is local.
+          persist-credentials: false
 
       # Most scenarios need Homebrew's bash, as install.sh would set up. The others are
       # what the MANPAGER, cat alias and shell hook checks look for.

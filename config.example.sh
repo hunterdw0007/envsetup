@@ -14,6 +14,10 @@
 # portable (or guard bash-only bits with [[ -n $BASH_VERSION ]]), and put
 # interactive-only things (prompt frameworks, completions) under [[ $- == *i* ]],
 # since setup.sh sources this file non-interactively too.
+#
+# setup.sh sources this file in its own process. Thus `exit` here stops setup.sh, and
+# `cd` changes its directory. If this file has a syntax error, or a command in it fails,
+# setup.sh shows a warning and continues with the settings that loaded.
 
 # --- Packages ---------------------------------------------------------------------
 # Defaults: packages/common.txt + packages/$ENVSETUP_PROFILE.txt. Use Debian/Ubuntu's

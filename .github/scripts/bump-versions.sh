@@ -30,7 +30,7 @@ pin_gum() {
 	printf %s "$v"
 	for os in Linux Darwin; do
 		for arch in x86_64:amd64 arm64:arm64; do
-			sha "$(echo "$os" | tr '[:upper:]' '[:lower:]')-${arch#*:}" "$base/checksums.txt" "gum_${v}_${os}_${arch%:*}.tar.gz"
+			sha "${os,,}-${arch#*:}" "$base/checksums.txt" "gum_${v}_${os}_${arch%:*}.tar.gz"
 		done
 	done
 	sha linux-armv7 "$base/checksums.txt" "gum_${v}_Linux_armv7.tar.gz"

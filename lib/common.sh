@@ -246,11 +246,11 @@ envsetup::fetch() {
 
 # gum_release <dir>: installs gum's pinned release binary into <dir>, checksum-verified.
 envsetup::gum_release() {
-	local os arch asset version sha tmp rc=1
-	case $OSTYPE in linux*) os=Linux ;; darwin*) os=Darwin ;; *) return 1 ;; esac
-	# versions.txt keys are e.g. linux-amd64 for gum's Linux_x86_64.
+	local os key arch asset version sha tmp rc=1
+	# key: versions.txt names gum's Linux_x86_64 linux-amd64.
+	case $OSTYPE in linux*) os=Linux key=linux ;; darwin*) os=Darwin key=darwin ;; *) return 1 ;; esac
 	case $HOSTTYPE in x86_64 | arm64) arch=$HOSTTYPE ;; aarch64) arch=arm64 ;; armv7*) arch=armv7 ;; *) return 1 ;; esac
-	version=$(envsetup::pin gum) && sha=$(envsetup::pin gum "$(echo "$os" | tr '[:upper:]' '[:lower:]')-${arch/x86_64/amd64}") || return 1
+	version=$(envsetup::pin gum) && sha=$(envsetup::pin gum "$key-${arch/x86_64/amd64}") || return 1
 	asset=gum_${version}_${os}_$arch.tar.gz
 	tmp=$(mktemp -d)
 	if envsetup::fetch "https://github.com/charmbracelet/gum/releases/download/v$version/$asset" "$tmp/$asset" &&

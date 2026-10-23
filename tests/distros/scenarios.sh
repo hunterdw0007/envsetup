@@ -102,7 +102,8 @@ else
 fi
 
 # --- gum: the menu can't start without it ---------------------------------------------
-if as beta "PATH=\${PATH#$stubs:}; source envsetup/lib/common.sh && envsetup::ensure_gum && command -v gum" >"$out/gum.log" 2>&1; then
+# ENVSETUP_ROOT: as() starts from a clean env, and gum's pinned version is read from the checkout.
+if as beta "PATH=\${PATH#$stubs:}; export ENVSETUP_ROOT=\$HOME/envsetup; source envsetup/lib/common.sh && envsetup::ensure_gum && command -v gum" >"$out/gum.log" 2>&1; then
 	result gum PASS "installed: $(tail -n 1 "$out/gum.log")"
 else
 	result gum FAIL "envsetup::ensure_gum couldn't install gum: $(tail -n 2 "$out/gum.log")"

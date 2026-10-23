@@ -4,6 +4,17 @@ Every release of envsetup, newest first, with what changed in it. CI writes each
 from the commits on `main` when it releases them (see "Releases" in AGENTS.md), so
 don't edit this file by hand.
 
+## v0.1.9 (2026-10-23)
+
+### Fixes
+
+- name the config.sh envsetup reads when install.sh can't switch versions (#75)
+- **xdg**: keep track of dotfiles uninstall can't move back (#74)
+
+### Refactoring
+
+- reuse install_release in helm.sh and keep set -e in the zsh step (#76)
+
 ## v0.1.8 (2026-10-23)
 
 ### Fixes

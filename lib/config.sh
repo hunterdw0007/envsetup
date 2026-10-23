@@ -31,7 +31,9 @@ envsetup::load_config() {
 		_envsetup_err=
 	fi
 	_envsetup_trap=$(trap -p ERR)
-	trap '_envsetup_line=${_envsetup_line:-$LINENO}' ERR
+	# Only a command in config.sh itself counts: when its last command is a false
+	# `[[ ... ]] && ...`, `source` below returns 1, and that is no error.
+	trap 'if [[ ${BASH_SOURCE[0]} == "$ENVSETUP_USER_CONFIG" ]]; then _envsetup_line=${_envsetup_line:-$LINENO}; fi' ERR
 	set +eu
 	# shellcheck source=/dev/null # user-supplied file
 	source "$ENVSETUP_USER_CONFIG"

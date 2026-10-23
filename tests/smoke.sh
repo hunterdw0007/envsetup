@@ -81,7 +81,11 @@ case $1 in
 		sed -i 1d "$SMOKE_CHOICES"
 		[[ $answer == ESC ]] && exit 1
 		echo "$answer" ;;
-	input) [[ $* == *@* ]] && echo smoke@example.com || echo "Smoke Test" ;;
+	# SMOKE_INPUT: ESC cancels (gum exits 1), any other value is the answer.
+	input)
+		[[ ${SMOKE_INPUT-unset} == ESC ]] && exit 1
+		[[ ${SMOKE_INPUT-unset} != unset ]] && { echo "$SMOKE_INPUT"; exit 0; }
+		[[ $* == *@* ]] && echo smoke@example.com || echo "Smoke Test" ;;
 	confirm)
 		answer=no
 		read -r answer <"$SMOKE_CONFIRMS" || true
@@ -242,6 +246,19 @@ check "bash loads the aliases" [ "$(in_shell "$h" bash 'alias ll')" = "alias ll=
 check "bash skips exports" [ -z "$(in_shell "$h" bash 'printf %s "${EDITOR:-}"')" ]
 check "bash skips functions" [ -z "$(in_shell "$h" bash 'type -t fetchAll')" ]
 check "bash still gets the prompt" has_prompt "$h"
+
+echo "== Configure git: an empty or cancelled answer saves no identity (#49)"
+h=$(new_home)
+identity() { git config --file "$1/.gitconfig" --get-regexp '^user\.' || echo none; }
+SMOKE_INPUT=ESC check "cancelled: exited 0" run_menu "$h" "Select profile" work lite "Configure git" Quit
+check "  ...saved no user.name or user.email" [ "$(identity "$h")" = none ]
+check "  ...and said how to set them" grep -qF 'Skipped user.name. git needs it before your first commit' "$h/setup.out"
+SMOKE_INPUT='  ' check "only spaces: exited 0" run_menu "$h" "Configure git" Quit
+check "  ...saved none" [ "$(identity "$h")" = none ]
+SMOKE_INPUT=not-an-email check "an email without @: exited 0" run_menu "$h" "Configure git" Quit
+check "  ...saved the name, not the email" [ "$(identity "$h")" = "user.name not-an-email" ]
+check "  ...and said why" grep -qF 'Skipped user.email: "not-an-email" is not an email address' "$h/setup.out"
+((failures)) && show "$h/setup.out"
 
 echo "== an ENVSETUP_STATE for another \$HOME (as a test with a throwaway \$HOME gets it) is not used"
 h=$(new_home)

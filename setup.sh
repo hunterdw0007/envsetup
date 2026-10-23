@@ -186,22 +186,24 @@ envsetup::install_packages() {
 		return 1
 	fi
 	readarray -t pkgs < <(envsetup::resolved_packages)
-	for pkg in "${pkgs[@]}"; do
-		name=$(envsetup::pkg_name "$manager" "$pkg")
-		if [[ -n "$name" ]]; then names+=("$name"); fi
-	done
-	if ((${#names[@]} == 0)); then
+	if ((${#pkgs[@]} == 0)); then
 		gum style --foreground 3 "No packages listed for $ENVSETUP_PROFILE."
 		return 0
 	fi
 	if [[ "$manager" == dnf ]]; then envsetup::enable_epel; fi
-	if envsetup::dry_run; then
-		[[ "$manager" == brew || "$manager" == nix ]] || manager="sudo $manager"
-		envsetup::would "install ${#names[@]} packages with $manager (ones already installed are left alone): ${names[*]}"
-	else
-		gum style --bold --foreground 4 "Installing via $manager: ${names[*]}"
+	if ! envsetup::dry_run; then
+		# pkg_install maps each name for $manager itself, and says which it skips.
+		gum style --bold --foreground 4 "Installing via $manager: ${pkgs[*]}"
 		envsetup::pkg_install "$manager" "${pkgs[@]}"
+		return
 	fi
+	# The names pkg_install would pass to $manager, for the preview.
+	for pkg in "${pkgs[@]}"; do
+		name=$(envsetup::pkg_name "$manager" "$pkg")
+		if [[ -n "$name" ]]; then names+=("$name"); fi
+	done
+	[[ "$manager" == brew || "$manager" == nix ]] || manager="sudo $manager"
+	envsetup::would "install ${#names[@]} packages with $manager (ones already installed are left alone): ${names[*]}"
 }
 
 # Picker lines are "<value>  <what it does>", worked out from the same resolved config

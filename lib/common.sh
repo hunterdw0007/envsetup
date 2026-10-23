@@ -86,6 +86,26 @@ envsetup::github_latest() {
 	echo "${BASH_REMATCH[1]}"
 }
 
+# pin <name> [<platform>]: <name>'s version from installers/versions.txt, or with
+# <platform> (a key there, e.g. linux-amd64) the sha256 of that platform's download.
+envsetup::pin() {
+	local name version sums
+	while read -r name version sums; do
+		[[ "$name" == "$1" && -n "$version" ]] || continue
+		if [[ -z "${2:-}" ]]; then
+			echo "$version"
+			return 0
+		elif [[ " $sums " =~ \ "$2"=([0-9a-f]{64})\  ]]; then
+			echo "${BASH_REMATCH[1]}"
+			return 0
+		fi
+		echo "installers/versions.txt has no checksum of $1 for $2." >&2
+		return 1
+	done <"$ENVSETUP_ROOT/installers/versions.txt"
+	echo "installers/versions.txt has no version of $1." >&2
+	return 1
+}
+
 # release_sha256 <checksums url> <file>: <file>'s hash from a project's sha256 list,
 # either "<hash>  <file>" lines (sha256sum's format, "*file" and "./file" too) or the
 # bare hash of a one-file .sha256.
@@ -224,24 +244,21 @@ envsetup::fetch() {
 	if envsetup::has_cmd curl; then curl -fsSL -o "$2" "$1"; else wget -qO "$2" "$1"; fi
 }
 
-# gum_release <dir>: installs gum's latest release binary into <dir>, checksum-verified.
+# gum_release <dir>: installs gum's pinned release binary into <dir>, checksum-verified.
 envsetup::gum_release() {
-	local os arch asset version tmp rc=1 re
+	local os arch asset version sha tmp rc=1
 	case $OSTYPE in linux*) os=Linux ;; darwin*) os=Darwin ;; *) return 1 ;; esac
+	# versions.txt keys are e.g. linux-amd64 for gum's Linux_x86_64.
 	case $HOSTTYPE in x86_64 | arm64) arch=$HOSTTYPE ;; aarch64) arch=arm64 ;; armv7*) arch=armv7 ;; *) return 1 ;; esac
-	re="(gum_([^_]+)_${os}_${arch}[.]tar[.]gz)"$'\n'
+	version=$(envsetup::pin gum) && sha=$(envsetup::pin gum "$(echo "$os" | tr '[:upper:]' '[:lower:]')-${arch/x86_64/amd64}") || return 1
+	asset=gum_${version}_${os}_$arch.tar.gz
 	tmp=$(mktemp -d)
-	# checksums.txt has no version in its name, so it also says which release is latest.
-	if envsetup::fetch https://github.com/charmbracelet/gum/releases/latest/download/checksums.txt "$tmp/checksums.txt" &&
-		[[ "$(<"$tmp/checksums.txt")"$'\n' =~ $re ]]; then
-		asset=${BASH_REMATCH[1]} version=${BASH_REMATCH[2]}
-		if envsetup::fetch "https://github.com/charmbracelet/gum/releases/download/v$version/$asset" "$tmp/$asset" &&
-			(cd "$tmp" && grep " $asset\$" checksums.txt | sha256sum -c >/dev/null) &&
-			tar -xzf "$tmp/$asset" -C "$tmp" && mkdir -p "$1" &&
-			install -m 0755 "$tmp/${asset%.tar.gz}/gum" "$1/gum"; then
-			echo "Installed gum $version to $1" >&2
-			rc=0
-		fi
+	if envsetup::fetch "https://github.com/charmbracelet/gum/releases/download/v$version/$asset" "$tmp/$asset" &&
+		echo "$sha  $tmp/$asset" | sha256sum -c >/dev/null &&
+		tar -xzf "$tmp/$asset" -C "$tmp" && mkdir -p "$1" &&
+		install -m 0755 "$tmp/${asset%.tar.gz}/gum" "$1/gum"; then
+		echo "Installed gum $version to $1" >&2
+		rc=0
 	fi
 	rm -rf "$tmp"
 	return "$rc"
@@ -269,7 +286,7 @@ envsetup::ensure_gum() {
 		if envsetup::gum_release "$bin"; then
 			PATH=$bin:$PATH
 		elif envsetup::has_cmd go; then
-			go install github.com/charmbracelet/gum@latest
+			go install "github.com/charmbracelet/gum@v$(envsetup::pin gum)"
 			PATH="$(go env GOPATH)/bin:$PATH"
 		fi
 	fi

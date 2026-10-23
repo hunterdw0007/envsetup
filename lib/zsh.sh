@@ -3,7 +3,7 @@
 # ENVSETUP_SHELL=zsh. Runs under envsetup::run_step's set -e.
 
 envsetup::install_zsh() {
-	local missing=() manager installer
+	local missing=() manager installer commit
 	envsetup::has_cmd zsh || missing+=(zsh)
 	# The oh-my-zsh installer is fetched with curl, which a fresh desktop may not have yet.
 	envsetup::has_cmd curl || missing+=(curl)
@@ -41,7 +41,10 @@ envsetup::install_zsh() {
 		gum style --bold "Installing oh-my-zsh..."
 		# Not `sh -c "$(curl ...)"`: that runs an empty script and "succeeds" when the
 		# download fails, leaving a ~/.zshrc that the next install attempt then keeps.
-		if ! installer="$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"; then
+		# The installer at the commit pinned in installers/versions.txt. It clones the
+		# latest oh-my-zsh, which then updates itself.
+		if ! commit=$(envsetup::pin ohmyzsh) ||
+			! installer="$(curl -fsSL "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/$commit/tools/install.sh")"; then
 			gum style --foreground 1 "Couldn't download the oh-my-zsh installer."
 			return 1
 		fi

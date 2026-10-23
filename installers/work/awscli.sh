@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Installs AWS CLI v2 (Linux x86_64 or aarch64) if it isn't already on PATH. AWS publishes
-# a signature, not a checksum, so the download is checked against AWS's signing key in
-# awscli.asc before its installer runs as root.
+# Installs AWS CLI v2 (pinned in installers/versions.txt; Linux x86_64 or aarch64) if it
+# isn't already on PATH. AWS publishes a signature, not a checksum, so the download is
+# checked against AWS's signing key in awscli.asc before its installer runs as root.
 set -euo pipefail
 
 source "$ENVSETUP_ROOT/lib/common.sh"
@@ -18,7 +18,8 @@ fi
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
-url="https://awscli.amazonaws.com/awscli-exe-linux-${HOSTTYPE}.zip"
+version=$(envsetup::pin awscli)
+url="https://awscli.amazonaws.com/awscli-exe-linux-${HOSTTYPE}-$version.zip"
 curl -fsSL -o "$tmp/awscliv2.zip" "$url"
 curl -fsSL -o "$tmp/awscliv2.zip.sig" "$url.sig"
 # The key and its fingerprint as AWS publishes them:

@@ -4,6 +4,12 @@ Every release of envsetup, newest first, with what changed in it. CI writes each
 from the commits on `main` when it releases them (see "Releases" in AGENTS.md), so
 don't edit this file by hand.
 
+## v0.1.8 (2026-10-23)
+
+### Fixes
+
+- **git**: stop deleting local tags on fetch, and document the opinionated git defaults (#71)
+
 ## v0.1.7 (2026-10-23)
 
 ### Fixes

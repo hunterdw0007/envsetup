@@ -15,12 +15,19 @@ on:
         required: false
         default: ""
 
+permissions:
+  contents: read
+
 jobs:
   distros:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The containers mount this checkout and run vendor installers: keep the
+          # token out of it. Every clone in the tests is local.
+          persist-credentials: false
 
       - name: Run tests/distros/run.sh
         env:

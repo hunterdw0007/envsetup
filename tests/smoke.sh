@@ -269,6 +269,11 @@ check "  ...warned once (the menu loads config.sh each time it shows)" [ "$(coun
 printf 'ENVSETUP_EXTRAS=(lazygit\n' >"$h/.config/envsetup/config.sh"
 check "a syntax error: exited 0" run_menu "$h" "Configure git" Quit
 check "  ...warned once, with the line" [ "$(count 'did not load completely (line 1: unexpected EOF' "$h/setup.out")" = 1 ]
+# The README's own example: on this work box the last line's test is false, so `source`
+# returns 1. That is no error.
+printf 'ENVSETUP_EXTRAS=(lazygit)\n[[ $ENVSETUP_PROFILE == home ]] && ENVSETUP_EXTRAS+=(k9s)\n' >"$h/.config/envsetup/config.sh"
+check "a last line of [[ false ]] && ...: exited 0" run_menu "$h" "Configure git" Quit
+check "  ...and no warning" not_grep 'failed. envsetup continues' "$h/setup.out"
 ((failures)) && show "$h/setup.out"
 
 echo "== an ENVSETUP_STATE for another \$HOME (as a test with a throwaway \$HOME gets it) is not used"

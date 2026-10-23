@@ -4,6 +4,12 @@ Every release of envsetup, newest first, with what changed in it. CI writes each
 from the commits on `main` when it releases them (see "Releases" in AGENTS.md), so
 don't edit this file by hand.
 
+## v0.1.5 (2026-10-23)
+
+### Fixes
+
+- keep the caller's set options in load_config, and warn about errors in config.sh (#68)
+
 ## v0.1.4 (2026-10-23)
 
 ### Fixes

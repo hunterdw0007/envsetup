@@ -163,10 +163,13 @@ GitHub release with the same entry as its notes. The current version is the newe
   running that script. When a project only publishes a signature (awscli), pin just the
   version and use `envsetup::gpg_verify` against the vendor's key, kept next to the
   script with its fingerprint pinned in the script.
-- Bumping tool versions is a PR: run `.github/scripts/bump-versions.sh`, review the
-  diff, and say in the test plan which installers were run against the new pins
-  (`tests/distros/run.sh`). It's a `fix(installers): ...` when it changes what users
-  get, so it releases.
+- Bumping tool versions is a PR. The `bump-versions` workflow opens it every Monday
+  (`.github/scripts/bump-versions.sh`, then `bump-pr.sh`, with `RELEASE_TOKEN` so CI
+  runs on it) and starts the distros workflow on its branch; run it from the Actions tab
+  for one now. Before merging, check the distros run and the list of changes: the same
+  version with other checksums means upstream replaced a release's files. It's a
+  `fix(installers): ...`, so it releases. `RELEASE_TOKEN` needs Contents, Pull requests
+  and Actions: write.
 - Download the build for the machine (`envsetup::arch` gives `amd64`/`arm64`), run root
   steps through `envsetup::as_root` (sudo, doas, or already root), and document any
   remaining OS/arch assumption in a comment.

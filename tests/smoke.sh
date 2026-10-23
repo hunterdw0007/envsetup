@@ -469,6 +469,9 @@ echo "# a local edit" >>"$V/README.md"
 check "local edits stop a switch to another version" fails install_version 1.0.0
 check "  ...naming the file" grep -qx '  README.md' $W/version.out
 check "  ...and where settings belong" grep -qF '/.config/envsetup/config.sh' $W/version.out
+mkdir -p "$W/xdg/envsetup"
+xdg_hint() { XDG_CONFIG_HOME=$W/xdg fails install_version 1.0.0 && grep -qF "$W/xdg/envsetup/config.sh" $W/version.out; }
+check "  ...under XDG_CONFIG_HOME when that's set" xdg_hint
 check "  ...leaving the checkout alone" at v1.2.0
 check "but not a re-run of the same version" install_version ""
 check "  ...which keeps them, and says so" reports v1.2.0-dirty

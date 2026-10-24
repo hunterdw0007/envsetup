@@ -2,10 +2,12 @@
 # Rewrites installers/versions.txt with the newest release of every tool it pins, and the
 # sha256 of each platform's download as the project publishes it. Review the diff and
 # open a PR: once merged, those are the versions and hashes every install checks against.
+# .github/workflows/bump-versions.yml runs it weekly and opens that PR (bump-pr.sh).
 #
 #   .github/scripts/bump-versions.sh
 #
-# Any lookup that fails stops it before the file changes. Needs curl and git.
+# Prints what changed as a Markdown list. Any lookup that fails stops it before the file
+# changes. Needs curl and git.
 set -euo pipefail
 
 ENVSETUP_ROOT=$(cd "${BASH_SOURCE[0]%/*}/../.." && pwd)
@@ -169,6 +171,12 @@ while IFS= read -r line; do
 	"pin_$name"
 	echo
 done <"$file" >"$tmp"
+# What changed, as Markdown on stdout (bump-pr.sh puts it in the commit and the PR). The
+# same version with other hashes means upstream replaced a release's files: find out why.
+awk 'NR == FNR { if (!/^#/ && NF) { old[$1] = $2; line[$1] = $0 }; next }
+	/^#/ || !NF { next }
+	old[$1] != $2 { print "- " $1 ": " (old[$1] == "" ? "new" : old[$1]) " → " $2; next }
+	line[$1] != $0 { print "- " $1 ": " $2 ", **same version, other checksums**: upstream replaced its files; check why before merging" }' \
+	"$file" "$tmp"
 mv "$tmp" "$file"
 trap - EXIT
-git -C "$ENVSETUP_ROOT" --no-pager diff --stat -- installers/versions.txt

@@ -4,6 +4,12 @@ Every release of envsetup, newest first, with what changed in it. CI writes each
 from the commits on `main` when it releases them (see "Releases" in AGENTS.md), so
 don't edit this file by hand.
 
+## v0.2.1 (2026-10-26)
+
+### Fixes
+
+- **installers**: bump pinned tool versions (#83)
+
 ## v0.2.0 (2026-10-23)
 
 ### Features

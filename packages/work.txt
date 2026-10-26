@@ -15,5 +15,9 @@ rsync
 # dig/nslookup.
 dnsutils
 
+# gpgv/gpg, which check awscli's signature (installers/work/awscli.sh); Debian 13's base
+# image no longer has it.
+gnupg
+
 # terraform, kubectl, helm, awscli v2 and gh aren't in most distros' repos; they come
 # from installers/work/ instead.

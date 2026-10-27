@@ -117,6 +117,17 @@ declare -A expect=(
 	[work-full]="$common_cmds nmap tcpdump strace lsof iostat mtr iotop iftop netstat rsync dig kubectl helm gh terraform aws"
 	[work-lite]=""
 )
+# Gaps the README's distro table documents: skipped the way it tells users to, and
+# reported as a WARN instead of a FAIL. The packages, then the commands they provide.
+known_pkgs='' known_cmds=''
+# shellcheck disable=SC1091 # the container's own os-release, not a file in this repo
+case $(. /etc/os-release && echo "${ID-}:${VERSION_ID-}") in
+almalinux:9.* | rocky:9.*) known_pkgs=direnv known_cmds=direnv ;;
+amzn:2023)
+	known_pkgs="fzf ripgrep bat neovim direnv shellcheck ncdu"
+	known_cmds="fzf rg bat|batcat nvim direnv shellcheck ncdu"
+	;;
+esac
 
 for run in home work-full work-lite; do
 	user=t-$run log=$out/$run.log
@@ -125,7 +136,7 @@ for run in home work-full work-lite; do
 	mkdir -p "/home/$user/.config/envsetup"
 	{
 		[[ $run == home ]] && echo 'ENVSETUP_XDG_NINJA=1'
-		[[ -n "${DISTROS_SKIP:-}" ]] && echo "ENVSETUP_SKIP=($DISTROS_SKIP)"
+		[[ -n "${DISTROS_SKIP:-}$known_pkgs" ]] && echo "ENVSETUP_SKIP=(${DISTROS_SKIP:-} $known_pkgs)"
 	} >"/home/$user/.config/envsetup/config.sh"
 	chown -R "$user:" "/home/$user/.config"
 
@@ -155,14 +166,21 @@ for run in home work-full work-lite; do
 		result "$run: steps" FAIL "$(grep -c "didn't finish" "/tmp/$user/gum.log") step(s) didn't finish; see $run.log"
 	fi
 
-	missing=()
+	missing=() gaps=()
 	for cmd in ${expect[$run]}; do
+		if [[ " $known_cmds " == *" $cmd "* ]]; then
+			gaps+=("$cmd")
+			continue
+		fi
 		as "$user" "for c in ${cmd//|/ }; do command -v \$c && exit 0; done; exit 1" >/dev/null 2>&1 || missing+=("$cmd")
 	done
 	if ((${#missing[@]})); then
 		result "$run: commands" FAIL "missing: ${missing[*]}"
 	elif [[ -n "${expect[$run]}" ]]; then
-		result "$run: commands" PASS "all $(wc -w <<<"${expect[$run]}") expected commands present"
+		result "$run: commands" PASS "all $(($(wc -w <<<"${expect[$run]}") - ${#gaps[@]})) expected commands present"
+	fi
+	if ((${#gaps[@]})); then
+		result "$run: commands" WARN "not packaged on this distro (see README), so skipped: ${gaps[*]}"
 	fi
 
 	shells=(bash)

@@ -19,6 +19,9 @@ npm              =       =                   npm-default                      = 
 shellcheck       =       ShellCheck          ShellCheck                       =            =                =       ^      =
 net-tools        =       =                   net-tools-deprecated             =            =                =       -      =
 dnsutils         =       bind-utils          bind-utils                       bind         bind-tools       bind    ^      =
+# Only awscli.sh needs it (gpgv or gpg), and macOS gets awscli from Homebrew. dnf asks for
+# gpg, so Amazon Linux's gnupg2-minimal counts instead of conflicting with gnupg2.
+gnupg            =       /usr/bin/gpg        gpg2                             =            =                =       -      =
 # Linux-only, or part of macOS: nothing for Homebrew to install there.
 strace           =       =                   =                                =            =                =       -      =
 iotop            =       =                   =                                =            =                =       -      =

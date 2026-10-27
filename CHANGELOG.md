@@ -4,6 +4,12 @@ Every release of envsetup, newest first, with what changed in it. CI writes each
 from the commits on `main` when it releases them (see "Releases" in AGENTS.md), so
 don't edit this file by hand.
 
+## v0.2.2 (2026-10-27)
+
+### Fixes
+
+- **packages**: install gnupg on work so awscli's signature can be checked (#84)
+
 ## v0.2.1 (2026-10-26)
 
 ### Fixes

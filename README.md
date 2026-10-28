@@ -1,92 +1,81 @@
 # envsetup
 
-A [gum](https://github.com/charmbracelet/gum)-powered TUI for getting a new or wiped machine
-back to a working shell: aliases, exports, functions, and your usual CLI tools.
+envsetup sets up the shell on a new or wiped machine.
+It adds aliases, environment variables, shell functions and common command-line tools.
+You choose what it does from a menu in the terminal.
+The menu uses [gum](https://github.com/charmbracelet/gum).
 
-## Quick install
+## Install
 
-One line gets you from a bare machine into the setup menu:
+Run this command on the machine:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | bash
 ```
 
-`install.sh` installs `git` if it's missing, clones this repo into `~/envsetup` (or
-`$ENVSETUP_DIR` if set), checks out the newest release, and hands off straight into
-`./setup.sh`. Running it again later updates the existing checkout to the newest release
-instead of re-cloning. Point it at a different remote (e.g. an SSH URL) with
-`ENVSETUP_REPO_URL`.
+The command does four things:
 
-### Picking a version
+1. It installs `git` if the machine does not have it.
+2. It copies this repo into `~/envsetup`, the envsetup folder.
+3. It selects the newest release.
+4. It opens the menu.
 
-Releases are numbered `vMAJOR.MINOR.PATCH` and listed, with what changed in each, in
-[`CHANGELOG.md`](CHANGELOG.md) and on the
-[releases page](https://github.com/hunterdw0007/envsetup/releases). envsetup is still on
-0.x, where a new minor version can include changes to something you're used to; those
-are listed first, under "Breaking changes" (from 1.0.0 on, only a new major version
-will). To install a particular version, or go back to one, name it in
-`ENVSETUP_VERSION`:
+To update to the newest release, run the same command again.
+
+These variables change what the command does:
+
+| Variable | What it does |
+| --- | --- |
+| `ENVSETUP_DIR` | Sets the envsetup folder. The default is `~/envsetup`. |
+| `ENVSETUP_REPO_URL` | Sets the repo URL, for example an SSH URL. |
+| `ENVSETUP_VERSION` | Selects a release. See [Select a release](#select-a-release). |
+
+### Select a release
+
+Each release has a number, for example `v0.2.0`.
+[`CHANGELOG.md`](CHANGELOG.md) lists the changes in each release.
+The [releases page](https://github.com/hunterdw0007/envsetup/releases) lists them too.
+To install a specific release, set `ENVSETUP_VERSION`:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | ENVSETUP_VERSION=v0.2.0 bash
-# the same, from an existing checkout
+# the same command, from the envsetup folder
 ENVSETUP_VERSION=v0.2.0 ~/envsetup/install.sh
 ```
 
-`0.2.0` works too. A branch (`main`, for changes that haven't been released yet) or a
-commit also works. An unknown version lists the releases there are. Running `install.sh`
-without `ENVSETUP_VERSION` moves you to the newest release again, and
-`./setup.sh --version` shows which one you're on.
+- `ENVSETUP_VERSION` also accepts `0.2.0`, a branch name or a commit.
+- `ENVSETUP_VERSION=main` gives you changes that are not in a release yet.
+- An unknown value shows the list of releases.
+- A run without `ENVSETUP_VERSION` selects the newest release again.
+- `./setup.sh --version` shows the release you have.
 
-A release is checked out as a detached commit, so update with `install.sh` rather than
-`git pull`; `ENVSETUP_VERSION=main` puts the checkout back on the `main` branch.
+Update with `install.sh`, not with `git pull`.
+`git pull` does not work on a release.
 
-### Try it without changing anything
+envsetup is still at version 0.x.
+In 0.x, a release can change something you use every day.
+The changelog lists these changes first, under "Breaking changes".
+
+### Try it without changes
 
 ```sh
 ./setup.sh --dry-run
-# or, straight from curl (this still clones the repo into ~/envsetup, nothing else):
+# or with curl (this copies the repo into ~/envsetup and changes nothing else)
 curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | bash -s -- --dry-run
 ```
 
-A dry run is the real menu, but every step says what it *would* do instead of doing it:
-which rc file it would edit, whether it would switch your login shell, which packages it
-would install and whether that needs sudo, which installers it would run. Profile picks
-and "Edit config" still work, so you can try different setups, but they're forgotten when
-you quit. The menu needs `gum`, so if it isn't installed yet the dry run asks before
-installing it; that's the only change it can make. In a normal session, **Preview
-everything** does the same for "Run everything".
+A dry run opens the real menu.
+Each action then describes its changes but does not make them.
+You can still select profiles and edit `config.sh`.
+envsetup forgets those changes when you quit.
 
-## Supported systems
+The menu needs gum.
+If the machine does not have gum, the dry run asks before it installs gum.
+A dry run makes no other change.
 
-envsetup uses whichever package manager the machine has, and translates package names
-for it (`packages/names.txt`). Homebrew wins when it's installed.
+The **Preview everything** action is the same as a dry run of **Run everything**.
 
-| System | Uses | Notes |
-|---|---|---|
-| Ubuntu, Debian, Mint, Pop!_OS, WSL | `apt` | |
-| Fedora | `dnf` | |
-| RHEL, Rocky, Alma, CentOS Stream, Oracle Linux | `dnf` | Asks to enable EPEL, where fzf, ripgrep, bat, htop, neovim and ~10 more come from; Docker comes from Docker CE's repo. direnv isn't in EPEL 9 |
-| Amazon Linux 2023 | `dnf` | No EPEL, so several extras (fzf, ripgrep, bat, ...) are reported as not installable; `ENVSETUP_SKIP` them |
-| Arch, CachyOS, EndeavourOS, Manjaro | `pacman` | |
-| openSUSE Tumbleweed and Leap | `zypper` | |
-| Alpine | `apk` | Needs bash first: `apk add bash curl` |
-| Bazzite, Aurora, Silverblue, SteamOS, Aeon | `brew` | `/usr` is read-only, so it needs Homebrew (Bazzite and Aurora ship it), or else Nix |
-| macOS | `brew` | Needs Apple's Command Line Tools and Homebrew; `install.sh` offers both, plus Homebrew's bash (macOS ships 3.2, envsetup needs 4+). Installers and extras use Homebrew too; terraform comes from HashiCorp's tap (`hashicorp/tap`), which Homebrew then also trusts for upgrades, and which uninstall leaves in place like the tools themselves |
-| NixOS | `nix` | Installs into your user profile (`nix profile` or `nix-env`) |
-
-Root steps go through `sudo`, or `doas` if that's what the machine has, or run directly
-when you're already root (containers, a fresh WSL distro). `gum` comes from Homebrew if
-you have it, else from its GitHub release into `~/.local/bin`, so no sudo is needed for
-the menu itself. Installers download the amd64 or arm64 build to match the machine.
-
-The versions envsetup downloads itself (gum, the vendor tools below, the oh-my-zsh
-installer) are pinned in `installers/versions.txt`, with the sha256 of each download, so
-two machines set up from the same release get the same versions, and a release upstream
-that changes can't reach you without a PR here. Want a newer one? Install it yourself:
-every installer leaves a tool that's already on `PATH` alone.
-
-## Manual install
+### Install without curl
 
 ```sh
 git clone git@github.com:hunterdw0007/envsetup.git ~/envsetup
@@ -94,344 +83,204 @@ cd ~/envsetup
 ./setup.sh
 ```
 
-This runs the newest commit on `main`. For a release instead, `git checkout v0.2.0` first
-(`git tag` lists them), or use `install.sh`, which does that for you.
+This method uses the newest commit on `main`.
+To use a release, run `git checkout v0.2.0` first.
+`git tag` lists the releases.
 
-Nothing changes until you pick an action. `./setup.sh --help` gives an overview without
-launching the menu (it works before `gum` is installed), and the profile and mode pickers
-say what each choice does on *this* machine, e.g.
-`work  bash · 23 packages · 5 installers (awscli, gh, helm, kubectl, terraform)`, worked
-out from your `config.sh` if you have one.
+## Use the menu
 
-From the menu you can:
+envsetup changes nothing until you select an action.
+Run `./setup.sh --help` to see an overview without the menu.
+`--help` works on a machine without gum.
 
-- pick a machine profile (`work` or `home`)
-- for `work`, also pick a mode: `full` assumes sudo access and does everything below;
-  `lite` assumes no sudo access, so it only loads the prompt (`ps1.sh`) and aliases and
-  skips package installs entirely
-- edit your personal config (see [Customizing without forking](#customizing-without-forking))
-- link `shell/init.sh` into your rc file, which loads shared config plus the active
-  profile's overlay
-- configure git: writes `git/gitconfig` plus your config's git entries to
-  `~/.config/envsetup/gitconfig`, includes that from `~/.gitconfig`, and prompts for
-  `user.name`/`user.email` if nothing set them. Runs regardless of profile/mode — it never
-  needs sudo
-- install the packages listed for `common` + the active profile (skipped for `work` lite);
-  if one can't be installed, the rest still are, and it says which one failed
-- run the installer scripts under `installers/common` + the active profile — anything that
-  isn't a plain package-manager package: vendor installers, manual binary downloads, or any
-  other custom setup step (also skipped for `work` lite)
-- move dotfiles out of `$HOME` into XDG directories (optional, see
-  [below](#moving-dotfiles-to-xdg-directories-optional))
-- take it all back out again (see [Uninstalling](#uninstalling))
+First, select a profile: `work` or `home`.
+For `work`, also select a mode:
 
-"Run everything" does all four in one shot, carrying on past a step that fails; each is
-also available individually from the menu if you just want to re-run one piece.
+- `full` is for machines where you have sudo. It runs every action.
+- `lite` is for machines without sudo. It installs nothing.
 
-Linking wires `shell/init.sh` into `~/.bashrc` on every profile, and into your login shell's
-rc file so new terminals load it: `~/.zshrc` if your login shell is zsh, `~/.bash_profile`
-for bash on macOS. Setting up zsh is opt-in: **Set up zsh + oh-my-zsh** in the menu
-installs zsh and [oh-my-zsh](https://ohmyz.sh) if they're missing, offers to make zsh your
-login shell, and wires the same config into `~/.zshrc`.
-`ENVSETUP_SHELL=zsh` in `config.sh` makes that part of "Link shell config" and "Run
-everything".
+This README calls the `work` profile in `lite` mode "work lite".
 
-`setup.sh` will try to install `gum` itself (via `brew` or `go install`) if it isn't found.
+Each profile and mode in the menu shows what it does on this machine.
+For example: `work  bash · 23 packages · 5 installers (awscli, gh, helm, kubectl, terraform)`.
+
+**Run everything** runs these four actions in order:
+
+1. **Link shell config** loads envsetup from your shell startup file, for example `~/.bashrc`.
+2. **Configure git** writes envsetup's git settings and asks for your name and email.
+3. **Install packages** installs the packages for your profile.
+4. **Run installers** runs scripts for tools that package managers do not have.
+
+If one action fails, **Run everything** continues with the next action.
+You can also run each action alone from the menu.
+Work lite skips **Install packages** and **Run installers**.
+
+The menu has these other actions:
+
+- **Select profile** changes the profile and mode.
+- **Edit config** opens your `config.sh`. See [Customize](#customize).
+- **Set up zsh + oh-my-zsh** installs zsh and [oh-my-zsh](https://ohmyz.sh). It can also make zsh your login shell.
+- **Move dotfiles to XDG dirs** moves dotfiles out of `$HOME`. See [docs/xdg.md](docs/xdg.md).
+- **Preview everything** shows what **Run everything** would do.
+- **Uninstall** removes what envsetup added. See [Uninstall](#uninstall).
 
 ### What your shell gets
 
-Every profile and mode gets the prompt, aliases and tool hooks. Work lite gets only
-those; everything else also gets the exports and functions. That's in interactive shells:
-a non-interactive one (`ssh host cmd`, scp, rsync, scripts) only gets Homebrew on `PATH`
-(macOS), the exports (not on work lite), those for dotfiles moved to XDG directories, and
-your `config.sh`. Tool hooks are left out too, so runtimes installed with mise aren't on
-`PATH` there: for them, add `eval "$(mise activate bash --shims)"` to `config.sh`.
+Every profile gets a prompt, aliases and hooks for some tools.
+Every profile except work lite also gets environment variables and shell functions.
+[docs/shell.md](docs/shell.md) lists all of them.
 
-- **Prompt** (bash): time, kube context, a collapsed path (`~/d/envsetup`), git branch and
-  ahead/behind, then `❯` on its own line. It's set from `PROMPT_COMMAND` (added to any you
-  already have) and reads the context and branch from the files themselves (the context
-  is cached in `~/.cache/envsetup` until your kubeconfig changes), so the only program it
-  runs is one `git` call inside a repo. In zsh, the oh-my-zsh theme owns the
-  prompt instead.
-- **Aliases**: `ls` in color, `la`, `ll`, `..`/`...`/`....`. `cat`/`less` go through `bat`
-  when it's installed. On work there are also kubectl shortcuts (`kc`, `kcaMem`).
-- **Tool hooks**, for whichever of these is installed: `direnv` (loads `.envrc`),
-  `zoxide` (`z`), `fzf` key bindings (Ctrl-R history, Ctrl-T files, Alt-C cd) and `mise`
-  (per-project runtimes). On Debian/Ubuntu, `fd` points at `fdfind`. On macOS, Homebrew
-  and what it installed are put on `PATH` if the shell wasn't set up for it.
-- **Exports**: XDG base directories, `EDITOR=vim`, and man pages through `bat`. These are
-  defaults only. If you set one of them before envsetup's block (in `~/.profile`, or
-  earlier in your rc file), envsetup does not change it.
-- **Functions** (bash, macOS's 3.2 included): multi-repo git helpers for a directory of checkouts. They are
-  `branchAll` (`ba`), `fetchAll` (`fa`), `pullMainAll` (`pma`), `mainOriginAll`,
-  `pruneBranches` (`pb`) and `pruneBranchesAll` (`pba`), which list the old branches and ask
-  before deleting, and keep unmerged ones unless `--force`; most take `--help`. On work
-  there is also `resetNode` for helm charts.
-- **Colors** (with the functions): `shell/shared/colors.sh` sets a palette for your
-  interactive shell and `config.sh`, for example `echo -e "${RED}text${RESET}"`. It is not
-  exported, so a script that you run does not get it. Run `show_colors` to see it. Each
-  value is only a default. If you set a variable of the same name before the block,
-  envsetup does not change it.
+**Configure git** changes some of git's defaults.
+For example, `git pull` rebases your commits and does not merge.
+Also, `git aa` adds every file that `.gitignore` does not exclude, including `.env` files.
+Read [the git settings](docs/shell.md#git-settings) before you run **Configure git**.
 
-Git shortcuts are git aliases (`git s`, `git d`, `git l`, ...) in `git/gitconfig`, not
-shell aliases. Some settings in that file change what git does by default:
+## Supported systems
 
-- `pull.rebase = true`: a bare `git pull` rebases your commits, and does not merge.
-- `fetch.prune = true` and `fetch.all = true`: each fetch fetches every remote, and
-  removes the remote-tracking branches of deleted branches. Local tags stay.
-- `push.default = current`, and `status.showUntrackedFiles = all`.
-- `credential.helper = cache --timeout=3600`: git keeps HTTPS credentials in memory for
-  an hour. On macOS or WSL, you can use the helper of the OS (see `config.example.sh`).
-- `git p`, `git pf` and `git su` push to, or track, a remote called `origin` and a branch
-  called `main`.
-- `git aa` is `git add .`: it also stages files that `.gitignore` does not cover, for
-  example an `.env` file.
+envsetup uses the package manager that the machine has.
+If the machine has Homebrew, envsetup uses Homebrew.
+`packages/names.txt` translates package names for each package manager.
 
-To change one of them, put your own value in `ENVSETUP_GIT_CONFIG` in `config.sh` (for
-example `"pull.rebase=false"`), and run "Configure git" again.
+| System | Package manager | Notes |
+|---|---|---|
+| Ubuntu, Debian, Mint, Pop!_OS, WSL | `apt` | |
+| Fedora | `dnf` | |
+| RHEL, Rocky, Alma, CentOS Stream, Oracle Linux | `dnf` | Asks to turn on EPEL. See [EPEL](#epel). |
+| Amazon Linux 2023 | `dnf` | Has no EPEL. See [EPEL](#epel). |
+| Arch, CachyOS, EndeavourOS, Manjaro | `pacman` | |
+| openSUSE Tumbleweed and Leap | `zypper` | |
+| Alpine | `apk` | Install bash first: `apk add bash curl`. |
+| Bazzite, Aurora, Silverblue, SteamOS, Aeon | `brew` | `/usr` is read-only, so envsetup needs Homebrew or Nix. Bazzite and Aurora include Homebrew. |
+| macOS | `brew` | See [macOS](#macos). |
+| NixOS | `nix` | Installs into your user profile with `nix profile` or `nix-env`. |
 
-### Moving dotfiles to XDG directories (optional)
+### EPEL
 
-**Move dotfiles to XDG dirs** in the menu tidies `$HOME` using
-[xdg-ninja](https://github.com/b3nj5m1n/xdg-ninja)'s notes on 600+ programs. It moves
-files like `~/.docker` to `~/.config/docker` and exports whatever variable the program
-needs (`DOCKER_CONFIG`) from every new shell. Set `ENVSETUP_XDG_NINJA=1` in `config.sh`
-to make it part of "Run everything", so tools it installs get tidied too.
+On RHEL and similar systems, about 15 packages come from EPEL.
+These packages include fzf, ripgrep, bat, htop and neovim.
+EPEL 9 does not have direnv.
+Docker comes from Docker CE's own package repo.
 
-xdg-ninja's notes are written for people, so only the mechanical fixes are applied
-automatically:
+Amazon Linux 2023 has no EPEL.
+On Amazon Linux, envsetup cannot install fzf, ripgrep, bat and some other packages.
+Add them to `ENVSETUP_SKIP` in `config.sh`.
 
-- one `export` and a move
-- a move to a path the program already reads
+### macOS
 
-Everything else is left in place and listed, with the reason:
+macOS needs Apple's Command Line Tools and Homebrew.
+`install.sh` offers to install both.
+macOS includes bash 3.2, but envsetup needs bash 4 or newer.
+So `install.sh` also offers to install Homebrew's bash.
 
-- notes with a version caveat or extra steps
-- dotfiles your rc files mention (e.g. `~/.cargo/env`)
-- symlinks
-- variables that are already set or shared (`HISTFILE`, `ZDOTDIR`, `GNUPGHOME`)
-- the rc files themselves and `~/.gitconfig`
+On macOS, installers use Homebrew too.
+terraform comes from HashiCorp's Homebrew tap, `hashicorp/tap`.
+A tap is an extra package source for Homebrew.
+Homebrew then uses that tap for upgrades too.
+Uninstall does not remove the tap.
 
-It shows the list and asks before moving anything, and `--dry-run` previews it. Every
-move is recorded, so uninstall moves them all back. It needs `git` and `jq` (both in
-`packages/common.txt`). The notes are cached in `~/.cache/envsetup/xdg-ninja`, from
-`ENVSETUP_XDG_NINJA_URL` if you point that at a mirror.
+### Root access and downloads
 
-The exports apply to shells that load envsetup. A program started some other way (a
-desktop launcher, cron) won't see them.
+envsetup runs root steps with `sudo`, or with `doas` if the machine has it.
+If you are already root, envsetup runs those steps directly.
+The menu itself does not need sudo.
+envsetup installs gum with Homebrew, or from gum's GitHub release into `~/.local/bin`.
+Installers download the amd64 or arm64 build that matches the machine.
 
-## Customizing without forking
+`installers/versions.txt` sets the version and sha256 checksum of each download.
+So two machines on the same release get the same tool versions.
+A changed download from upstream fails the checksum, so envsetup does not install it.
+To use a newer version of a tool, install the tool yourself.
+Installers skip any tool that is already on your `PATH`.
 
-Everything shipped here (packages, installers, aliases, git settings) is a *default*. To
-change any of it for yourself, put your changes in one file,
-`~/.config/envsetup/config.sh`, instead of editing this repo. (If you set
-`XDG_CONFIG_HOME`, the file is `$XDG_CONFIG_HOME/envsetup/config.sh`. If you already
-have `~/.config/envsetup`, envsetup continues to use it. "Link shell config" writes the
-directory into the rc block, so all your shells use the same one, also shells where
-`XDG_CONFIG_HOME` is not set.) It lives outside the
-checkout, so updating (re-running `install.sh`) never conflicts with it — editing
-tracked files, by contrast, makes the next update abort.
+## Customize
 
-Pick **Edit config** in the menu to create it from [`config.example.sh`](config.example.sh)
-(every option, all commented out) and open it in `$EDITOR`. It's plain bash, sourced
-after the defaults, so `+=` extends a default, `=` replaces it, and you can branch on
-`$ENVSETUP_PROFILE` / `$ENVSETUP_MODE` for per-machine tweaks:
+The packages, installers, aliases and git settings in this repo are defaults.
+To change a default, edit `~/.config/envsetup/config.sh`.
+Do not edit the files in this repo.
+If you edit them, the next update stops with an error.
+`config.sh` is outside the repo, so updates do not change it.
+
+Select **Edit config** in the menu to create `config.sh` and open it in `$EDITOR`.
+The new `config.sh` is a copy of [`config.example.sh`](config.example.sh).
+That copy lists every setting, all commented out.
+
+`config.sh` is a bash script.
+envsetup runs it after it loads the defaults.
+
+- `+=` adds to a default list.
+- `=` replaces a default.
+- `$ENVSETUP_PROFILE` and `$ENVSETUP_MODE` let you change settings for each machine.
 
 ```sh
 ENVSETUP_PACKAGES+=(neovim)                        # add to the default package list
 ENVSETUP_PACKAGES+=(fd-find zoxide btop git-delta) # any package, by its Debian name
-ENVSETUP_EXTRAS=(lazygit k9s)                      # tools distros don't package (below)
-ENVSETUP_SKIP=(docker terraform)                   # drop a default package or installer
+ENVSETUP_EXTRAS=(lazygit k9s)                      # tools that distros do not package
+ENVSETUP_SKIP=(docker terraform)                   # remove a default package or installer
 ENVSETUP_SHELL=zsh                                 # also set up zsh + oh-my-zsh
 ENVSETUP_INSTALLER_DIRS+=("$HOME/dotfiles/envsetup-installers")
 ENVSETUP_GIT_CONFIG+=("user.email=me@example.com" "pull.rebase=false")
 [[ $ENVSETUP_PROFILE == work ]] && ENVSETUP_PACKAGES+=(kubectx)
 
-alias k=kubectl                                    # anything else is ordinary shell config
+alias k=kubectl                                    # any other shell config works too
 ```
 
-| Setting | Default | Applied |
+| Setting | Default | Used by |
 | --- | --- | --- |
 | `ENVSETUP_PACKAGES` | `packages/common.txt` + `packages/<profile>.txt` | Install packages |
 | `ENVSETUP_INSTALLER_DIRS` | `installers/common` + `installers/<profile>` | Run installers |
-| `ENVSETUP_EXTRAS` | empty — names from `installers/extras/` to install | Run installers |
-| `ENVSETUP_SKIP` | empty — names of packages/installers to leave out | Install packages, Run installers |
-| `ENVSETUP_SHELL` | `bash`; `zsh` also sets up zsh + oh-my-zsh | Link shell config |
-| `ENVSETUP_GIT_CONFIG` | `git/gitconfig`, as `key=value` (later entries win) | Configure git |
-| `ENVSETUP_XDG_NINJA` | `0`; `1` adds "Move dotfiles to XDG dirs" to "Run everything" | Run everything |
-| aliases, exports, functions, `PS1` | `shell/` | every new shell, after the defaults |
+| `ENVSETUP_EXTRAS` | Empty. Lists tools from `installers/extras/` to install. | Run installers |
+| `ENVSETUP_SKIP` | Empty. Lists packages and installers to skip. | Install packages, Run installers |
+| `ENVSETUP_SHELL` | `bash`. The value `zsh` also sets up zsh + oh-my-zsh. | Link shell config |
+| `ENVSETUP_GIT_CONFIG` | `git/gitconfig`, as `key=value`. Later entries win. | Configure git |
+| `ENVSETUP_XDG_NINJA` | `0`. The value `1` adds **Move dotfiles to XDG dirs** to **Run everything**. | Run everything |
+| aliases, environment variables, functions, `PS1` | `shell/` | Every new shell, after the defaults |
 
-### Popular tools
+A change to shell config takes effect in the next new shell.
+A change to an `ENVSETUP_*` setting takes effect the next time you run its action.
 
-Most tools people add are in every distro's repos, so `ENVSETUP_PACKAGES+=(...)` covers
-them, under their Debian/Ubuntu name; `packages/names.txt` translates for the other package
-managers:
+[docs/customizing.md](docs/customizing.md) lists popular tools to add.
+It also explains where `config.sh` lives and how to use it on other machines.
 
-| | Add with `ENVSETUP_PACKAGES` |
-| --- | --- |
-| General | `fd-find` (fd), `zoxide`, `btop`, `git-delta`, `ncdu`, `tree` |
-| Development | `golang-go`, `build-essential`, `python3-venv`, `pipx`, `make`, `podman` |
-| Work | `ansible`, `kubectx` (not packaged on Fedora/RHEL) |
-
-Older LTS releases can lack the newest of these (`git-delta` isn't in Ubuntu 22.04); the
-package step names whatever it couldn't install.
-
-The ones Ubuntu LTS or Fedora don't package come from their own releases (pinned and
-checksum-verified, amd64 or arm64) when named in `ENVSETUP_EXTRAS`:
-
-| `ENVSETUP_EXTRAS` | |
-| --- | --- |
-| `starship` | cross-shell prompt; installing doesn't switch to it, add `eval "$(starship init bash)"` to `config.sh` |
-| `lazygit` | git TUI |
-| `k9s` | Kubernetes TUI |
-| `yq` | mikefarah's YAML/JSON processor (Debian's `yq` is a different tool) |
-| `mise` | per-project runtime versions (node, python, go, ...); activated in new shells |
-| `uv` | Python package and project manager, with `uvx` |
-
-Shell settings take effect in the next new shell. The `ENVSETUP_*` settings take effect the
-next time you run the matching menu action (or "Run everything"). To carry your setup to
-another machine, keep `config.sh` in your own dotfiles and symlink it into place before
-running `install.sh`.
-
-## Uninstalling
+## Uninstall
 
 ```sh
 ./setup.sh --uninstall            # or "Uninstall" in the menu
-./setup.sh --dry-run --uninstall  # see what it would remove first
+./setup.sh --dry-run --uninstall  # shows what uninstall would remove
 ```
 
-This takes out everything envsetup added: its block in `~/.bashrc`/`~/.bash_profile`/`~/.zshrc` (the rest of
-the file is left byte-for-byte as it was), its include in `~/.gitconfig` and the generated
-file behind it, and its saved profile/mode. Dotfiles it moved to XDG directories go back
-where they were. If one can't (a program made the old path again), it stays where it is,
-uninstall says why, and running uninstall again once that's fixed moves it. It asks before removing anything that might be yours: your `config.sh`,
-and, if envsetup switched it to zsh, switching your login shell back to bash. Packages and tools stay, since they may have been there before
-envsetup, as do your git `user.name`/`user.email` and oh-my-zsh (it has its own
-`uninstall_oh_my_zsh`). It lists all of that at the end, along with how to delete the
-checkout itself.
+Uninstall removes everything that envsetup added:
 
-## Layout
+- envsetup's block in `~/.bashrc`, `~/.bash_profile` and `~/.zshrc`
+- the include line in `~/.gitconfig` and the file it includes
+- your saved profile and mode
+- the dotfile moves to XDG folders
 
-```
-install.sh           # curl | bash entry point: clones/updates the repo, checks out a release, runs setup.sh
-setup.sh             # gum TUI: profile/mode selection, linking, package installs
-config.example.sh    # template for your ~/.config/envsetup/config.sh overrides
-CHANGELOG.md         # every release and what changed in it (written by CI)
-shell/
-  shared/            # ps1, aliases, exports, functions loaded on every machine
-                      # (work/lite only loads ps1 + aliases), plus colors.sh
-                      # for the functions
-  profiles/
-    work/            # overlays loaded only when profile = work
-    home/            # overlays loaded only when profile = home
-  init.sh            # sourced from your rc file; wires the above together
-packages/
-  common.txt         # packages installed everywhere
-  work.txt           # extra packages for the work profile
-  home.txt           # extra packages for the home profile
-installers/
-  common/            # scripts run for every profile
-  work/              # scripts run only for profile = work (full mode only)
-  home/              # scripts run only for profile = home
-  versions.txt       # pinned version + sha256 of everything downloaded (bump-versions.sh writes it)
-git/
-  gitconfig          # default git aliases/settings (no identity)
-```
+Uninstall does not change the rest of each startup file.
+Uninstall moves each dotfile back to its old path.
+Sometimes a program creates the old path again.
+Then uninstall leaves that dotfile in its new path and tells you why.
+After you fix the problem, run uninstall again.
 
-Package lists use Debian/Ubuntu's names; `packages/names.txt` maps the ones other package
-managers call something else. To change what's installed or loaded for yourself, use `config.sh` (above)
-rather than editing these files.
+Uninstall asks before it removes your `config.sh`.
+If envsetup changed your login shell to zsh, uninstall asks to change it back to bash.
 
-### Adding a third-party or custom installer
+Uninstall keeps these things, because they can exist without envsetup:
 
-Some tools don't come from a package manager (`terraform`, `kubectl`, `awscli`, ...), and
-sometimes you just want an arbitrary setup step to run (cloning a repo, writing a config
-file, whatever). Either kind goes in `installers/`:
+- packages and tools
+- your git `user.name` and `user.email`
+- oh-my-zsh, which has its own `uninstall_oh_my_zsh` command
 
-1. Drop a script in `installers/common/<name>.sh` (every profile) or
-   `installers/<profile>/<name>.sh` (that profile only), e.g. `installers/work/terraform.sh`.
-2. Make it idempotent — check whether the thing is already done and exit early if so, since
-   "Run installers" may run again later. `installers/work/kubectl.sh` is a working example.
-3. It runs as its own `bash` process, so source `$ENVSETUP_ROOT/lib/common.sh` yourself if you
-   want helpers like `envsetup::has_cmd`.
-4. Verify what you download before installing or running it. In this repo, pin the version
-   and checksums in `installers/versions.txt` and read them with `envsetup::pin`
-   (kubectl.sh again; see `AGENTS.md`). In your own installers, if the project publishes
-   checksums, `envsetup::release_sha256` + `envsetup::install_release` do the rest.
-   If it only signs its releases, keep its public key next to the script and call
-   `envsetup::gpg_verify` with the key's fingerprint (awscli.sh).
+At the end, uninstall lists what it kept.
+It also tells you how to delete the envsetup folder.
 
-To add your own installers without touching this repo, keep them in a directory of your own
-and add it via `ENVSETUP_INSTALLER_DIRS` in `config.sh`.
+## More information
 
-Scripts run directory by directory, alphabetically within each. One failing script doesn't
-stop the others — failures are collected and reported at the end.
-
-## Contributing
-
-See `AGENTS.md` for commit/branch conventions and code standards. CI
-(`.github/workflows/ci.yml`) runs `bash -n` and `shellcheck` on every shell script for
-every push and PR.
-
-Commit messages follow [Conventional Commits](https://www.conventionalcommits.org), and
-they decide the version: once CI passes on `main`, a merge with a `fix` releases a new
-patch version and a `feat` or breaking change (`feat!:`) a new minor version (a major one
-from 1.0.0 on). CI commits the release's entry to `CHANGELOG.md`, tags it and publishes it
-as a GitHub release. `docs`, `ci`, `test` and `chore` changes don't release anything.
-[commitizen](https://commitizen-tools.github.io/commitizen/) (`.cz.toml`) does the
-checking, versioning and changelog; see "Releases" in `AGENTS.md`.
-
-### Testing on other distros
-
-`tests/distros/run.sh` tries the tool on a dozen distros, each in a fresh container: the
-Ubuntus, Debians, Mint, Fedora, Alma, Rocky, Amazon Linux, Arch, openSUSE and Alpine.
-Nothing is stubbed except gum's UI. It does real package installs and vendor downloads,
-as non-root users with sudo, and covers:
-
-- `install.sh` on a box without git, and installing gum;
-- "Run everything" for home, work/full and work/lite;
-- which commands actually ended up installed;
-- whether bash and zsh start cleanly;
-- uninstall.
-
-It takes minutes per distro, so it isn't part of CI. Run it before handing a build to
-testers:
-
-```sh
-tests/distros/run.sh                               # all of them, 3 at a time
-tests/distros/run.sh fedora:latest archlinux:latest
-```
-
-It tests the commit you have checked out and writes `distros-report/<time>/report.md`: a
-pass/fail grid plus every problem it found, with logs alongside. The same thing runs from
-GitHub's Actions tab ("distros" > Run workflow), which puts the report in the run summary.
-Behind a proxy, `DISTROS_PREHOOK` points at a script that sets it up in each container;
-see the top of `run.sh`.
-
-### Testing on macOS
-
-`tests/macos.sh` runs on a Mac without changing it. It covers:
-
-- `install.sh`, plus `setup.sh` under macOS's bash 3.2, including the switch to Homebrew's
-  bash;
-- "Run everything" for home, work/full and work/lite in throwaway `$HOME`s;
-- every installer;
-- zsh, login bash and Homebrew's bash loading the result;
-- uninstall.
-
-gum's menu is scripted. `brew install` and `chsh` are recorded instead of run. Other brew
-commands are real, so every formula envsetup asks for is also checked against Homebrew.
-
-```sh
-tests/macos.sh
-```
-
-It tests the commit you have checked out and writes `macos-report/<time>/report.md`, with
-logs alongside. The `macos` workflow runs it on GitHub's macOS runners and puts the report
-in the run summary. It's opt-in, since macOS runners are slower to start and the run takes
-a couple of minutes: Actions tab > macos > Run workflow, or add the `macos` label to a PR,
-which then re-runs it on every push.
+- [docs/shell.md](docs/shell.md): the prompt, aliases, functions and git settings.
+- [docs/customizing.md](docs/customizing.md): popular tools and the location of `config.sh`.
+- [docs/xdg.md](docs/xdg.md): how envsetup moves dotfiles to XDG folders.
+- [CONTRIBUTING.md](CONTRIBUTING.md): the repo layout, new installers, releases and tests.
 
 ## License
 
-MIT; see `LICENSE`. To report a security problem, see `SECURITY.md`.
+MIT. See `LICENSE`.
+To report a security problem, see `SECURITY.md`.

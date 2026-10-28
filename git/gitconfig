@@ -1,7 +1,7 @@
 # Shared git config/aliases, included from ~/.gitconfig by lib/git.sh. No identity
 # (user.name/email) here on purpose — that's prompted for per-machine, not committed.
 # Machine-specific settings (hooks path, CA bundle, ...) belong in config.sh.
-# These are defaults for every envsetup user. The README lists the ones that change what
+# These are defaults for every envsetup user. docs/shell.md lists the ones that change what
 # git does by default.
 [advice]
 	statusHints = false

@@ -232,7 +232,7 @@ commit messages and the PR title on every PR:
 - `release-script`: `tests/release.sh`, the release flow against a scratch origin, with
   the hash-locked commitizen. Run it locally with `cz` on PATH.
 
-`tests/distros/run.sh` (manual, not CI; see the README) runs the real tool against a
+`tests/distros/run.sh` (manual, not CI; see `CONTRIBUTING.md`) runs the real tool against a
 dozen distros with real installs. Run it after changing anything distro-specific: package
 lists, `envsetup::pkg_install`/`pkg_manager`, installers, `install.sh`.
 `tests/macos.sh` is the same for macOS, on GitHub's macOS runners (the `macos` workflow,

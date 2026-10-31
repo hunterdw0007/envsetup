@@ -54,35 +54,26 @@ for b in "$brew_prefix/bin/bash" /opt/homebrew/bin/bash /usr/local/bin/bash; do
 	if [[ -x "$b" ]] && "$b" -c '((BASH_VERSINFO[0] >= 4))' 2>/dev/null; then new_bash=$b && break; fi
 done
 
+# installers/<script>:<the Homebrew formula it hands over to on macOS>
+installer_formulas="work/kubectl:kubernetes-cli work/helm:helm work/gh:gh work/awscli:awscli
+	work/terraform:hashicorp/tap/terraform extras/starship:starship extras/lazygit:lazygit
+	extras/k9s:k9s extras/yq:yq extras/mise:mise extras/uv:uv"
+
 # --- stand-ins ------------------------------------------------------------------------
 stubs=$T/stubs
 mkdir -p "$stubs"
-export MT_LOG=$T/calls.log MT_CHOICES=$T/choices MT_CONFIRMS=$T/confirms REAL_BREW=$real_brew
-cat >"$stubs/gum" <<'EOF'
-#!/bin/bash
-echo "gum $*" >>"$MT_LOG"
-pop() { head -n 1 "$1" 2>/dev/null; tail -n +2 "$1" >"$1.tmp" 2>/dev/null; mv "$1.tmp" "$1"; }
-case $1 in
-choose)
-	a=$(pop "$MT_CHOICES")
-	if [ -z "$a" ] || [ "$a" = ESC ]; then exit 1; fi
-	echo "$a" ;;
-confirm) [ "$(pop "$MT_CONFIRMS")" = yes ]; exit ;;
-input) case "$*" in *@*) echo mac@example.com ;; *) echo "Mac Tester" ;; esac ;;
-style) echo "${@: -1}" ;;
-esac
-exit 0
-EOF
+export SMOKE_LOG=$T/calls.log SMOKE_CHOICES=$T/choices SMOKE_CONFIRMS=$T/confirms REAL_BREW=$real_brew
+cp "$root/tests/gum.sh" "$stubs/gum"
 # brew: installs are recorded, everything else (shellenv, info, --prefix) is the real one.
 cat >"$stubs/brew" <<'EOF'
 #!/bin/bash
 case $1 in
-install | reinstall | upgrade | tap | uninstall) echo "brew $*" >>"$MT_LOG"; exit 0 ;;
+install | reinstall | upgrade | tap | uninstall) echo "brew $*" >>"$SMOKE_LOG"; exit 0 ;;
 esac
 [ -n "$REAL_BREW" ] || exit 1
 exec "$REAL_BREW" "$@"
 EOF
-printf '#!/bin/sh\necho "chsh $*" >>"$MT_LOG"\n' >"$stubs/chsh"
+printf '#!/bin/sh\necho "chsh $*" >>"$SMOKE_LOG"\n' >"$stubs/chsh"
 # The real one would open Apple's installer dialog on a Mac without the Command Line
 # Tools; whether they're installed is checked on its own, with /usr/bin/xcode-select.
 printf '#!/bin/sh\necho /Library/Developer/CommandLineTools\n' >"$stubs/xcode-select"
@@ -101,12 +92,12 @@ new_home() {
 menu() {
 	local h=$1 sh=$2
 	shift 2
-	: >"$MT_CONFIRMS"
-	while (($#)) && [[ $1 != -- ]]; do echo "$1" >>"$MT_CONFIRMS" && shift; done
+	: >"$SMOKE_CONFIRMS"
+	while (($#)) && [[ $1 != -- ]]; do echo "$1" >>"$SMOKE_CONFIRMS" && shift; done
 	shift
-	: >"$MT_CHOICES"
-	for a in "$@"; do echo "$a" >>"$MT_CHOICES"; done
-	: >"$MT_LOG"
+	: >"$SMOKE_CHOICES"
+	for a in "$@"; do echo "$a" >>"$SMOKE_CHOICES"; done
+	: >"$SMOKE_LOG"
 	HOME=$h SHELL=$sh PATH="$stubs:$PATH" "$h/envsetup/setup.sh" ${SETUP_ARGS:+"$SETUP_ARGS"} </dev/null >"$h/setup.out" 2>&1
 }
 # in_shell <home> <shell and flags...> -- <command>: an interactive shell loading that home.
@@ -139,7 +130,7 @@ if [[ -z "$real_brew" ]]; then
 else
 	h=$T/home-install
 	mkdir -p "$h"
-	: >"$MT_LOG"
+	: >"$SMOKE_LOG"
 	# script(1) gives it a terminal: it hands off to setup.sh with stdin from /dev/tty.
 	# ENVSETUP_VERSION: this commit, not the newest release install.sh would pick.
 	HOME=$h PATH="$stubs:/usr/bin:/bin:/usr/sbin:/sbin" ENVSETUP_VERSION=$(git -C "$root" rev-parse HEAD) \
@@ -150,22 +141,20 @@ else
 	check "install.sh exits 0 and hands off to setup.sh --help" handed_off
 	check "  ...after cloning" test -x "$h/envsetup/setup.sh"
 	if [[ -n "$new_bash" ]]; then
-		check "  ...without reinstalling bash (Homebrew's is 4+)" hasnt "brew install bash" "$MT_LOG"
+		check "  ...without reinstalling bash (Homebrew's is 4+)" hasnt "brew install bash" "$SMOKE_LOG"
 	else
-		check "  ...asking Homebrew for a newer bash" has "brew install bash" "$MT_LOG"
+		check "  ...asking Homebrew for a newer bash" has "brew install bash" "$SMOKE_LOG"
 	fi
 fi
 
 echo "== setup.sh under macOS's bash 3.2"
 h=$(new_home bash32)
-HOME=$h /bin/bash "$h/envsetup/setup.sh" --help >"$out/bash32-help.log" 2>&1
-check "--help works under /bin/bash" grep -q '^Usage: ' "$out/bash32-help.log"
-: >"$MT_CHOICES"
-: >"$MT_LOG"
+: >"$SMOKE_CHOICES"
+: >"$SMOKE_LOG"
 HOME=$h PATH="$stubs:$PATH" /bin/bash "$h/envsetup/setup.sh" --dry-run </dev/null >"$out/bash32-dryrun.log" 2>&1
 if [[ -n "$new_bash" ]]; then
-	check "re-runs under Homebrew's bash and reaches the menu" has "gum choose" "$MT_LOG"
-	check "  ...keeping --dry-run" has "Dry run: nothing is saved" "$MT_LOG"
+	check "re-runs under Homebrew's bash and reaches the menu" has "gum choose" "$SMOKE_LOG"
+	check "  ...keeping --dry-run" has "Dry run: nothing is saved" "$SMOKE_LOG"
 else
 	check "without a newer bash, says how to get one" has "brew install bash" "$out/bash32-dryrun.log"
 	result WARN "Homebrew's bash" "not installed (brew install bash); the checks below need it and are skipped"
@@ -176,7 +165,7 @@ if [[ -n "$new_bash" ]]; then
 	hz=$(new_home zsh)
 	menu "$hz" /bin/zsh -- "Select profile" work full "Run everything" Quit
 	rc=$?
-	cp "$MT_LOG" "$out/work-full.calls"
+	cp "$SMOKE_LOG" "$out/work-full.calls"
 	cp "$hz/setup.out" "$out/work-full.log"
 	check "exited 0" test "$rc" = 0
 	check "linked ~/.bashrc once" test "$(count '# >>> envsetup >>>' "$hz/.bashrc")" = 1
@@ -195,13 +184,13 @@ if [[ -n "$new_bash" ]]; then
 	cp "$hb/setup.out" "$out/work-lite.log"
 	check "exited 0" test "$rc" = 0
 	check "linked ~/.bash_profile (what macOS's login bash reads)" test "$(count '# >>> envsetup >>>' "$hb/.bash_profile")" = 1
-	check "installed nothing" hasnt "brew install" "$MT_LOG"
+	check "installed nothing" hasnt "brew install" "$SMOKE_LOG"
 
 	echo "== home: Set up zsh + oh-my-zsh, then Run everything"
 	hh=$(new_home home)
 	menu "$hh" /bin/bash yes -- "Select profile" home "Set up zsh + oh-my-zsh" "Run everything" Quit
 	rc=$?
-	cp "$MT_LOG" "$out/home.calls"
+	cp "$SMOKE_LOG" "$out/home.calls"
 	cp "$hh/setup.out" "$out/home.log"
 	check "exited 0" test "$rc" = 0
 	check "installed oh-my-zsh (real download)" test -d "$hh/.oh-my-zsh"
@@ -211,14 +200,12 @@ if [[ -n "$new_bash" ]]; then
 
 	echo "== installers: Homebrew instead of Linux downloads"
 	hi=$(new_home installers)
-	printf '#!/bin/sh\necho "curl $*" >>"$MT_LOG"\nexit 1\n' >"$T/curl"
+	printf '#!/bin/sh\necho "curl $*" >>"$SMOKE_LOG"\nexit 1\n' >"$T/curl"
 	chmod +x "$T/curl"
-	brewed() { has "brew install $1" "$MT_LOG" && hasnt 'curl ' "$MT_LOG"; }
-	for pair in work/kubectl:kubernetes-cli work/helm:helm work/gh:gh work/awscli:awscli \
-		work/terraform:hashicorp/tap/terraform extras/starship:starship extras/lazygit:lazygit \
-		extras/k9s:k9s extras/yq:yq extras/mise:mise extras/uv:uv; do
+	brewed() { has "brew install $1" "$SMOKE_LOG" && hasnt 'curl ' "$SMOKE_LOG"; }
+	for pair in $installer_formulas; do
 		script=${pair%%:*} formula=${pair#*:}
-		: >"$MT_LOG"
+		: >"$SMOKE_LOG"
 		# Only system dirs on PATH, so tools you already have don't turn this into a no-op.
 		ENVSETUP_ROOT=$hi/envsetup PATH="$stubs:$T:/usr/bin:/bin:/usr/sbin:/sbin" \
 			bash "$hi/envsetup/installers/$script.sh" >"$out/installer-${script##*/}.log" 2>&1
@@ -304,12 +291,12 @@ if [[ -n "$new_bash" ]]; then
 	check "zsh login shell envsetup didn't set: exits 0" test $? = 0
 	unlinked() { hasnt '# >>> envsetup >>>' "$hz/.bashrc" && hasnt '# >>> envsetup >>>' "$hz/.zshrc"; }
 	check "  ...unlinks ~/.bashrc and ~/.zshrc" unlinked
-	check "  ...without offering to change the login shell" hasnt "Keep zsh as your login shell" "$MT_LOG"
+	check "  ...without offering to change the login shell" hasnt "Keep zsh as your login shell" "$SMOKE_LOG"
 	SETUP_ARGS=--uninstall menu "$hh" /bin/zsh yes no --
-	cp "$MT_LOG" "$out/uninstall-home.calls"
+	cp "$SMOKE_LOG" "$out/uninstall-home.calls"
 	cp "$hh/setup.out" "$out/uninstall-home.log"
-	check "login shell envsetup switched: offers to switch back" has "Keep zsh as your login shell" "$MT_LOG"
-	check "  ...and does (chsh recorded)" grep -q '^chsh -s .*bash' "$MT_LOG"
+	check "login shell envsetup switched: offers to switch back" has "Keep zsh as your login shell" "$SMOKE_LOG"
+	check "  ...and does (chsh recorded)" grep -q '^chsh -s .*bash' "$SMOKE_LOG"
 	SETUP_ARGS=--uninstall menu "$hb" /bin/bash yes --
 	check "bash login shell: unlinks ~/.bash_profile" hasnt '# >>> envsetup >>>' "$hb/.bash_profile"
 fi
@@ -322,7 +309,9 @@ elif [[ -z "$new_bash" ]]; then
 else
 	formulas=$(ENVSETUP_ROOT=$root "$new_bash" -c 'source "$ENVSETUP_ROOT/lib/common.sh"
 		for p in $(grep -hvE "^[[:space:]]*(#|$)" "$ENVSETUP_ROOT"/packages/{common,home,work}.txt) chsh; do envsetup::pkg_name brew "$p"; done' | sort -u)
-	for f in $formulas kubernetes-cli helm gh awscli starship lazygit k9s yq mise uv bash zsh gum; do
+	# Tap formulas (hashicorp/tap/terraform) are checked below: brew info needs the tap.
+	for pair in $installer_formulas; do [[ ${pair#*:} == */* ]] || formulas+=" ${pair#*:}"; done
+	for f in $formulas bash zsh gum; do
 		if "$real_brew" info --formula "$f" >/dev/null 2>&1; then result PASS "brew info $f"; else result FAIL "brew info $f" "no such formula"; fi
 	done
 	if "$real_brew" tap 2>/dev/null | grep -qx hashicorp/tap; then

@@ -17,11 +17,9 @@ concurrency:
 jobs:
   shell-checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
-
-      - name: bash -n (syntax check)
-        run: find . -name '*.sh' -not -path './.git/*' -print0 | xargs -0 -n1 bash -n
 
       # macOS's /bin/bash: install.sh and the start of setup.sh run under it, and the
       # login shell sources shell/ (AGENTS.md).
@@ -36,8 +34,16 @@ jobs:
           [[ $rc == 1 && $out == *"needs bash 4 or newer"* ]] || { echo "rc=$rc: $out"; exit 1; }
           EOF
 
+      # Also fails on syntax errors, so no separate bash -n.
       - name: shellcheck
         run: find . -name '*.sh' -not -path './.git/*' -print0 | xargs -0 shellcheck
+
+      # .github/scripts/release.sh, the only code that pushes to main, run the way the
+      # release job below runs it, against a scratch origin. See tests/release.sh.
+      - uses: ./.github/actions/commitizen
+
+      - name: tests/release.sh
+        run: tests/release.sh
 
   smoke:
     # Runs the real tool on a bare Ubuntu box (install.sh -> setup.sh -> real bash/zsh);
@@ -61,14 +67,14 @@ jobs:
         id: apt
         with:
           path: ${{ runner.temp }}/smoke-apt
-          key: smoke-apt-${{ steps.image.outputs.digest }}-git-zsh-jq
+          key: smoke-apt-${{ steps.image.outputs.digest }}-git-zsh-jq-norecommends
 
       - name: Fetch the smoke test's packages
         if: steps.apt.outputs.cache-hit != 'true'
         timeout-minutes: 15
         run: >-
           docker run --rm -v "$RUNNER_TEMP/smoke-apt:/out" ubuntu:24.04 bash -euc
-          'rm /etc/apt/apt.conf.d/docker-clean; apt-get update -q; apt-get install -y -q --download-only git zsh jq;
+          'rm /etc/apt/apt.conf.d/docker-clean; apt-get update -q; apt-get install -y -q --no-install-recommends --download-only git zsh jq;
           mkdir -p /out/lists /out/archives; cp -a /var/lib/apt/lists/. /out/lists/;
           cp /var/cache/apt/archives/*.deb /out/archives/; chmod -R a+rX /out'
 
@@ -77,25 +83,12 @@ jobs:
           docker run --rm -t --network none -e SMOKE_APT_CACHE=/apt-cache
           -v "$RUNNER_TEMP/smoke-apt:/apt-cache:ro" -v "$PWD:/src:ro" ubuntu:24.04 bash /src/tests/smoke.sh
 
-  release-script:
-    # .github/scripts/release.sh, the only code that pushes to main, run the way the
-    # release job below runs it, against a scratch origin. See tests/release.sh.
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: ./.github/actions/commitizen
-
-      - name: tests/release.sh
-        run: tests/release.sh
-
   release:
     # Every push to main whose commits call for a version bump (feat, fix, "!", ...) is
     # released once the checks above pass: a "bump:" commit on main adds its CHANGELOG.md
     # entry and is tagged vX.Y.Z, and a GitHub release is published. See
     # .github/scripts/release.sh.
-    needs: [shell-checks, smoke, release-script]
+    needs: [shell-checks, smoke]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5

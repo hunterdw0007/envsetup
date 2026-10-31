@@ -129,7 +129,8 @@ GitHub release with the same entry as its notes. The current version is the newe
   actions go through `envsetup::run_step` (`setup.sh`), which runs them in a subshell
   with `set -e` intact and returns to the menu if they fail.
 - Every shell script must pass `bash -n <file>` and `shellcheck <file>` before it's
-  committed — CI (`.github/workflows/ci.yml`) enforces both on every push/PR, so a
+  committed — CI (`.github/workflows/ci.yml`) runs shellcheck, which also fails on
+  syntax errors, on every push/PR, so a
   script that doesn't pass locally will fail there too. Prefer an inline
   `# shellcheck disable=SC____` with a comment explaining why over silencing a whole
   file, and prefer fixing the actual issue over disabling it when the fix is simple
@@ -215,22 +216,22 @@ GitHub release with the same entry as its notes. The current version is the newe
 
 ## Testing
 
-CI (`.github/workflows/ci.yml`) runs three jobs on every push and PR, plus `release` (see
+CI (`.github/workflows/ci.yml`) runs two jobs on every push and PR, plus `release` (see
 Releases) on pushes to `main` once they pass; `.github/workflows/commits.yml` checks
 commit messages and the PR title on every PR:
 
-- `shell-checks`: `bash -n` and `shellcheck` over every `*.sh` file.
+- `shell-checks`: `shellcheck` over every `*.sh` file, the bash 3.2 checks, and
+  `tests/release.sh`: the release flow against a scratch origin, with the hash-locked
+  commitizen (run it locally with `cz` on PATH).
 - `smoke`: `tests/smoke.sh` in a bare `ubuntu:24.04` container — `install.sh` on a box
   with no git, picking and switching releases, then every profile's "Run everything",
   then a real bash and zsh loading the result. Only gum's UI, package installs and vendor
-  downloads are stubbed, so it takes about 20s. CI runs it offline, from cached copies of
+  downloads are stubbed, so it takes about 15s. CI runs it offline, from cached copies of
   the few packages it installs with real apt (Ubuntu's archive is often slow from CI); run
   it locally with `docker run --rm -t -v "$PWD:/src:ro" ubuntu:24.04 bash /src/tests/smoke.sh`.
   A new menu action, profile or mode needs a scenario there, and every check must be
   able to fail: compare against a non-empty expected value, never two things that
   could both come back empty.
-- `release-script`: `tests/release.sh`, the release flow against a scratch origin, with
-  the hash-locked commitizen. Run it locally with `cz` on PATH.
 
 `tests/distros/run.sh` (manual, not CI; see `CONTRIBUTING.md`) runs the real tool against a
 dozen distros with real installs. Run it after changing anything distro-specific: package
@@ -239,6 +240,10 @@ lists, `envsetup::pkg_install`/`pkg_manager`, installers, `install.sh`.
 opt-in by label or dispatch, since macOS runners are slow to start) or on a Mac. Run it
 after changing anything a Mac takes a different path through (`brew`, bash 3.2 code, BSD
 tools).
+
+The smoke, macOS and distros tests share one scripted gum, `tests/gum.sh` (answers from
+`$SMOKE_CHOICES` / `$SMOKE_CONFIRMS`, calls logged to `$SMOKE_LOG`); extend it there
+rather than writing another. macOS runs it too, so it sticks to bash 3.2 and BSD tools.
 
 The smoke test proves the flows run; it doesn't prove every branch. Behavior is still
 verified and described in the PR:

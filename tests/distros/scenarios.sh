@@ -38,7 +38,7 @@ as() {
 }
 
 # answers <user> <confirm answers...> -- <menu choices...>. Kept in a directory the
-# user owns: the stub edits them with sed -i, which can't replace root's files in /tmp.
+# user owns: the stub replaces them as it reads, which it can't do to root's files in /tmp.
 answers() {
 	local user=$1 confirms=()
 	shift
@@ -56,26 +56,7 @@ answers() {
 
 # gum stand-in: answers choose/confirm from the queues above, fills input, logs calls.
 mkdir -p "$stubs"
-cat >"$stubs/gum" <<'GUM'
-#!/usr/bin/env bash
-echo "gum $*" >>"$SMOKE_LOG"
-case $1 in
-choose)
-	answer=ESC
-	read -r answer <"$SMOKE_CHOICES" || true
-	sed -i 1d "$SMOKE_CHOICES"
-	[[ $answer == ESC ]] && exit 1
-	echo "$answer" ;;
-confirm)
-	answer=no
-	read -r answer <"$SMOKE_CONFIRMS" || true
-	sed -i 1d "$SMOKE_CONFIRMS"
-	[[ $answer == yes ]] ;;
-input) [[ $* == *@* ]] && echo beta@example.com || echo "Beta Tester" ;;
-style) echo "${*: -1}" ;;
-esac
-GUM
-chmod 755 "$stubs/gum"
+install -m 755 /src/tests/gum.sh "$stubs/gum"
 
 # The code under test: the commit checked out in /src, cloned the way install.sh does.
 # No git yet, so the safe.directory exception is written by hand.

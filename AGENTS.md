@@ -241,6 +241,10 @@ opt-in by label or dispatch, since macOS runners are slow to start) or on a Mac.
 after changing anything a Mac takes a different path through (`brew`, bash 3.2 code, BSD
 tools).
 
+The smoke, macOS and distros tests share one scripted gum, `tests/gum.sh` (answers from
+`$SMOKE_CHOICES` / `$SMOKE_CONFIRMS`, calls logged to `$SMOKE_LOG`); extend it there
+rather than writing another. macOS runs it too, so it sticks to bash 3.2 and BSD tools.
+
 The smoke test proves the flows run; it doesn't prove every branch. Behavior is still
 verified and described in the PR:
 

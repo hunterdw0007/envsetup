@@ -74,32 +74,7 @@ echo 'APT::Install-Recommends "0";' >/etc/apt/apt.conf.d/98smoke
 mkdir -p "$STUBS" "$OFFLINE"
 : >"$SMOKE_CONFIRMS"
 
-# gum: answers `choose` from $SMOKE_CHOICES (one per line; "ESC", or running out,
-# cancels), `confirm` from $SMOKE_CONFIRMS (only "yes" accepts; running out declines),
-# fills `input`, and logs every call.
-cat >"$STUBS/gum" <<'EOF'
-#!/usr/bin/env bash
-echo "gum $*" >>"$SMOKE_LOG"
-case $1 in
-	choose)
-		answer=ESC
-		read -r answer <"$SMOKE_CHOICES" || true
-		sed -i 1d "$SMOKE_CHOICES"
-		[[ $answer == ESC ]] && exit 1
-		echo "$answer" ;;
-	# SMOKE_INPUT: ESC cancels (gum exits 1), any other value is the answer.
-	input)
-		[[ ${SMOKE_INPUT-unset} == ESC ]] && exit 1
-		[[ ${SMOKE_INPUT-unset} != unset ]] && { echo "$SMOKE_INPUT"; exit 0; }
-		[[ $* == *@* ]] && echo smoke@example.com || echo "Smoke Test" ;;
-	confirm)
-		answer=no
-		read -r answer <"$SMOKE_CONFIRMS" || true
-		sed -i 1d "$SMOKE_CONFIRMS"
-		[[ $answer == yes ]] ;;
-	style) echo "${*: -1}" ;;
-esac
-EOF
+cp "$SRC/tests/gum.sh" "$STUBS/gum"
 # Root in the container; a real machine has sudo.
 printf '#!/bin/sh\nexec "$@"\n' >"$STUBS/sudo"
 

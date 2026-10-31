@@ -63,7 +63,13 @@ if [[ -n "${SMOKE_APT_CACHE:-}" ]]; then
 	rm -f /etc/apt/apt.conf.d/docker-clean # it deletes the .debs once they're installed
 	cp -a "$SMOKE_APT_CACHE/lists/." /var/lib/apt/lists/
 	cp "$SMOKE_APT_CACHE"/archives/*.deb /var/cache/apt/archives/
+	# Offline, apt-get update would spend ~8s retrying; one failed try per source is enough.
+	echo 'Acquire::Retries "0";' >/etc/apt/apt.conf.d/99smoke
 fi
+# A throwaway container: dpkg needn't fsync every file it unpacks. No recommends (half
+# of git's ~50 packages): a barer box, and a faster one.
+echo force-unsafe-io >/etc/dpkg/dpkg.cfg.d/smoke
+echo 'APT::Install-Recommends "0";' >/etc/apt/apt.conf.d/98smoke
 
 mkdir -p "$STUBS" "$OFFLINE"
 : >"$SMOKE_CONFIRMS"
@@ -314,33 +320,27 @@ check "saved the profile in this \$HOME's state dir" [ "$(cat "$h/.config/envset
 check "  ...and nothing in the other one" [ ! -e "$f" ]
 ((failures)) && show "$h/setup.out"
 
-echo "== work/lite with XDG_CONFIG_HOME set: envsetup keeps its state there"
+echo "== work/lite with XDG_CONFIG_HOME set, and odd paths: envsetup keeps its state there"
 h=$(new_home)
-# A space, ", $(...) and a backtick in the path: the rc block must quote it (#46).
+# A space, ", $(...) and a backtick in both paths: the rc block must quote them (#46).
+# If a shell ran $(exit 1) or `false`, ENVSETUP_ROOT would not be the path.
 x="$h/xdg config \"q\" \$(touch $h/ran) \`touch $h/ran\`"
-XDG_CONFIG_HOME=$x check "exited 0" run_menu "$h" "Select profile" work lite "Run everything" Quit
+odd="$W/env setup \"q\" \$(exit 1) \`false\`"
+cp -a "$CLONE" "$odd"
+XDG_CONFIG_HOME=$x CLONE=$odd check "exited 0" run_menu "$h" "Select profile" work lite "Run everything" Quit
 check "saved the profile in \$XDG_CONFIG_HOME/envsetup" [ "$(cat "$x/envsetup/profile" 2>/dev/null)" = work ]
 check "  ...and nothing in ~/.config/envsetup" [ ! -e "$h/.config/envsetup" ]
 # Lite mode loads no exports. Without its state, a shell would load full mode's EDITOR=vim.
 check "a shell with the same XDG_CONFIG_HOME finds it (lite: no EDITOR)" [ "$(XDG_CONFIG_HOME=$x in_shell "$h" bash 'printf %s "${EDITOR:-none}"')" = none ]
 check "  ...and so does a shell without XDG_CONFIG_HOME (ssh, cron): the rc block keeps the dir" [ "$(in_shell "$h" bash 'printf %s "${EDITOR:-none}|$ENVSETUP_STATE"')" = "none|$x/envsetup" ]
+check "  ...and the checkout" [ "$(in_shell "$h" bash 'printf %s "$ENVSETUP_ROOT"')" = "$odd" ]
+check "  ...and loads its aliases" [ "$(in_shell "$h" bash 'alias ll')" = "alias ll='ls -alh'" ]
 quoted() { [ ! -s "$h/shell.err" ] && [ ! -e "$h/ran" ]; }
-check "  ...which the rc block quotes: no errors, and nothing in the path ran" quoted
+check "  ...which the rc block quotes: no errors, and nothing in the paths ran" quoted
 SETUP_ARGS=(--uninstall) CONFIRMS=(yes)
-XDG_CONFIG_HOME=$x check "--uninstall exits 0" run_menu "$h"
+XDG_CONFIG_HOME=$x CLONE=$odd check "--uninstall exits 0" run_menu "$h"
 SETUP_ARGS=() CONFIRMS=()
 check "  ...and removed it" [ ! -e "$x/envsetup" ]
-((failures)) && show "$h/setup.out"
-
-echo "== a checkout path with a space, \", \$(...) and a backtick in it (#46)"
-h=$(new_home)
-# If a shell ran $(exit 1) or `false`, ENVSETUP_ROOT would not be the path.
-odd="$W/env setup \"q\" \$(exit 1) \`false\`"
-cp -a "$CLONE" "$odd"
-CLONE=$odd check "exited 0" run_menu "$h" "Select profile" work lite "Run everything" Quit
-check "a shell finds the checkout" [ "$(in_shell "$h" bash 'printf %s "$ENVSETUP_ROOT"')" = "$odd" ]
-check "  ...and loads its aliases" [ "$(in_shell "$h" bash 'alias ll')" = "alias ll='ls -alh'" ]
-check "  ...with no errors" [ ! -s "$h/shell.err" ]
 ((failures)) && show "$h/setup.out"
 
 echo "== home: Run everything (bash; zsh is opt-in)"
@@ -472,17 +472,7 @@ check "ran nothing that changes the machine" not_grep '^\(apt-get\|curl\|chsh\) 
 check "left ~/.bashrc as it was" cmp -s /etc/skel/.bashrc "$h/.bashrc"
 check "still saved the profile you picked" [ "$(cat "$h/.config/envsetup/profile" 2>/dev/null)" = work ]
 
-echo "== install.sh passes options to setup.sh"
-: >"$SMOKE_LOG"
-if PATH="$STUBS:$PATH" ENVSETUP_VERSION=$UNDER_TEST ENVSETUP_REPO_URL=$SRC ENVSETUP_DIR=$W/clone2 bash "$SRC/install.sh" --help >$W/install2.out 2>&1 </dev/null; then
-	pass "install.sh --help exited 0"
-else
-	fail "install.sh --help exited non-zero"
-	show $W/install2.out
-fi
-check "  ...and printed setup.sh's help" grep -qF -- '--dry-run' $W/install2.out
-
-echo "== install.sh: the newest release by default, or the one asked for"
+echo "== install.sh: the newest release by default, or the one asked for (and passes --version to setup.sh)"
 # An origin whose every commit is the code under test: releases come later.
 R=$W/releases
 git init -q -b main "$R"
@@ -541,9 +531,19 @@ check "  ...which keeps them, and says so" reports v1.2.0-dirty
 git -C "$V" checkout -q -- README.md
 ((failures)) && show $W/version.out
 
-echo "== --uninstall: work/full"
+echo "== --uninstall: work/full, declined and dry-run first"
 h=$(new_home)
 run_menu "$h" "Select profile" work full "Run everything" Quit
+before=$(snapshot "$h")
+SETUP_ARGS=(--uninstall)
+check "declining exits 0" run_menu "$h"
+check "  ...and changes nothing" [ "$(snapshot "$h")" = "$before" ]
+SETUP_ARGS=(--dry-run --uninstall) CONFIRMS=(yes)
+check "--dry-run --uninstall exits 0" run_menu "$h"
+SETUP_ARGS=() CONFIRMS=()
+check "said it would remove the ~/.bashrc block" grep -qF "would remove the envsetup block from $h/.bashrc" "$SMOKE_LOG"
+check "said it would remove the git include" grep -qF "would remove the include of $h/.config/envsetup/gitconfig" "$SMOKE_LOG"
+check "  ...and changes nothing" [ "$(snapshot "$h")" = "$before" ]
 gc=$h/.config/envsetup/gitconfig
 check "(before: git includes envsetup's file)" [ "$(includes "$h")" = "$gc" ]
 check "(before: a profile is saved)" [ -f "$h/.config/envsetup/profile" ]
@@ -567,20 +567,6 @@ check "a second --uninstall exits 0" run_menu "$h"
 check "  ...and changes nothing" [ "$(snapshot "$h")" = "$before" ]
 SETUP_ARGS=() CONFIRMS=()
 ((failures)) && show "$h/setup.out"
-
-echo "== --uninstall: declining, and with --dry-run"
-h=$(new_home)
-run_menu "$h" "Select profile" work full "Run everything" Quit
-before=$(snapshot "$h")
-SETUP_ARGS=(--uninstall)
-check "declining exits 0" run_menu "$h"
-check "  ...and changes nothing" [ "$(snapshot "$h")" = "$before" ]
-SETUP_ARGS=(--dry-run --uninstall) CONFIRMS=(yes)
-check "--dry-run --uninstall exits 0" run_menu "$h"
-SETUP_ARGS=() CONFIRMS=()
-check "said it would remove the ~/.bashrc block" grep -qF "would remove the envsetup block from $h/.bashrc" "$SMOKE_LOG"
-check "said it would remove the git include" grep -qF "would remove the include of $h/.config/envsetup/gitconfig" "$SMOKE_LOG"
-check "  ...and changes nothing" [ "$(snapshot "$h")" = "$before" ]
 
 echo "== Uninstall from the menu: home on zsh, with a config.sh"
 h=$(new_home)

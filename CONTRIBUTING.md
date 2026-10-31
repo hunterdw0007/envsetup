@@ -85,7 +85,7 @@ The Releases section of `AGENTS.md` has the details.
 
 ## Tests
 
-CI runs `bash -n` and `shellcheck` on every shell script.
+CI runs `shellcheck` on every shell script.
 It also runs `tests/smoke.sh` and `tests/release.sh`.
 The Testing section of `AGENTS.md` explains how to run them on your machine.
 

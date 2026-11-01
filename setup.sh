@@ -34,11 +34,13 @@ XDG_CONFIG_HOME, the file is $XDG_CONFIG_HOME/envsetup/config.sh.
 
 To see what it would do first, use --dry-run, or "Preview everything" in the menu.
 To take it all back out, use --uninstall, or "Uninstall" in the menu.
-To update, run install.sh again: it moves this checkout to the newest release, or to
-the one in ENVSETUP_VERSION (e.g. ENVSETUP_VERSION=v0.2.0 ~/envsetup/install.sh).
+To update, run the curl | bash command from the README again: it downloads the newest
+release, or the one in ENVSETUP_VERSION (e.g. ENVSETUP_VERSION=v0.2.0), to a
+temporary folder, runs this menu from it, and deletes it afterwards.
 
-"Link shell config" links ~/.bashrc and your login shell's rc file (~/.zshrc for zsh,
-~/.bash_profile for bash on macOS).
+"Link shell config" copies shell/ to ~/.local/share/envsetup (or $XDG_DATA_HOME/envsetup),
+which new shells load, and links ~/.bashrc and your login shell's rc file (~/.zshrc for
+zsh, ~/.bash_profile for bash on macOS) to it.
 
 "Set up zsh + oh-my-zsh" installs both if missing, offers to make zsh your login shell
 and links the same config into ~/.zshrc. Set ENVSETUP_SHELL=zsh in config.sh to make
@@ -52,10 +54,11 @@ Options:
   -n, --dry-run    walk through the menu without changing anything: every step says
                    what it would do instead; profile picks and "Edit config" work
                    but only last until you quit
-      --uninstall  remove what envsetup added (rc-file block, git include, saved
-                   state), asking before anything that might be yours; packages
-                   and tools stay. Combine with --dry-run to preview it
-      --version    show which release this checkout is and exit
+      --uninstall  remove what envsetup added (rc-file block, copied shell config,
+                   git include, saved state), asking before anything that might
+                   be yours; packages and tools stay. Combine with --dry-run to
+                   preview it
+      --version    show which release this is and exit
   -h, --help       show this help and exit
 EOF
 }
@@ -130,28 +133,76 @@ envsetup::save_state() {
 	if [[ -n "$2" ]]; then echo "$2" >"$STATE_DIR/$1"; else rm -f "$STATE_DIR/$1"; fi
 }
 
-# link_rc <file>: adds the block that loads shell/init.sh, once.
-envsetup::link_rc() {
-	if [[ -f "$1" ]] && grep -qF "$ENVSETUP_RC_BEGIN" "$1"; then
-		gum style --foreground 3 "Already linked in $1"
-		return 0
-	fi
+# copy_shell: copies shell/ to ENVSETUP_DATA, which new shells load, and records the
+# release, so nothing loads from this checkout (install.sh deletes its download). It's
+# replaced on every run: a new release updates it, the same one leaves it as it was.
+envsetup::copy_shell() {
+	local version
+	version=$(envsetup::version)
 	if envsetup::dry_run; then
-		envsetup::would "add a 5-line block to $1 that loads shell/ from $ENVSETUP_ROOT"
+		envsetup::would "copy shell/ ($version) to $ENVSETUP_DATA, which new shells load"
 		return 0
 	fi
+	mkdir -p "$ENVSETUP_DATA"
+	rm -rf "$ENVSETUP_DATA/shell"
+	cp -R "$ENVSETUP_ROOT/shell" "$ENVSETUP_DATA/"
+	echo "$version" >"$ENVSETUP_DATA/version"
+	gum style --foreground 2 "Copied shell config ($version) to $ENVSETUP_DATA"
+}
+
+# link_rc <file>: adds the block that loads the copy of shell/init.sh, once. A block from
+# before that copy, which loads it from a checkout (~/envsetup), is rewritten in place.
+envsetup::link_rc() {
 	# ENVSETUP_STATE is fixed here, so every shell uses the directory that setup used
 	# (see shell/state.sh). %q quotes the two paths. Thus a space, ", $ or ` in a path
 	# does not stop the rc file, and the rc file does not run it as a command. bash
 	# (also 3.2) and zsh both read %q's output.
-	local root state
-	printf -v root 'export ENVSETUP_ROOT=%q' "$ENVSETUP_ROOT"
+	local root state block old
+	printf -v root 'export ENVSETUP_ROOT=%q' "$ENVSETUP_DATA"
 	printf -v state 'export ENVSETUP_STATE=%q ENVSETUP_STATE_HOME=%q' "$ENVSETUP_STATE" "$HOME"
-	# shellcheck disable=SC2016 # the third line expands when the rc file runs, not now
-	printf '%s\n' "$ENVSETUP_RC_BEGIN" "$root" "$state" \
+	# shellcheck disable=SC2016 # the fourth line expands when the rc file runs, not now
+	printf -v block '%s\n' "$ENVSETUP_RC_BEGIN" "$root" "$state" \
 		'[ -f "$ENVSETUP_ROOT/shell/init.sh" ] && source "$ENVSETUP_ROOT/shell/init.sh"' \
-		"$ENVSETUP_RC_END" >>"$1"
+		"$ENVSETUP_RC_END"
+	if [[ -f "$1" ]] && grep -qF "$ENVSETUP_RC_BEGIN" "$1"; then
+		if grep -qxF "$root" "$1"; then
+			gum style --foreground 3 "Already linked in $1"
+			return 0
+		fi
+		# The checkout it loaded from: running the line the rc file runs anyway undoes %q.
+		old=$(bash -c "$(grep -m 1 '^export ENVSETUP_ROOT=' "$1")"'; printf %s "$ENVSETUP_ROOT"' 2>/dev/null) || old=
+		if envsetup::dry_run; then
+			envsetup::would "rewrite the envsetup block in $1 to load shell/ from $ENVSETUP_DATA"
+		else
+			envsetup::remove_rc_block "$1" "$block"
+			gum style --foreground 2 "Rewrote the envsetup block in $1 to load shell/ from $ENVSETUP_DATA"
+		fi
+		envsetup::drop_checkout "$old"
+		return 0
+	fi
+	if envsetup::dry_run; then
+		envsetup::would "add a 5-line block to $1 that loads shell/ from $ENVSETUP_DATA"
+		return 0
+	fi
+	printf '%s' "$block" >>"$1"
 	gum style --foreground 2 "Linked shell config into $1 (restart your shell to pick it up)"
+}
+
+# drop_checkout <dir>: offers to delete the checkout an old rc block loaded shell/ from,
+# which nothing needs any more. Asked once per run; the default keeps it.
+envsetup::drop_checkout() {
+	if [[ ! -f "$1/shell/init.sh" || "$1" == "$ENVSETUP_DATA" || "$1" == "${ENVSETUP_ASKED:-}" ]]; then return 0; fi
+	ENVSETUP_ASKED=$1
+	if [[ "$1" == "$ENVSETUP_ROOT" ]]; then
+		gum style "New shells no longer load $1. Delete it once setup ends, unless you work on envsetup there."
+	elif gum confirm "Keep $1? New shells no longer load it, and updates don't use it."; then
+		return 0
+	elif envsetup::dry_run; then
+		envsetup::would "delete $1"
+	else
+		rm -rf "$1"
+		gum style --foreground 2 "Deleted $1"
+	fi
 }
 
 # The rc file a new terminal's shell reads: your login shell's. macOS terminals start
@@ -168,14 +219,19 @@ envsetup::login_rc() {
 # (ENVSETUP_SHELL=zsh, or its own menu action).
 envsetup::link_shell_config() {
 	local rc
+	envsetup::copy_shell
 	envsetup::link_rc "$HOME/.bashrc"
 	rc=$(envsetup::login_rc)
 	if [[ -n "$rc" && "$rc" != "$HOME/.bashrc" ]]; then envsetup::link_rc "$rc"; fi
-	if [[ "$ENVSETUP_SHELL" == zsh ]]; then envsetup::set_up_zsh; fi
+	if [[ "$ENVSETUP_SHELL" == zsh ]]; then
+		envsetup::install_zsh
+		envsetup::link_rc "$HOME/.zshrc"
+	fi
 }
 
 envsetup::set_up_zsh() {
 	envsetup::install_zsh
+	envsetup::copy_shell
 	envsetup::link_rc "$HOME/.zshrc"
 }
 

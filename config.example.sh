@@ -1,8 +1,10 @@
 # shellcheck shell=bash
 # envsetup user config. Lives at ~/.config/envsetup/config.sh (or at
 # $XDG_CONFIG_HOME/envsetup/config.sh, if you set XDG_CONFIG_HOME), outside this repo,
-# so updating envsetup (re-running install.sh) never conflicts with it.
-# "Edit config" in ./setup.sh copies this file there and opens it in $EDITOR.
+# so updating envsetup (re-running install.sh) never conflicts with it. install.sh no
+# longer keeps a copy of the repo (ENVSETUP_DIR is gone): new shells load the copy of
+# shell/ in ~/.local/share/envsetup, and this file is the place for your own changes.
+# "Edit config" in the menu copies this file there and opens it in $EDITOR.
 #
 # It's plain bash, sourced *after* the repo defaults in two places:
 #   - by setup.sh, which acts on the ENVSETUP_* variables below

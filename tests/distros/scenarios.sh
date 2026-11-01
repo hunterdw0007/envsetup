@@ -58,7 +58,7 @@ answers() {
 mkdir -p "$stubs"
 install -m 755 /src/tests/gum.sh "$stubs/gum"
 
-# The code under test: the commit checked out in /src, cloned the way install.sh does.
+# The code under test: the commit checked out in /src, which install.sh downloads.
 # No git yet, so the safe.directory exception is written by hand.
 cp -a /src /srv/envsetup
 printf '[safe]\n\tdirectory = *\n' >>/etc/gitconfig
@@ -66,7 +66,7 @@ printf '[safe]\n\tdirectory = *\n' >>/etc/gitconfig
 # branch checked out in /src, or its commit if that's detached.
 read -r version </srv/envsetup/.git/HEAD
 version=${version#ref: refs/heads/}
-install="ENVSETUP_VERSION=${version@Q} ENVSETUP_REPO_URL=/srv/envsetup ENVSETUP_DIR=\$HOME/envsetup bash /srv/envsetup/install.sh --help"
+install="ENVSETUP_VERSION=${version@Q} ENVSETUP_REPO_URL=/srv/envsetup bash /srv/envsetup/install.sh"
 
 echo "== $slug ($pm)"
 
@@ -75,16 +75,22 @@ mkuser beta
 if command -v git >/dev/null; then
 	result bootstrap WARN "git was already in the image, so install.sh's git install wasn't exercised"
 fi
-if as beta "$install" >"$out/bootstrap.log" 2>&1 &&
-	[[ -x /home/beta/envsetup/setup.sh ]]; then
-	result bootstrap PASS "install.sh installed git, cloned and ran setup.sh --help"
+# deleted <log>: the download install.sh names in its log is gone.
+deleted() {
+	local dl
+	dl=$(sed -n 's/^Downloaded envsetup .* to \(.*\), which .*/\1/p' "$1")
+	[[ -n "$dl" && ! -e "$dl" ]]
+}
+if as beta "$install --help" >"$out/bootstrap.log" 2>&1 &&
+	grep -q '^Usage: ' "$out/bootstrap.log" && deleted "$out/bootstrap.log"; then
+	result bootstrap PASS "install.sh installed git, ran setup.sh --help from a download, and deleted it"
 else
 	result bootstrap FAIL "install.sh failed: $(tail -n 3 "$out/bootstrap.log")"
 fi
 
 # --- gum: the menu can't start without it ---------------------------------------------
-# ENVSETUP_ROOT: as() starts from a clean env, and gum's pinned version is read from the checkout.
-if as beta "PATH=\${PATH#$stubs:}; export ENVSETUP_ROOT=\$HOME/envsetup; source envsetup/lib/common.sh && envsetup::ensure_gum && command -v gum" >"$out/gum.log" 2>&1; then
+# ENVSETUP_ROOT: as() starts from a clean env, and gum's pinned version is read from the code.
+if as beta "PATH=\${PATH#$stubs:}; export ENVSETUP_ROOT=/srv/envsetup; source /srv/envsetup/lib/common.sh && envsetup::ensure_gum && command -v gum" >"$out/gum.log" 2>&1; then
 	result gum PASS "installed: $(tail -n 1 "$out/gum.log")"
 else
 	result gum FAIL "envsetup::ensure_gum couldn't install gum: $(tail -n 2 "$out/gum.log")"
@@ -95,8 +101,8 @@ fi
 common_cmds="git tmux vim curl wget htop tree unzip jq fzf rg column bat|batcat"
 declare -A expect=(
 	[home]="$common_cmds python3 pip3 node npm nvim direnv shellcheck tig ncdu docker zsh"
-	[work-full]="$common_cmds nmap tcpdump strace lsof iostat mtr iotop iftop netstat rsync dig kubectl helm gh terraform aws"
-	[work-lite]=""
+	["work-full"]="$common_cmds nmap tcpdump strace lsof iostat mtr iotop iftop netstat rsync dig kubectl helm gh terraform aws"
+	["work-lite"]=""
 )
 # Gaps the README's distro table documents: skipped the way it tells users to, and
 # reported as a WARN instead of a FAIL. The packages, then the commands they provide.
@@ -113,7 +119,6 @@ esac
 for run in home work-full work-lite; do
 	user=t-$run log=$out/$run.log
 	mkuser "$user"
-	as "$user" "$install" >/dev/null 2>&1
 	mkdir -p "/home/$user/.config/envsetup"
 	{
 		[[ $run == home ]] && echo 'ENVSETUP_XDG_NINJA=1'
@@ -129,7 +134,8 @@ for run in home work-full work-lite; do
 	work-lite) answers "$user" -- "Select profile" work lite "Run everything" Quit ;;
 	esac
 	start=$SECONDS rc=0
-	as "$user" "timeout ${DISTROS_RUN_TIMEOUT:-1200} envsetup/setup.sh" >"$log" 2>&1 || rc=$?
+	as "$user" "timeout ${DISTROS_RUN_TIMEOUT:-1200} env $install" >"$log" 2>&1 || rc=$?
+	deleted "$log" || result "$run: download" FAIL "install.sh left its download behind"
 	if ((rc == 0)); then
 		result "$run" PASS "Run everything finished in $((SECONDS - start))s"
 	elif ((rc == 124)); then
@@ -184,9 +190,10 @@ for run in home work-full work-lite; do
 
 	# Remove? yes; keep config.sh? yes.
 	answers "$user" yes yes --
-	if as "$user" "envsetup/setup.sh --uninstall" >"$out/$run.uninstall.log" 2>&1 &&
-		! grep -qs '# >>> envsetup >>>' "/home/$user/.bashrc" "/home/$user/.zshrc"; then
-		result "$run: uninstall" PASS "rc files clean"
+	if as "$user" "$install --uninstall" >"$out/$run.uninstall.log" 2>&1 &&
+		! grep -qs '# >>> envsetup >>>' "/home/$user/.bashrc" "/home/$user/.zshrc" &&
+		[[ ! -e "/home/$user/.local/share/envsetup" ]]; then
+		result "$run: uninstall" PASS "rc files clean, copy of shell/ removed"
 	else
 		result "$run: uninstall" FAIL "$(tail -n 2 "$out/$run.uninstall.log")"
 	fi

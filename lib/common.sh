@@ -7,6 +7,9 @@ source "$ENVSETUP_ROOT/shell/state.sh"
 ENVSETUP_RC_BEGIN="# >>> envsetup >>>"
 ENVSETUP_RC_END="# <<< envsetup <<<"
 ENVSETUP_CHSH_MARKER="$ENVSETUP_STATE/chsh" # exists once envsetup switched you to zsh
+# The copy of shell/ that new shells load (see envsetup::copy_shell), and its release.
+ENVSETUP_DATA=$HOME/.local/share/envsetup
+if [[ "${XDG_DATA_HOME:-}" == /* ]]; then ENVSETUP_DATA=$XDG_DATA_HOME/envsetup; fi
 
 # Dry run (--dry-run, or "Preview everything"): every step that would change the
 # machine checks this first and describes the change instead of making it.
@@ -20,10 +23,12 @@ envsetup::has_cmd() { command -v "$1" &>/dev/null; }
 envsetup::brew_shellenv() { source "$ENVSETUP_ROOT/shell/shared/brew.sh"; }
 
 # The checked-out release (v1.2.0), "v1.2.0-3-gabc1234" three commits past it, a bare
-# commit before the first release; "-dirty" when tracked files were edited. Bash
-# 3.2-safe: setup.sh --version calls it before switching to a newer bash.
+# commit before the first release; "-dirty" when tracked files were edited. Outside a
+# checkout, the release envsetup::copy_shell recorded. Bash 3.2-safe: setup.sh
+# --version calls it before switching to a newer bash.
 envsetup::version() {
-	git -C "$ENVSETUP_ROOT" describe --tags --match 'v[0-9]*' --always --dirty 2>/dev/null || echo unknown
+	git -C "$ENVSETUP_ROOT" describe --tags --match 'v[0-9]*' --always --dirty 2>/dev/null ||
+		cat "$ENVSETUP_DATA/version" 2>/dev/null || echo unknown
 }
 
 # Runs a command as root: directly when already root (containers, WSL), else via sudo

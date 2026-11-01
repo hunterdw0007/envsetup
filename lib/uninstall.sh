@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
-# Undoes what setup.sh added: the rc-file block, the git include and its generated
-# file, and the saved state. What it can't safely undo (packages, git identity) stays,
+# Undoes what setup.sh added: the rc-file block, the copy of shell/, the git include and
+# its generated file, and the saved state. What it can't safely undo (packages, git identity) stays,
 # and it says so.
 
-# Removes complete envsetup blocks (begin marker through end marker) from a file,
-# writing through symlinks. A begin marker with no end marker is left alone rather
-# than taking everything after it with it.
+# remove_rc_block <file> [replacement]: removes complete envsetup blocks (begin marker
+# through end marker) from a file, or puts the replacement in their place, writing
+# through symlinks. A begin marker with no end marker is left alone rather than taking
+# everything after it with it.
 envsetup::remove_rc_block() {
 	local tmp rc
 	tmp=$(mktemp) || return 1
-	awk -v b="$ENVSETUP_RC_BEGIN" -v e="$ENVSETUP_RC_END" '
+	# Through the environment: awk -v would turn the backslashes %q writes into escapes.
+	ENVSETUP_RC_NEW=${2:-} awk -v b="$ENVSETUP_RC_BEGIN" -v e="$ENVSETUP_RC_END" '
 		$0 == b { held = $0 ORS; inside = 1; next }
-		inside { held = held $0 ORS; if ($0 == e) { inside = 0; held = "" }; next }
+		inside { held = held $0 ORS; if ($0 == e) { inside = 0; held = ""; printf "%s", ENVIRON["ENVSETUP_RC_NEW"] }; next }
 		{ print }
 		END { if (inside) printf "%s", held }
 	' "$1" >"$tmp" && cat "$tmp" >"$1"
@@ -24,9 +26,9 @@ envsetup::remove_rc_block() {
 # where set -e doesn't apply, so each step reports its own failure.
 envsetup::uninstall() {
 	local state=$ENVSETUP_STATE gitconfig=$ENVSETUP_GIT_GENERATED failed=0 chsh_by_us=0 rc f re kept=()
-	gum style --bold "Removes what envsetup added: its block in your shell rc files, its git" \
-		"include and its saved state, and moves back any dotfiles it moved. Packages and" \
-		"tools it installed stay."
+	gum style --bold "Removes what envsetup added: its block in your shell rc files, the copy" \
+		"of its shell config, its git include and its saved state, and moves back any" \
+		"dotfiles it moved. Packages and tools it installed stay."
 	if ! gum confirm "Remove envsetup from this machine?"; then
 		gum style "Nothing removed."
 		return 2
@@ -64,10 +66,10 @@ envsetup::uninstall() {
 
 	# The last two are the prompt's kube-context cache (shell/shared/ps1.sh) and the log
 	# of fetchAll --quiet (shell/shared/functions.sh).
-	for f in "$gitconfig" "$gitconfig.tmp" "$state/profile" "$state/mode" "$ENVSETUP_CHSH_MARKER" \
+	for f in "$gitconfig" "$gitconfig.tmp" "$state/profile" "$state/mode" "$ENVSETUP_CHSH_MARKER" "$ENVSETUP_DATA" \
 		"${XDG_CACHE_HOME:-$HOME/.cache}/envsetup/kube-context" "${XDG_CACHE_HOME:-$HOME/.cache}/envsetup/fetchAll.log"; do
 		[[ -e "$f" ]] || continue
-		if envsetup::dry_run; then envsetup::would "delete $f"; else rm -f "$f"; fi
+		if envsetup::dry_run; then envsetup::would "delete $f"; else rm -rf "$f"; fi
 	done
 	if [[ -f "$state/config.sh" ]]; then
 		if gum confirm "Keep your own config ($state/config.sh)? Only envsetup reads it."; then
@@ -96,7 +98,6 @@ envsetup::uninstall() {
 	gum style "Left in place:" \
 		"- packages and tools envsetup installed; they may predate it, so remove any yourself" \
 		"- your git user.name/user.email" \
-		"${kept[@]/#/- }" \
-		"- envsetup itself: rm -rf $ENVSETUP_ROOT"
+		"${kept[@]/#/- }"
 	return "$failed"
 }

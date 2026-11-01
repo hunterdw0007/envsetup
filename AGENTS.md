@@ -54,8 +54,11 @@ release:
 A release is a `bump: version X → Y` commit by `github-actions[bot]` on `main` that adds
 the version's entry to `CHANGELOG.md`, an annotated `vX.Y.Z` tag on that commit, and a
 GitHub release with the same entry as its notes. The current version is the newest tag
-(`version_provider = "scm"`). `install.sh` checks out the newest release unless
-`ENVSETUP_VERSION` names another, so a release is what users run.
+(`version_provider = "scm"`). `install.sh` downloads the newest release unless
+`ENVSETUP_VERSION` names another, so a release is what users run. It runs `setup.sh`
+from a temporary folder and deletes it on exit; new shells load the copy of `shell/`
+that "Link shell config" makes in `$XDG_DATA_HOME/envsetup`, with the release recorded
+next to it in `version`.
 
 - `CHANGELOG.md` is written only by the release job: editing it in a PR conflicts with
   the next bump commit. Fix a wrong entry with a follow-up release, not by hand.
@@ -203,8 +206,12 @@ GitHub release with the same entry as its notes. The current version is the newe
   `config.sh` — never committed to this repo.
 - Anything specific to one *user* rather than to the repo's defaults never goes in a
   tracked file: it belongs in their `~/.config/envsetup/config.sh` (template:
-  `config.example.sh`). Editing tracked files to customize is exactly what makes
-  updating (re-running `install.sh`) fail for someone who didn't fork.
+  `config.example.sh`). Edits to tracked files don't survive an update: `install.sh`
+  deletes its download, and "Link shell config" replaces the copy of `shell/`.
+- Only `shell/` is copied for new shells, and the rest of the repo is gone once
+  `install.sh` ends. So nothing under `shell/` may read a file outside `shell/` (`lib/`,
+  `git/`, `installers/`), and anything else a shell needs is generated into
+  `$ENVSETUP_STATE` by a menu action (like `xdg.sh`).
 - The `ENVSETUP_*` variables read from `config.sh` are a user-facing API. A new
   overridable setting gets its default in `envsetup::load_config` (`lib/config.sh`) and
   is documented in both `config.example.sh` and the README's settings table. Renaming

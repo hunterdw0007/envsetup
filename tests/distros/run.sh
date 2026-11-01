@@ -76,7 +76,7 @@ wait
 
 # One row per distro: each column is the worst result of that phase and its sub-checks.
 cols=(bootstrap gum home work-full work-lite)
-icon() { case $1 in PASS) echo "✅" ;; WARN) echo "⚠️" ;; FAIL) echo "❌" ;; *) echo "–" ;; esac; }
+icon() { case $1 in PASS) echo "✅" ;; WARN) echo "⚠️" ;; FAIL) echo "❌" ;; *) echo "–" ;; esac }
 {
 	echo "# envsetup on other distros"
 	echo

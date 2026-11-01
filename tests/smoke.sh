@@ -44,7 +44,8 @@ none_exist_in() {
 }
 not() { ! "$@"; }
 same_list() { [ -n "$1" ] && [ "$1" = "$2" ]; } # an empty expected list is a broken test, not a pass
-same_commit() { # both must resolve, so two failed lookups can't compare equal
+# Both must resolve, so two failed lookups can't compare equal.
+same_commit() {
 	local a b
 	a=$(git -C "$1" rev-parse --verify -q HEAD) && b=$(git -C "$2" rev-parse --verify -q HEAD) && [ "$a" = "$b" ]
 }
@@ -101,6 +102,7 @@ chmod +x "$STUBS"/* "$OFFLINE"/* "$HOOKS"/*
 
 # run_menu <home> <answers...>: runs the cloned setup.sh offline, answering the menu.
 # Options for setup.sh itself go in SETUP_ARGS, answers to gum confirm in CONFIRMS.
+# SETUP=curl_bash runs it through install.sh instead, as `curl ... | bash` does.
 SETUP_ARGS=() CONFIRMS=()
 run_menu() {
 	local home=$1
@@ -108,8 +110,14 @@ run_menu() {
 	printf '%s\n' "$@" >"$SMOKE_CHOICES"
 	printf '%s\n' "${CONFIRMS[@]}" >"$SMOKE_CONFIRMS"
 	: >"$SMOKE_LOG"
-	HOME=$home PATH="$OFFLINE:$STUBS:$PATH" "$CLONE/setup.sh" "${SETUP_ARGS[@]}" >"$home/setup.out" 2>&1 </dev/tty
+	HOME=$home PATH="$OFFLINE:$STUBS:$PATH" "${SETUP:-$CLONE/setup.sh}" "${SETUP_ARGS[@]}" >"$home/setup.out" 2>&1 </dev/tty
 }
+# install.sh's download goes in TMP (mktemp -d), which must be empty once it ends.
+TMP=$W/tmp
+mkdir -p "$TMP"
+# shellcheck disable=SC2120 # run_menu passes it SETUP_ARGS
+curl_bash() { ENVSETUP_VERSION=$UNDER_TEST ENVSETUP_REPO_URL=$SRC TMPDIR=$TMP bash "$SRC/install.sh" "$@"; }
+left_nothing() { [ -z "$(ls -A "$TMP")" ]; }
 # Everything under a home (paths + file contents), minus the test's own output files.
 snapshot() {
 	(
@@ -164,19 +172,24 @@ not_interactive() {
 	HOME=$1 BASH_ENV=$1/rc-block.sh bash -c "$2" 2>&1 </dev/null
 }
 
-echo "== install.sh on a bare box: real apt for git, real clone, hand-off to setup.sh"
-printf '[safe]\n\tdirectory = *\n' >"$HOME/.gitconfig" # /src is owned by the host's user
+echo "== install.sh on a bare box: real apt for git, a real download, hand-off to setup.sh"
+printf '[safe]\n\tdirectory = *\n' >/etc/gitconfig # /src is owned by the host's user
 printf 'Quit\n' >"$SMOKE_CHOICES"
 : >"$SMOKE_LOG"
-if PATH="$STUBS:$PATH" ENVSETUP_VERSION=$UNDER_TEST ENVSETUP_REPO_URL=$SRC ENVSETUP_DIR=$CLONE bash "$SRC/install.sh" >$W/install.out 2>&1; then
+if PATH="$STUBS:$PATH" curl_bash >$W/install.out 2>&1; then
 	pass "install.sh exited 0"
 else
 	fail "install.sh exited non-zero"
 	show $W/install.out
 fi
 check "git was installed" has git
-check "cloned the commit under test" same_commit "$SRC" "$CLONE"
 check "setup.sh reached the menu on a first run" grep -q '^gum choose Select profile (current: none)' "$SMOKE_LOG"
+check "  ...from a download in TMPDIR" grep -qF "to $TMP/" $W/install.out
+check "  ...which is gone" left_nothing
+# A contributor's checkout, which most scenarios below run setup.sh from.
+git clone -q "$SRC" "$CLONE"
+git -C "$CLONE" checkout -q --detach "$(git -C "$SRC" rev-parse HEAD)"
+check "(the checkout is at the commit under test)" same_commit "$SRC" "$CLONE"
 
 # Real zsh, so the home profile's shell config is checked in the shell it targets, and
 # real jq, which "Move dotfiles to XDG dirs" reads xdg-ninja's notes with.
@@ -184,6 +197,58 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y -qq zsh jq >$W/zsh.out 2>&1 ||
 	show $W/zsh.out
 	exit 1
 }
+
+echo "== curl | bash, Run everything: only the shell config stays (#86)"
+h=$(new_home)
+data=$h/.local/share/envsetup
+mkdir -p "$h/.config/envsetup"
+echo 'ENVSETUP_SHELL=zsh' >"$h/.config/envsetup/config.sh"
+SETUP=curl_bash check "exited 0" run_menu "$h" "Select profile" home "Run everything" Quit
+check "deleted its download" left_nothing
+check "  ...and left no other copy of envsetup" [ -z "$(find "$h" -name setup.sh)" ]
+check "copied shell/ for new shells" [ -f "$data/shell/init.sh" ]
+check "  ...and recorded the release" same_list "$(PATH=/usr/bin:/bin "$CLONE/setup.sh" --version)" "$(cat "$data/version" 2>/dev/null)"
+check "bash loads the aliases" [ "$(in_shell "$h" bash 'alias ll')" = "alias ll='ls -alh'" ]
+check "  ...and the prompt" has_prompt "$h"
+check "  ...from the copy" [ "$(in_shell "$h" bash 'printf %s "$ENVSETUP_ROOT"')" = "$data" ]
+check "  ...without errors" [ ! -s "$h/shell.err" ]
+check "zsh loads the aliases" [ "$(in_shell "$h" zsh 'alias ll')" = "ll='ls -alh'" ]
+check "  ...without errors" [ ! -s "$h/shell.err" ]
+before=$(snapshot "$h")
+SETUP=curl_bash check "the same release again: exited 0" run_menu "$h" "Run everything" Quit
+check "  ...and changed nothing" [ "$(snapshot "$h")" = "$before" ]
+SETUP_ARGS=(--dry-run)
+SETUP=curl_bash check "--dry-run: exited 0" run_menu "$h" "Run everything" Quit
+SETUP_ARGS=()
+check "  ...said it would copy shell/" grep -qF "would copy shell/" "$SMOKE_LOG"
+check "  ...changed nothing" [ "$(snapshot "$h")" = "$before" ]
+check "  ...and deleted its download" left_nothing
+SETUP_ARGS=(--bogus)
+SETUP=curl_bash check "setup.sh failing fails install.sh" not run_menu "$h"
+SETUP_ARGS=()
+check "  ...which still deletes its download" left_nothing
+# Ctrl-C signals the terminal's foreground job: gum, setup.sh and install.sh. Job control
+# (set -m) gives install.sh a process group of its own, as a terminal would.
+signalled() {
+	set -m
+	SETUP=curl_bash run_menu "$h" "$1"
+	local rc=$?
+	set +m
+	[ "$rc" -ge 128 ]
+}
+check "Ctrl-C ends install.sh" signalled SIGINT
+check "  ...which still deletes its download" left_nothing
+check "so does a kill" signalled SIGTERM
+check "  ...which still deletes its download" left_nothing
+# Remove? yes; keep config.sh? no.
+SETUP_ARGS=(--uninstall) CONFIRMS=(yes no)
+SETUP=curl_bash check "curl | bash -s -- --uninstall: exited 0" run_menu "$h"
+SETUP_ARGS=() CONFIRMS=()
+check "  ...removed the copy of shell/" [ ! -e "$data" ]
+check "  ...the rc blocks" none_exist_in '# >>> envsetup >>>' "$h/.bashrc" "$h/.zshrc"
+check "  ...and the state, config.sh too when told to" [ ! -e "$h/.config/envsetup" ]
+check "  ...and deleted its download" left_nothing
+((failures)) && show "$h/setup.out"
 
 echo "== work/full: Run everything"
 h=$(new_home)
@@ -205,7 +270,7 @@ check "bash gets the functions" [ "$(in_shell "$h" bash 'type -t fetchAll')" = f
 check "bash gets the work aliases" [ "$(in_shell "$h" bash 'alias kc')" = "alias kc='kubectl'" ]
 check "bash starts without errors" [ ! -s "$h/shell.err" ]
 [ -s "$h/shell.err" ] && show "$h/shell.err"
-check "a non-interactive bash (ssh host cmd) runs the rc block" [ "$(not_interactive "$h" 'printf %s "$ENVSETUP_ROOT"')" = "$CLONE" ]
+check "a non-interactive bash (ssh host cmd) runs the rc block" [ "$(not_interactive "$h" 'printf %s "$ENVSETUP_ROOT"')" = "$h/.local/share/envsetup" ]
 check "  ...but gets no functions" [ "$(not_interactive "$h" 'type -t fetchAll || echo none')" = none ]
 check "  ...no aliases" [ "$(not_interactive "$h" 'alias ll >/dev/null 2>&1 || echo none')" = none ]
 check "  ...but the exports (ssh host git commit gets EDITOR)" [ "$(not_interactive "$h" 'printf %s "${EDITOR:-}"')" = vim ]
@@ -295,27 +360,26 @@ check "saved the profile in this \$HOME's state dir" [ "$(cat "$h/.config/envset
 check "  ...and nothing in the other one" [ ! -e "$f" ]
 ((failures)) && show "$h/setup.out"
 
-echo "== work/lite with XDG_CONFIG_HOME set, and odd paths: envsetup keeps its state there"
+echo "== work/lite with XDG_CONFIG_HOME set, and odd paths: envsetup keeps its state and the shell copy there"
 h=$(new_home)
 # A space, ", $(...) and a backtick in both paths: the rc block must quote them (#46).
 # If a shell ran $(exit 1) or `false`, ENVSETUP_ROOT would not be the path.
 x="$h/xdg config \"q\" \$(touch $h/ran) \`touch $h/ran\`"
 odd="$W/env setup \"q\" \$(exit 1) \`false\`"
-cp -a "$CLONE" "$odd"
-XDG_CONFIG_HOME=$x CLONE=$odd check "exited 0" run_menu "$h" "Select profile" work lite "Run everything" Quit
+XDG_CONFIG_HOME=$x XDG_DATA_HOME=$odd check "exited 0" run_menu "$h" "Select profile" work lite "Run everything" Quit
 check "saved the profile in \$XDG_CONFIG_HOME/envsetup" [ "$(cat "$x/envsetup/profile" 2>/dev/null)" = work ]
 check "  ...and nothing in ~/.config/envsetup" [ ! -e "$h/.config/envsetup" ]
 # Lite mode loads no exports. Without its state, a shell would load full mode's EDITOR=vim.
 check "a shell with the same XDG_CONFIG_HOME finds it (lite: no EDITOR)" [ "$(XDG_CONFIG_HOME=$x in_shell "$h" bash 'printf %s "${EDITOR:-none}"')" = none ]
 check "  ...and so does a shell without XDG_CONFIG_HOME (ssh, cron): the rc block keeps the dir" [ "$(in_shell "$h" bash 'printf %s "${EDITOR:-none}|$ENVSETUP_STATE"')" = "none|$x/envsetup" ]
-check "  ...and the checkout" [ "$(in_shell "$h" bash 'printf %s "$ENVSETUP_ROOT"')" = "$odd" ]
+check "  ...and the copy of shell/ in \$XDG_DATA_HOME" [ "$(in_shell "$h" bash 'printf %s "$ENVSETUP_ROOT"')" = "$odd/envsetup" ]
 check "  ...and loads its aliases" [ "$(in_shell "$h" bash 'alias ll')" = "alias ll='ls -alh'" ]
 quoted() { [ ! -s "$h/shell.err" ] && [ ! -e "$h/ran" ]; }
 check "  ...which the rc block quotes: no errors, and nothing in the paths ran" quoted
 SETUP_ARGS=(--uninstall) CONFIRMS=(yes)
-XDG_CONFIG_HOME=$x CLONE=$odd check "--uninstall exits 0" run_menu "$h"
+XDG_CONFIG_HOME=$x XDG_DATA_HOME=$odd check "--uninstall exits 0" run_menu "$h"
 SETUP_ARGS=() CONFIRMS=()
-check "  ...and removed it" [ ! -e "$x/envsetup" ]
+check "  ...and removed both" none_exist "$x/envsetup" "$odd/envsetup"
 ((failures)) && show "$h/setup.out"
 
 echo "== home: Run everything (bash; zsh is opt-in)"
@@ -459,52 +523,76 @@ release() {
 	rel commit -q --allow-empty -m "$1"
 	if [ -n "${2:-}" ]; then rel tag -a "$2" -m "$2"; fi
 }
-# install_version <ENVSETUP_VERSION>: install.sh into one checkout, from that origin, then
-# setup.sh --version. No gum on PATH: --version must work before it's installed.
-V=$W/versioned
+# install_version <ENVSETUP_VERSION>: install.sh from that origin, then setup.sh
+# --version. No gum on PATH: --version must work before it's installed.
 install_version() {
-	ENVSETUP_VERSION=$1 ENVSETUP_REPO_URL=$R ENVSETUP_DIR=$V PATH=/usr/bin:/bin \
+	ENVSETUP_VERSION=$1 ENVSETUP_REPO_URL=$R TMPDIR=$TMP PATH=/usr/bin:/bin \
 		bash "$SRC/install.sh" --version >$W/version.out 2>&1
 }
 reports() { [ "$(tail -n 1 $W/version.out)" = "$1" ]; }
-at() { # the checkout is at <ref> of the origin, which must exist
-	local want
-	want=$(git -C "$R" rev-parse -q --verify "$1^{commit}") && [ "$want" = "$(git -C "$V" rev-parse HEAD)" ]
-}
-on_branch() { [ "$(git -C "$V" symbolic-ref -q --short HEAD)" = "$1" ]; }
 fails() { ! "$@"; }
 release "feat: first"
 check "with no releases yet, exits 0" install_version ""
-check "  ...and checks out main" on_branch main
+check "  ...and runs main" reports "$(rel rev-parse --short HEAD)"
 rel tag -a v1.0.0 -m v1.0.0
 release "feat: second" v1.1.0
 release "fix: third" v1.2.0-rc.1
 check "again, now there are releases" install_version ""
-check "  ...moves to the newest one, skipping the pre-release" reports v1.1.0
-check "  ...detached at its commit" at v1.1.0
+check "  ...runs the newest one, skipping the pre-release" reports v1.1.0
 check "ENVSETUP_VERSION=1.0.0 exits 0" install_version 1.0.0
-check "  ...and checks out v1.0.0" reports v1.0.0
+check "  ...and runs v1.0.0" reports v1.0.0
 check "ENVSETUP_VERSION=main exits 0" install_version main
-check "  ...and follows the branch" on_branch main
-check "  ...at its newest commit" at main
+check "  ...and runs the branch's newest commit" reports v1.2.0-rc.1
 check "an unknown version fails" fails install_version 9.9.9
 check "  ...listing the releases" grep -qF '  v1.1.0' $W/version.out
-check "  ...and leaves the checkout alone" at main
-release "fix: fourth" v1.2.0
-check "a new release upstream: exits 0" install_version ""
-check "  ...and updates to it" reports v1.2.0
-echo "# a local edit" >>"$V/README.md"
-check "local edits stop a switch to another version" fails install_version 1.0.0
-check "  ...naming the file" grep -qx '  README.md' $W/version.out
-check "  ...and where settings belong" grep -qF '/.config/envsetup/config.sh' $W/version.out
-mkdir -p "$W/xdg/envsetup"
-xdg_hint() { XDG_CONFIG_HOME=$W/xdg fails install_version 1.0.0 && grep -qF "$W/xdg/envsetup/config.sh" $W/version.out; }
-check "  ...under XDG_CONFIG_HOME when that's set" xdg_hint
-check "  ...leaving the checkout alone" at v1.2.0
-check "but not a re-run of the same version" install_version ""
-check "  ...which keeps them, and says so" reports v1.2.0-dirty
-git -C "$V" checkout -q -- README.md
+check "  ...and deletes its download" left_nothing
 ((failures)) && show $W/version.out
+# The copy of shell/ follows the release that last linked it.
+from_releases() { ENVSETUP_REPO_URL=$R TMPDIR=$TMP bash "$SRC/install.sh" "$@"; }
+h=$(new_home)
+ENVSETUP_VERSION=1.1.0 SETUP=from_releases check "Link shell config from v1.1.0: exits 0" run_menu "$h" "Link shell config" Quit
+check "  ...records v1.1.0" [ "$(cat "$h/.local/share/envsetup/version" 2>/dev/null)" = v1.1.0 ]
+echo "alias smoke-release='v1.2.0'" >>"$R/shell/shared/aliases.sh"
+release "fix: fourth" v1.2.0
+SETUP=from_releases check "a new release upstream: exits 0" run_menu "$h" "Link shell config" Quit
+check "  ...records it" [ "$(cat "$h/.local/share/envsetup/version" 2>/dev/null)" = v1.2.0 ]
+check "  ...and new shells get its shell config" [ "$(in_shell "$h" bash 'alias smoke-release')" = "alias smoke-release='v1.2.0'" ]
+check "  ...and deletes its download" left_nothing
+((failures)) && show "$h/setup.out"
+
+echo "== an rc block from before #86, which loads shell/ from a checkout, is rewritten"
+# old_install <home>: ~/envsetup and the block that linked it, then a line of the user's.
+old_install() {
+	cp -a "$CLONE" "$1/envsetup"
+	printf '%s\n' '# >>> envsetup >>>' "export ENVSETUP_ROOT=$1/envsetup" \
+		"export ENVSETUP_STATE=$1/.config/envsetup ENVSETUP_STATE_HOME=$1" \
+		'[ -f "$ENVSETUP_ROOT/shell/init.sh" ] && source "$ENVSETUP_ROOT/shell/init.sh"' \
+		'# <<< envsetup <<<' '# a line of my own' >>"$1/.bashrc"
+}
+h=$(new_home)
+old_install "$h"
+before=$(snapshot "$h")
+SETUP_ARGS=(--dry-run)
+check "--dry-run: exited 0" run_menu "$h" "Link shell config" Quit
+SETUP_ARGS=()
+check "  ...said it would rewrite the block" grep -qF "would rewrite the envsetup block in $h/.bashrc" "$SMOKE_LOG"
+check "  ...and delete ~/envsetup, as answered" grep -qF "would delete $h/envsetup" "$SMOKE_LOG"
+check "  ...and changed nothing" [ "$(snapshot "$h")" = "$before" ]
+check "exited 0" run_menu "$h" "Link shell config" Quit
+check "rewrote the block to load the copy" grep -qxF "export ENVSETUP_ROOT=$h/.local/share/envsetup" "$h/.bashrc"
+check "  ...once, in place" [ "$(count '# >>> envsetup >>>' "$h/.bashrc")/$(tail -n 1 "$h/.bashrc")" = "1/# a line of my own" ]
+check "asked \"Keep ~/envsetup?\"" grep -qF "gum confirm Keep $h/envsetup?" "$SMOKE_LOG"
+check "  ...and deleted it when told to" [ ! -e "$h/envsetup" ]
+check "bash loads the aliases" [ "$(in_shell "$h" bash 'alias ll')" = "alias ll='ls -alh'" ]
+check "  ...without errors" [ ! -s "$h/shell.err" ]
+h=$(new_home)
+old_install "$h"
+CONFIRMS=(yes)
+check "answering keep: exited 0" run_menu "$h" "Link shell config" Quit
+CONFIRMS=()
+check "  ...kept ~/envsetup" [ -f "$h/envsetup/setup.sh" ]
+check "  ...and still rewrote the block" grep -qxF "export ENVSETUP_ROOT=$h/.local/share/envsetup" "$h/.bashrc"
+((failures)) && show "$h/setup.out"
 
 echo "== --uninstall: work/full, declined and dry-run first"
 h=$(new_home)
@@ -518,6 +606,7 @@ check "--dry-run --uninstall exits 0" run_menu "$h"
 SETUP_ARGS=() CONFIRMS=()
 check "said it would remove the ~/.bashrc block" grep -qF "would remove the envsetup block from $h/.bashrc" "$SMOKE_LOG"
 check "said it would remove the git include" grep -qF "would remove the include of $h/.config/envsetup/gitconfig" "$SMOKE_LOG"
+check "  ...and the copy of shell/" grep -qF "would delete $h/.local/share/envsetup" "$SMOKE_LOG"
 check "  ...and changes nothing" [ "$(snapshot "$h")" = "$before" ]
 gc=$h/.config/envsetup/gitconfig
 check "(before: git includes envsetup's file)" [ "$(includes "$h")" = "$gc" ]
@@ -534,6 +623,7 @@ check ".bashrc is byte-for-byte what it was" cmp -s /etc/skel/.bashrc "$h/.bashr
 check "removed the git include" [ -z "$(includes "$h")" ]
 check "kept the git identity" [ "$(git config --file "$h/.gitconfig" user.name)" = "Smoke Test" ]
 check "removed envsetup's saved state" [ ! -e "$h/.config/envsetup" ]
+check "  ...and the copy of shell/" [ ! -e "$h/.local/share/envsetup" ]
 check "removed the prompt's cache and the fetchAll log" none_exist "$h/.cache/envsetup/kube-context" "$h/.cache/envsetup/fetchAll.log" "$h/.cache/envsetup"
 check "bash is back to the distro's aliases" [ "$(in_shell "$h" bash 'alias ll')" = "alias ll='ls -alF'" ]
 check "didn't touch the login shell" not_grep '^chsh ' "$SMOKE_LOG"

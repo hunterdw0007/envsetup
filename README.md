@@ -16,17 +16,24 @@ curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.
 The command does four things:
 
 1. It installs `git` if the machine does not have it.
-2. It copies this repo into `~/envsetup`, the envsetup folder.
-3. It selects the newest release.
-4. It opens the menu.
+2. It downloads the newest release into a temporary folder.
+3. It opens the menu.
+4. When you quit the menu, it deletes the temporary folder, also after an error or Ctrl-C.
+
+**Link shell config** copies the shell config (`shell/`) to `~/.local/share/envsetup`,
+or to `$XDG_DATA_HOME/envsetup` if you set `XDG_DATA_HOME`.
+New shells load it from there.
+It also records the release there, in a file called `version`.
+So envsetup does not stay on the machine: only your shell config, `config.sh` and the files that envsetup made stay.
 
 To update to the newest release, run the same command again.
+**Link shell config** (or **Run everything**) then replaces the copy.
+Running the same release again changes nothing.
 
 These variables change what the command does:
 
 | Variable | What it does |
 | --- | --- |
-| `ENVSETUP_DIR` | Sets the envsetup folder. The default is `~/envsetup`. |
 | `ENVSETUP_REPO_URL` | Sets the repo URL, for example an SSH URL. |
 | `ENVSETUP_VERSION` | Selects a release. See [Select a release](#select-a-release). |
 
@@ -39,18 +46,21 @@ To install a specific release, set `ENVSETUP_VERSION`:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | ENVSETUP_VERSION=v0.2.0 bash
-# the same command, from the envsetup folder
-ENVSETUP_VERSION=v0.2.0 ~/envsetup/install.sh
 ```
 
 - `ENVSETUP_VERSION` also accepts `0.2.0`, a branch name or a commit.
 - `ENVSETUP_VERSION=main` gives you changes that are not in a release yet.
 - An unknown value shows the list of releases.
 - A run without `ENVSETUP_VERSION` selects the newest release again.
-- `./setup.sh --version` shows the release you have.
+- `~/.local/share/envsetup/version` shows the release your shells use.
 
-Update with `install.sh`, not with `git pull`.
-`git pull` does not work on a release.
+### Update from a `~/envsetup` folder
+
+Before version 0.3.0, the command kept a copy of this repo in `~/envsetup` (or in `ENVSETUP_DIR`), and your startup files loaded the shell config from it.
+`ENVSETUP_DIR` no longer does anything.
+To update, run the curl command above, not `~/envsetup/install.sh`.
+**Link shell config** then rewrites envsetup's block in your startup files to load the copy, and asks "Keep ~/envsetup?".
+If you made changes in that folder, answer yes and move them to `config.sh` (see [Customize](#customize)).
 
 envsetup is still at version 0.x.
 In 0.x, a release can change something you use every day.
@@ -60,7 +70,7 @@ The changelog lists these changes first, under "Breaking changes".
 
 ```sh
 ./setup.sh --dry-run
-# or with curl (this copies the repo into ~/envsetup and changes nothing else)
+# or with curl (it deletes its download afterwards, as usual)
 curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | bash -s -- --dry-run
 ```
 
@@ -86,6 +96,8 @@ cd ~/envsetup
 This method uses the newest commit on `main`.
 To use a release, run `git checkout v0.2.0` first.
 `git tag` lists the releases.
+envsetup never deletes this folder.
+New shells load the copy of `shell/` that **Link shell config** makes, so run it again after you change `shell/`.
 
 ## Use the menu
 
@@ -196,9 +208,8 @@ Installers skip any tool that is already on your `PATH`.
 
 The packages, installers, aliases and git settings in this repo are defaults.
 To change a default, edit `~/.config/envsetup/config.sh`.
-Do not edit the files in this repo.
-If you edit them, the next update stops with an error.
-`config.sh` is outside the repo, so updates do not change it.
+envsetup does not keep a copy of this repo on your machine, and an update replaces the copy of `shell/`.
+`config.sh` is outside both, so updates do not change it.
 
 Select **Edit config** in the menu to create `config.sh` and open it in `$EDITOR`.
 The new `config.sh` is a copy of [`config.example.sh`](config.example.sh).
@@ -244,13 +255,17 @@ It also explains where `config.sh` lives and how to use it on other machines.
 ## Uninstall
 
 ```sh
-./setup.sh --uninstall            # or "Uninstall" in the menu
-./setup.sh --dry-run --uninstall  # shows what uninstall would remove
+curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | bash -s -- --uninstall
+# shows what uninstall would remove
+curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | bash -s -- --dry-run --uninstall
 ```
+
+**Uninstall** in the menu does the same, and so does `./setup.sh --uninstall` in a clone.
 
 Uninstall removes everything that envsetup added:
 
 - envsetup's block in `~/.bashrc`, `~/.bash_profile` and `~/.zshrc`
+- the copy of `shell/` in `~/.local/share/envsetup`, and its `version` file
 - the include line in `~/.gitconfig` and the file it includes
 - your saved profile and mode
 - the dotfile moves to XDG folders
@@ -271,7 +286,6 @@ Uninstall keeps these things, because they can exist without envsetup:
 - oh-my-zsh, which has its own `uninstall_oh_my_zsh` command
 
 At the end, uninstall lists what it kept.
-It also tells you how to delete the envsetup folder.
 
 ## More information
 

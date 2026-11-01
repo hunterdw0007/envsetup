@@ -16,7 +16,7 @@ So every shell uses the same folder, even a shell without `XDG_CONFIG_HOME`.
 
 Keep `config.sh` in your own dotfiles repo.
 On a new machine, create a symlink to it at the path above.
-Then run `install.sh`.
+Then run the curl command from the [README](../README.md#install).
 
 ## Popular packages
 

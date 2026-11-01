@@ -15,6 +15,8 @@ case $1 in
 choose)
 	answer=$(pop "$SMOKE_CHOICES")
 	if [[ -z $answer || $answer == ESC ]]; then exit 1; fi
+	# SIGINT/SIGTERM: what Ctrl-C or a kill does to the terminal's foreground job.
+	if [[ $answer == SIG* ]]; then kill -s "${answer#SIG}" 0; fi
 	echo "$answer"
 	;;
 confirm) [[ $(pop "$SMOKE_CONFIRMS") == yes ]] ;;

@@ -133,13 +133,16 @@ else
 	: >"$SMOKE_LOG"
 	# script(1) gives it a terminal: it hands off to setup.sh with stdin from /dev/tty.
 	# ENVSETUP_VERSION: this commit, not the newest release install.sh would pick.
-	HOME=$h PATH="$stubs:/usr/bin:/bin:/usr/sbin:/sbin" ENVSETUP_VERSION=$(git -C "$root" rev-parse HEAD) \
-		ENVSETUP_REPO_URL=$root ENVSETUP_DIR=$h/envsetup \
+	# TMPDIR: where it downloads to, empty again once it ends.
+	mkdir -p "$T/dl"
+	v=$(git -C "$root" rev-parse HEAD)
+	HOME=$h PATH="$stubs:/usr/bin:/bin:/usr/sbin:/sbin" ENVSETUP_VERSION=$v ENVSETUP_REPO_URL=$root TMPDIR=$T/dl \
 		script -q /dev/null /bin/bash "$root/install.sh" --help </dev/null >"$out/install.log" 2>&1
 	rc=$?
 	handed_off() { ((rc == 0)) && grep -q '^Usage: ' "$out/install.log"; }
 	check "install.sh exits 0 and hands off to setup.sh --help" handed_off
-	check "  ...after cloning" test -x "$h/envsetup/setup.sh"
+	check "  ...from a download in TMPDIR" has "to $T/dl/" "$out/install.log"
+	check "  ...which it deletes" test -z "$(ls -A "$T/dl")"
 	if [[ -n "$new_bash" ]]; then
 		check "  ...without reinstalling bash (Homebrew's is 4+)" hasnt "brew install bash" "$SMOKE_LOG"
 	else
@@ -216,6 +219,8 @@ if [[ -n "$new_bash" ]]; then
 
 	echo "== the shells it configures"
 	check "zsh: loads the aliases" test "$(in_shell "$hz" zsh -i -- 'alias ll')" = "ll='ls -alh'"
+	check "  ...from the copy of shell/" test "$(in_shell "$hz" zsh -i -- 'printf %s "$ENVSETUP_ROOT"')" = "$hz/.local/share/envsetup"
+	check "  ...which BSD cp -R put in place" test -f "$hz/.local/share/envsetup/shell/shared/aliases.sh"
 	check "  ...with ls in BSD color (ls -G)" test "$(in_shell "$hz" zsh -i -- 'alias ls')" = "ls='ls -G'"
 	check "  ...which works" test "$(in_shell "$hz" zsh -i -- 'ls >/dev/null && echo ok')" = ok
 	check "  ...and starts without errors" clean "$hz/shell.err"
@@ -291,6 +296,7 @@ if [[ -n "$new_bash" ]]; then
 	check "zsh login shell envsetup didn't set: exits 0" test $? = 0
 	unlinked() { hasnt '# >>> envsetup >>>' "$hz/.bashrc" && hasnt '# >>> envsetup >>>' "$hz/.zshrc"; }
 	check "  ...unlinks ~/.bashrc and ~/.zshrc" unlinked
+	check "  ...and removes the copy of shell/" test ! -e "$hz/.local/share/envsetup"
 	check "  ...without offering to change the login shell" hasnt "Keep zsh as your login shell" "$SMOKE_LOG"
 	SETUP_ARGS=--uninstall menu "$hh" /bin/zsh yes no --
 	cp "$SMOKE_LOG" "$out/uninstall-home.calls"

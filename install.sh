@@ -3,14 +3,14 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | bash
 #
-# Clones (or updates) the repo, checks out the newest release, then hands off into
-# setup.sh's TUI. Arguments go to setup.sh, e.g. `... | bash -s -- --dry-run` to look
-# around without changing anything beyond the clone. ENVSETUP_VERSION picks another
-# release (v1.2.0 or 1.2.0), or a branch or commit.
+# Downloads the newest release to a temporary folder, runs setup.sh's menu from it, and
+# deletes the folder when that ends, however it ends. "Link shell config" copies what new
+# shells need out of it first. Arguments go to setup.sh, e.g. `... | bash -s -- --dry-run`
+# to look around without changing anything. ENVSETUP_VERSION picks another release
+# (v1.2.0 or 1.2.0), or a branch or commit.
 set -euo pipefail
 
 REPO_URL="${ENVSETUP_REPO_URL:-https://github.com/hunterdw0007/envsetup.git}"
-ENVSETUP_DIR="${ENVSETUP_DIR:-$HOME/envsetup}"
 ENVSETUP_VERSION="${ENVSETUP_VERSION:-latest}"
 
 # As root already (containers, WSL), via sudo, or via doas (Alpine).
@@ -51,7 +51,7 @@ envsetup::bootstrap_macos() {
 	fi
 }
 
-# A copy of shell/shared/brew.sh, which isn't cloned yet; keep the two in sync. Only
+# A copy of shell/shared/brew.sh, which isn't downloaded yet; keep the two in sync. Only
 # called on macOS.
 envsetup::brew_shellenv() {
 	local brew
@@ -97,15 +97,14 @@ envsetup::releases() {
 	local tag
 	while read -r tag; do
 		if [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "$tag"; fi
-	done < <(git -C "$ENVSETUP_DIR" tag --list 'v*' --sort=-v:refname)
+	done < <(git -C "$download" tag --list 'v*' --sort=-v:refname)
 }
 
 # use_version <version>: checks out "latest" (the newest release, or the default branch
-# before the first one), a release (v1.2.0 or 1.2.0), or a branch or commit. Releases
-# and commits are checked out detached; a branch is fast-forwarded to origin's.
+# before the first one), a release (v1.2.0 or 1.2.0), or a branch or commit, detached.
 envsetup::use_version() {
-	local ref=$1 releases target branch='' file state
-	local git=(git -C "$ENVSETUP_DIR")
+	local ref=$1 releases target
+	local git=(git -C "$download")
 	if [[ "$ref" == latest ]]; then
 		read -r ref < <(envsetup::releases) || true
 		if [[ -z "$ref" ]]; then
@@ -122,7 +121,7 @@ envsetup::use_version() {
 	if "${git[@]}" show-ref -q --verify "refs/tags/$ref"; then
 		target=refs/tags/$ref
 	elif "${git[@]}" show-ref -q --verify "refs/remotes/origin/$ref"; then
-		target=origin/$ref branch=$ref
+		target=origin/$ref
 	elif "${git[@]}" rev-parse -q --verify "$ref^{commit}" >/dev/null; then
 		target=$ref
 	else
@@ -133,45 +132,20 @@ envsetup::use_version() {
 		fi
 		exit 1
 	fi
-	# Edits to tracked files would block switching, or be carried into another version.
-	if [[ "$("${git[@]}" rev-parse HEAD)" != "$("${git[@]}" rev-parse "$target^{commit}")" ]] &&
-		! "${git[@]}" diff --quiet HEAD; then
-		echo "$ENVSETUP_DIR has local changes, so it can't switch to $1:" >&2
-		while read -r file; do echo "  $file" >&2; done < <("${git[@]}" diff --name-only HEAD)
-		# The directory envsetup reads (it follows XDG_CONFIG_HOME); older checkouts lack state.sh.
-		# shellcheck source=shell/state.sh
-		state=$(source "$ENVSETUP_DIR/shell/state.sh" 2>/dev/null; echo "${ENVSETUP_STATE:-$HOME/.config/envsetup}")
-		echo "Your own settings belong in $state/config.sh (see the README), which" >&2
-		echo "updates never touch. To set the changes aside: git -C $ENVSETUP_DIR stash" >&2
-		exit 1
-	fi
-
-	if [[ -n "$branch" ]]; then
-		"${git[@]}" show-ref -q --verify "refs/heads/$branch" || "${git[@]}" branch -q --track "$branch" "$target"
-		"${git[@]}" checkout -q "$branch" --
-		"${git[@]}" merge -q --ff-only "$target"
-	else
-		"${git[@]}" checkout -q --detach "$target"
-	fi
+	"${git[@]}" checkout -q --detach "$target"
 }
 
 envsetup::bootstrap_macos
 envsetup::bootstrap_git
 
-if [[ -d "$ENVSETUP_DIR/.git" ]]; then
-	echo "Updating existing envsetup checkout at $ENVSETUP_DIR..."
-	git -C "$ENVSETUP_DIR" fetch -q --tags origin
-elif [[ -e "$ENVSETUP_DIR" ]]; then
-	echo "$ENVSETUP_DIR already exists and isn't a git checkout. Set ENVSETUP_DIR to another path or remove it first." >&2
-	exit 1
-else
-	echo "Cloning envsetup into $ENVSETUP_DIR..."
-	git clone "$REPO_URL" "$ENVSETUP_DIR"
-fi
+download=$(mktemp -d)
+trap 'rm -rf "$download"' EXIT
+# A signal (Ctrl-C, a closed terminal, kill) would otherwise end this without the EXIT trap.
+trap 'exit 130' INT TERM HUP
+git clone -q "$REPO_URL" "$download"
 envsetup::use_version "$ENVSETUP_VERSION"
-echo "envsetup $(git -C "$ENVSETUP_DIR" describe --tags --always) is checked out at $ENVSETUP_DIR."
+echo "Downloaded envsetup $(git -C "$download" describe --tags --always) to $download, which is deleted when setup ends."
 
-# Reopen stdin from the controlling terminal: when this script is run via
-# `curl ... | bash`, stdin is the pipe from curl, not the terminal, which would
-# otherwise starve setup.sh's interactive gum prompts.
-exec "$ENVSETUP_DIR/setup.sh" "$@" </dev/tty
+# stdin from the terminal: under `curl ... | bash` it's the pipe from curl, which would
+# starve setup.sh's interactive gum prompts. Not exec'd, so the traps above still run.
+"$download/setup.sh" "$@" </dev/tty

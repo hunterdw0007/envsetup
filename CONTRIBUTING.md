@@ -7,7 +7,7 @@ This page gives an overview.
 ## Layout
 
 ```
-install.sh           # the curl | bash script: copies or updates the repo, selects a release, runs setup.sh
+install.sh           # the curl | bash script: downloads a release to a temp folder, runs setup.sh, deletes it
 setup.sh             # the gum menu: profile and mode, linking, package installs
 config.example.sh    # template for ~/.config/envsetup/config.sh
 CHANGELOG.md         # the changes in each release (CI writes it)

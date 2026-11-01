@@ -329,6 +329,15 @@ check "bash loads the aliases" [ "$(in_shell "$h" bash 'alias ll')" = "alias ll=
 check "bash starts without errors" [ ! -s "$h/shell.err" ]
 check "left zsh alone" none_exist "$h/.oh-my-zsh" "$h/.zshrc"
 check "didn't ask about the login shell" not_grep '^gum confirm Set zsh' "$SMOKE_LOG"
+check "installed them all at once" [ "$(grep -c '^apt-get install -y ' "$SMOKE_LOG")" = 1 ]
+
+echo "== home: Run everything, docker missing: its installer reuses the session's package lists"
+h=$(new_home)
+mv "$OFFLINE/docker" $W/docker
+check "exited 0" run_menu "$h" "Select profile" home "Run everything" Quit
+mv $W/docker "$OFFLINE/docker"
+check "docker.sh installed docker.io" grep -qx 'apt-get install -y docker.io' "$SMOKE_LOG"
+check "refreshed package lists once" [ "$(count 'apt-get update' "$SMOKE_LOG")" = 1 ]
 
 echo "== home: Set up zsh + oh-my-zsh (menu)"
 check "exited 0" run_menu "$h" "Set up zsh + oh-my-zsh" Quit
@@ -576,7 +585,8 @@ h=$(new_home)
 mkdir -p "$h/.config/envsetup"
 echo 'ENVSETUP_PACKAGES+=(smoke-conflict)' >"$h/.config/envsetup/config.sh"
 check "exited 0: back to the menu, then Quit" run_menu "$h" "Select profile" work full "Run everything" Quit
-check "installed one package at a time" [ "$(grep -c '^apt-get install -y [^ ]*$' "$SMOKE_LOG")" = "$(($(n_expected work) + 1))" ]
+check "tried them all at once first" grep -q '^apt-get install -y .* smoke-conflict$' "$SMOKE_LOG"
+check "  ...then one at a time" [ "$(grep -c '^apt-get install -y [^ ]*$' "$SMOKE_LOG")" = "$(($(n_expected work) + 1))" ]
 check "  ...and named the one that failed" grep -qF "Couldn't install: smoke-conflict" "$h/setup.out"
 check "said the step didn't finish" grep -qF "That step didn't finish" "$SMOKE_LOG"
 check "still ran the installers after it" grep -qF "Running kubectl.sh" "$SMOKE_LOG"

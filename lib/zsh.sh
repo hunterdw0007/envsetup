@@ -14,7 +14,7 @@ envsetup::install_zsh() {
 		return 1
 	fi
 	if envsetup::dry_run; then
-		((${#missing[@]} == 0)) || envsetup::would "install ${missing[*]} (sudo)"
+		((${#missing[@]} == 0)) || envsetup::would "install ${missing[*]} (as root)"
 		[[ "$SHELL" == */zsh ]] || envsetup::would "ask to make zsh your login shell (chsh)"
 		[[ -d "$HOME/.oh-my-zsh" ]] || envsetup::would "install oh-my-zsh (runs its installer from github.com)"
 		return 0

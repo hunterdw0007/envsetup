@@ -11,7 +11,7 @@ envsetup::has_cmd aws && exit 0
 
 # AWS's build needs glibc; Alpine (musl) packages its own.
 if [[ "$OSTYPE" == linux-musl* ]]; then
-	envsetup::as_root apk add aws-cli
+	envsetup::pkg_install apk aws-cli
 	exit 0
 fi
 

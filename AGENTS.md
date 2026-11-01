@@ -3,6 +3,11 @@
 Standards for anyone (human or agent) working on this repo. This file is the source of
 truth — if a PR or commit doesn't follow it, that's a bug in the PR, not in this file.
 
+## Requirements and goals
+
+[`CONTRIBUTING.md`](CONTRIBUTING.md#requirements) lists the requirements and goals of envsetup.
+Every change must keep the requirements true.
+
 ## Commit messages
 
 Conventional Commits, always: `<type>(<scope>)?: <summary>`. They aren't just style:

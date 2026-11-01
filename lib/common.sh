@@ -77,15 +77,6 @@ envsetup::immutable() {
 	[[ ",${usr:-$root}," == *,ro,* ]]
 }
 
-# The version of a GitHub project's latest release, without the "v": github.com
-# redirects releases/latest to the tag, which avoids the rate-limited API.
-envsetup::github_latest() {
-	local url
-	url=$(curl -fsSL -o /dev/null -w '%{url_effective}' "https://github.com/$1/releases/latest") || return 1
-	[[ "$url" =~ /tag/v?([0-9][^/]*)$ ]] || return 1
-	echo "${BASH_REMATCH[1]}"
-}
-
 # pin <name> [<platform>]: <name>'s version from installers/versions.txt, or with
 # <platform> (a key there, e.g. linux-amd64) the sha256 of that platform's download.
 envsetup::pin() {

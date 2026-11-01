@@ -16,6 +16,16 @@ export ENVSETUP_ROOT
 source "$ENVSETUP_ROOT/lib/common.sh"
 file=$ENVSETUP_ROOT/installers/versions.txt
 
+# Only here, never in lib/: installs use the pins, not what is newest that day.
+# The version of a GitHub project's latest release, without the "v": github.com
+# redirects releases/latest to the tag, which avoids the rate-limited API.
+envsetup::github_latest() {
+	local url
+	url=$(curl -fsSL -o /dev/null -w '%{url_effective}' "https://github.com/$1/releases/latest") || return 1
+	[[ "$url" =~ /tag/v?([0-9][^/]*)$ ]] || return 1
+	echo "${BASH_REMATCH[1]}"
+}
+
 # sha <key> <checksums url> <file>: " <key>=<sha256>", <file>'s hash from the list.
 sha() {
 	local hash

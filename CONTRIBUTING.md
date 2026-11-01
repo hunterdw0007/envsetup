@@ -2,7 +2,67 @@
 
 [`AGENTS.md`](AGENTS.md) sets the rules for this repo.
 It covers commit messages, branches, code style, releases and tests.
-This page gives an overview.
+This page lists the requirements and goals of envsetup.
+It also gives an overview of the repo.
+
+## Requirements
+
+Every change must keep these requirements true.
+To break a requirement, first change it in its own PR.
+Requirements 1 and 2 hold after [#103](https://github.com/hunterdw0007/envsetup/issues/103) and [#104](https://github.com/hunterdw0007/envsetup/issues/104).
+
+1. **Linux only.**
+   envsetup supports the Linux systems in the README table, including WSL.
+2. **Nothing to install first.**
+   A machine with bash, curl and git can run envsetup.
+   gum is the only exception.
+   envsetup installs gum, and tar and gzip if gum needs them, before the menu opens.
+3. **Same release, same result.**
+   A second run of the same release with the same `config.sh` changes nothing.
+4. **No change without a choice.**
+   envsetup changes nothing until the user selects an action.
+5. **A preview for each change.**
+   A dry run shows each change and makes none.
+6. **A full uninstall.**
+   Uninstall removes everything that envsetup created.
+   Uninstall asks before it removes anything that belongs to the user.
+7. **Only the shell config stays.**
+   After a run, the machine keeps only the shell config, the user's files and the files that envsetup created.
+8. **Pinned and checked downloads.**
+   Each download has a pinned version and a checksum.
+   envsetup never downloads "latest" during a run.
+9. **No root for the shell config.**
+   The shell config and git settings work without sudo.
+   Only packages and installers use root.
+10. **User files in one place.**
+    The user's files live only in `~/.config/envsetup`.
+    An update never changes them.
+11. **No lost user files.**
+    envsetup asks before it deletes or replaces a user file.
+12. **One failure stops one step.**
+    A failed step shows its error.
+    The other steps still run.
+13. **Clear choices.**
+    Each menu choice says what it does on this machine.
+14. **Breaking changes come first.**
+    The changelog lists each breaking change first, under "Breaking changes".
+
+## Goals
+
+New work moves envsetup toward these goals.
+
+- **Easy to set up for each user.**
+  Each user can change envsetup for their own needs.
+  A user can paste their own settings and shell code from the menu.
+  [#105](https://github.com/hunterdw0007/envsetup/issues/105) and [#106](https://github.com/hunterdw0007/envsetup/issues/106) track this.
+- **Fast shell start.**
+  The shell config adds less than 50 ms to each new shell.
+  It makes no network calls.
+- **Runs without a person.**
+  Each action can run from options, without the menu.
+  [#42](https://github.com/hunterdw0007/envsetup/issues/42) tracks this.
+- **Tested on each supported system.**
+  The tests cover each system in the README table.
 
 ## Layout
 

@@ -114,14 +114,17 @@ For `work`, also select a mode:
 This README calls the `work` profile in `lite` mode "work lite".
 
 Each profile and mode in the menu shows what it does on this machine.
-For example: `work  bash · 23 packages · 5 installers (awscli, gh, helm, kubectl, terraform)`.
+For example, `work` shows how many packages it installs and which installers it runs.
 
-**Run everything** runs these four actions in order:
+**Run everything** runs these actions in order:
 
 1. **Link shell config** loads envsetup from your shell startup file, for example `~/.bashrc`.
 2. **Configure git** writes envsetup's git settings and asks for your name and email.
 3. **Install packages** installs the packages for your profile.
 4. **Run installers** runs scripts for tools that package managers do not have.
+5. **Move dotfiles to XDG dirs**, only if you set `ENVSETUP_XDG_NINJA=1`.
+
+With `ENVSETUP_SHELL=zsh`, **Link shell config** also runs **Set up zsh + oh-my-zsh**.
 
 If one action fails, **Run everything** continues with the next action.
 You can also run each action alone from the menu.
@@ -195,7 +198,9 @@ Uninstall does not remove the tap.
 envsetup runs root steps with `sudo`, or with `doas` if the machine has it.
 If you are already root, envsetup runs those steps directly.
 The menu itself does not need sudo.
-envsetup installs gum with Homebrew, or from gum's GitHub release into `~/.local/bin`.
+envsetup installs gum with Homebrew if the machine has it.
+Otherwise it downloads gum's pinned, checksum-verified release into `~/.local/bin`.
+If that fails and the machine has Go, it uses `go install`.
 Installers download the amd64 or arm64 build that matches the machine.
 
 `installers/versions.txt` sets the version and sha256 checksum of each download.

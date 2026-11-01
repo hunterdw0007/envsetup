@@ -9,12 +9,16 @@ This page gives an overview.
 ```
 install.sh           # the curl | bash script: downloads a release to a temp folder, runs setup.sh, deletes it
 setup.sh             # the gum menu: profile and mode, linking, package installs
+lib/                 # the menu's actions; lib/config.sh loads the defaults, then the user's config.sh
 config.example.sh    # template for ~/.config/envsetup/config.sh
+AGENTS.md            # the rules for this repo
 CHANGELOG.md         # the changes in each release (CI writes it)
 docs/                # user docs that the README links to
+tests/               # smoke.sh and release.sh (CI), distros/ and macos.sh (manual)
 shell/
-  shared/            # prompt, aliases, environment variables and functions for every machine
-                     # (work lite loads only the prompt and aliases), plus colors.sh
+  shared/            # prompt, aliases, tool hooks, environment variables and functions
+                     # for every machine (work lite loads only the prompt, aliases and
+                     # tool hooks), plus colors.sh and Homebrew's PATH on macOS
   profiles/
     work/            # config for the work profile only
     home/            # config for the home profile only
@@ -25,7 +29,7 @@ packages/
   home.txt           # extra packages for the home profile
   names.txt          # package names that differ from Debian's, for each package manager
 installers/
-  common/            # scripts for every profile (none yet)
+  common/            # scripts for every profile (none yet, so the folder does not exist)
   work/              # scripts for the work profile, in full mode only
   home/              # scripts for the home profile only
   extras/            # scripts that users select with ENVSETUP_EXTRAS
@@ -85,9 +89,17 @@ The Releases section of `AGENTS.md` has the details.
 
 ## Tests
 
-CI runs `shellcheck` on every shell script.
+CI runs `shellcheck` on every shell script and checks that they parse under macOS's bash 3.2.
 It also runs `tests/smoke.sh` and `tests/release.sh`.
-The Testing section of `AGENTS.md` explains how to run them on your machine.
+To run them on your machine:
+
+```sh
+shellcheck setup.sh                    # or any other script
+docker run --rm -t -v "$PWD:/src:ro" ubuntu:24.04 bash /src/tests/smoke.sh
+tests/release.sh                       # needs commitizen's cz on PATH
+```
+
+The Testing section of `AGENTS.md` has the details.
 
 Two more tests run real installs.
 They take too long for CI, so you run them yourself.

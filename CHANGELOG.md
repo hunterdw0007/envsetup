@@ -4,6 +4,21 @@ Every release of envsetup, newest first, with what changed in it. CI writes each
 from the commits on `main` when it releases them (see "Releases" in AGENTS.md), so
 don't edit this file by hand.
 
+## v0.3.0 (2026-11-01)
+
+### Breaking changes
+
+- install.sh no longer keeps a checkout and ignores ENVSETUP_DIR; update with the curl command, not ~/envsetup/install.sh. An existing block that loads shell/ from ~/envsetup is rewritten in place, and Link shell config asks "Keep ~/envsetup?" (default: keep). A manual git clone still works, and envsetup never deletes it.
+- run envsetup from a temporary download and keep only the shell config (#92)
+
+### Fixes
+
+- **packages**: refresh apt once per session and install in one batch (#91)
+
+### Refactoring
+
+- resolve "latest" only in the weekly bump, never at install time (#88)
+
 ## v0.2.2 (2026-10-27)
 
 ### Fixes

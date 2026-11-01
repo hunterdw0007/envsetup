@@ -55,8 +55,9 @@ Options:
                    what it would do instead; profile picks and "Edit config" work
                    but only last until you quit
       --uninstall  remove what envsetup added (rc-file block, copied shell config,
-                   git include, saved state), asking before anything that might be yours; packages
-                   and tools stay. Combine with --dry-run to preview it
+                   git include, saved state), asking before anything that might
+                   be yours; packages and tools stay. Combine with --dry-run to
+                   preview it
       --version    show which release this is and exit
   -h, --help       show this help and exit
 EOF

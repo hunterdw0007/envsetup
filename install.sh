@@ -138,7 +138,8 @@ envsetup::use_version() {
 envsetup::bootstrap_macos
 envsetup::bootstrap_git
 
-download=$(mktemp -d)
+# A template, since macOS's mktemp -d alone ignores TMPDIR.
+download=$(mktemp -d "${TMPDIR:-/tmp}/envsetup.XXXXXX")
 trap 'rm -rf "$download"' EXIT
 # A signal (Ctrl-C, a closed terminal, kill) would otherwise end this without the EXIT trap.
 trap 'exit 130' INT TERM HUP

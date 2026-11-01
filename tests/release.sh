@@ -180,7 +180,10 @@ check "once it's allowed, a re-run releases it" release "$z"
 check "  ...as v0.3.1" tags "v0.1.0 v0.1.1 v0.2.0 v0.3.0 v0.3.1 "
 
 echo "== usage"
-check "an unknown step is refused" [ "$(cd "$T/ci" && GITHUB_SHA=x "$root/.github/scripts/release.sh" nope >/dev/null 2>&1; echo $?)" = 2 ]
+check "an unknown step is refused" [ "$(
+	cd "$T/ci" && GITHUB_SHA=x "$root/.github/scripts/release.sh" nope >/dev/null 2>&1
+	echo $?
+)" = 2 ]
 
 echo
 if ((failures)); then

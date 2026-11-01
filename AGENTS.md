@@ -141,6 +141,10 @@ next to it in `version`.
   A file that's only ever `source`d (never executed directly), like the ones under
   `shell/shared/` and `shell/profiles/`, needs `# shellcheck shell=bash` as its first
   line so shellcheck knows the dialect (see SC2148).
+- Formatting is whatever `shfmt -i 0` (tabs, otherwise shfmt's defaults) writes; CI runs
+  `shfmt -d -i 0 .` and fails on any diff. `shfmt -w -i 0 .` fixes it locally. CI pins
+  shellcheck v0.11.0 and shfmt v3.14.1 (the install step in `ci.yml`); use the same
+  versions locally, since a newer one can disagree.
 - No inline `#` comments on a `packages/*.txt` package-name line — the line is passed
   verbatim to the package manager, so a comment on the same line breaks the install.
   Put the comment on the line above instead.
@@ -227,7 +231,7 @@ CI (`.github/workflows/ci.yml`) runs two jobs on every push and PR, plus `releas
 Releases) on pushes to `main` once they pass; `.github/workflows/commits.yml` checks
 commit messages and the PR title on every PR:
 
-- `shell-checks`: `shellcheck` over every `*.sh` file, the bash 3.2 checks, and
+- `shell-checks`: `shellcheck` and `shfmt` over every `*.sh` file, the bash 3.2 checks, and
   `tests/release.sh`: the release flow against a scratch origin, with the hash-locked
   commitizen (run it locally with `cz` on PATH).
 - `smoke`: `tests/smoke.sh` in a bare `ubuntu:24.04` container — `install.sh` on a box
@@ -240,8 +244,9 @@ commit messages and the PR title on every PR:
   able to fail: compare against a non-empty expected value, never two things that
   could both come back empty.
 
-`tests/distros/run.sh` (manual, not CI; see `CONTRIBUTING.md`) runs the real tool against a
-dozen distros with real installs. Run it after changing anything distro-specific: package
+`tests/distros/run.sh` (not on every push; see `CONTRIBUTING.md`) runs the real tool against a
+dozen distros with real installs. The `distros` workflow runs it weekly, opening an issue
+when that run fails, and on demand from the Actions tab. Run it after changing anything distro-specific: package
 lists, `envsetup::pkg_install`/`pkg_manager`, installers, `install.sh`.
 `tests/macos.sh` is the same for macOS, on GitHub's macOS runners (the `macos` workflow,
 opt-in by label or dispatch, since macOS runners are slow to start) or on a Mac. Run it

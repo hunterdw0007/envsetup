@@ -28,7 +28,7 @@ envsetup::xdg_target() {
 	[[ "${help,,}" =~ $caveat ]] && return 1
 	while IFS= read -r line; do
 		if [[ "$line" == '```'* ]]; then
-			fenced=$((!fenced))
+			fenced=$((! fenced))
 		elif ((fenced)) && [[ "$line" =~ [^[:space:]] ]]; then
 			code+=("$line")
 		fi

@@ -289,16 +289,21 @@ envsetup::ensure_gum() {
 # pkg_install <manager> <package>...: names as packages/*.txt spell them; pkg_name maps
 # them for the manager.
 envsetup::pkg_install() {
-	local manager=$1 pkg name prefix="" failed=() install=()
+	local manager=$1 pkg name i prefix="" failed=() install=() pkgs=() names=()
 	shift
 	(($#)) || return 0
 	case "$manager" in
 	brew) install=(brew install) ;;
 	apt)
-		# One broken source (e.g. a dead PPA) makes update exit non-zero even though the
-		# rest refreshed; install anyway; it still fails loudly if the lists are unusable.
-		envsetup::as_root apt-get update || echo "apt-get update reported errors; installing anyway." >&2
-		install=(envsetup::as_root apt-get install -y)
+		# Once per setup.sh session: its steps and installers share ENVSETUP_TMP.
+		if [[ ! -e "${ENVSETUP_TMP:-}/apt-updated" ]]; then
+			# One broken source (e.g. a dead PPA) makes update exit non-zero even though the
+			# rest refreshed; install anyway; it still fails loudly if the lists are unusable.
+			envsetup::as_root apt-get update || echo "apt-get update reported errors; installing anyway." >&2
+			if [[ -n "${ENVSETUP_TMP:-}" ]]; then : >"$ENVSETUP_TMP/apt-updated"; fi
+		fi
+		# Through env: sudo drops DEBIAN_FRONTEND, and a debconf prompt (tzdata) would hang.
+		install=(envsetup::as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y)
 		;;
 	dnf) install=(envsetup::as_root dnf install -y) ;;
 	zypper) install=(envsetup::as_root zypper --non-interactive install) ;;
@@ -322,15 +327,21 @@ envsetup::pkg_install() {
 		return 1
 		;;
 	esac
-	# One at a time: in a batch, one package the system can't take (a conflict, a name
-	# this distro doesn't use) fails all the others with it.
 	for pkg; do
 		name=$(envsetup::pkg_name "$manager" "$pkg")
 		if [[ -z "$name" ]]; then
 			echo "Skipping $pkg: nothing to install for it with $manager." >&2
-		elif ! "${install[@]}" "$prefix$name"; then
-			failed+=("$pkg")
+		else
+			pkgs+=("$pkg") names+=("$prefix$name")
 		fi
+	done
+	((${#names[@]})) || return 0
+	"${install[@]}" "${names[@]}" && return 0
+	# One package the system can't take (a conflict, a name this distro doesn't use)
+	# fails the whole batch, so find it by installing them one at a time.
+	echo "Installing them one at a time instead..." >&2
+	for i in "${!names[@]}"; do
+		"${install[@]}" "${names[i]}" || failed+=("${pkgs[i]}")
 	done
 	((${#failed[@]} == 0)) && return 0
 	echo "Couldn't install: ${failed[*]}" >&2

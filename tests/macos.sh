@@ -171,9 +171,12 @@ if [[ -n "$new_bash" ]]; then
 	check "linked ~/.bashrc once" test "$(count '# >>> envsetup >>>' "$hz/.bashrc")" = 1
 	check "linked ~/.zshrc once (the login shell's)" test "$(count '# >>> envsetup >>>' "$hz/.zshrc")" = 1
 	check "packages go through Homebrew" grep -q '^brew install ' "$out/work-full.calls"
-	check "  ...dig as Homebrew's bind" has "brew install bind" "$out/work-full.calls"
+	# brew_asked <formula>: in the one batched `brew install` line.
+	brew_asked() { grep -qE "^brew install (.* )?$1( |\$)" "$out/work-full.calls"; }
+	brew_not_asked() { ! brew_asked "$1"; }
+	check "  ...dig as Homebrew's bind" brew_asked bind
 	for p in strace iotop sysstat net-tools tar dnsutils; do
-		check "  ...nothing asked of Homebrew for $p" hasnt "brew install $p" "$out/work-full.calls"
+		check "  ...nothing asked of Homebrew for $p" brew_not_asked "$p"
 	done
 	check "git config included from the throwaway ~/.gitconfig" grep -q 'envsetup/gitconfig' "$hz/.gitconfig"
 

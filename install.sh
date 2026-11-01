@@ -15,7 +15,16 @@ ENVSETUP_VERSION="${ENVSETUP_VERSION:-latest}"
 
 # As root already (containers, WSL), via sudo, or via doas (Alpine).
 envsetup::as_root() {
-	if ((EUID == 0)); then "$@"; elif command -v sudo &>/dev/null; then sudo "$@"; else doas "$@"; fi
+	if ((EUID == 0)); then
+		"$@"
+	elif command -v sudo &>/dev/null; then
+		sudo "$@"
+	elif command -v doas &>/dev/null; then
+		doas "$@"
+	else
+		echo "Needs root, but there's no sudo or doas: $*" >&2
+		return 1
+	fi
 }
 
 # macOS: git comes with Apple's Command Line Tools, and the rest from Homebrew, including
@@ -73,7 +82,7 @@ envsetup::bootstrap_git() {
 	elif command -v apt-get &>/dev/null; then
 		# See envsetup::pkg_install: a single broken source fails update, not the install.
 		envsetup::as_root apt-get update || echo "apt-get update reported errors; installing anyway." >&2
-		envsetup::as_root apt-get install -y git
+		envsetup::as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y git
 	elif command -v dnf &>/dev/null; then
 		envsetup::as_root dnf install -y git
 	elif command -v zypper &>/dev/null; then

@@ -100,11 +100,16 @@ envsetup::brew_shellenv
 # ${ARGS[@]+...}: bash 3.2 calls an empty array unbound under set -u.
 envsetup::need_bash4 ${ARGS[@]+"${ARGS[@]}"}
 
+# This session's scratch space, shared with installers (their own processes).
+ENVSETUP_TMP=$(mktemp -d)
+export ENVSETUP_TMP
+trap 'rm -rf "$ENVSETUP_TMP"' EXIT
+
 if envsetup::dry_run; then
 	# Profile picks and config edits go to a throwaway copy, so the menu behaves as
 	# usual for the session while ~/.config/envsetup stays untouched.
-	STATE_DIR=$(mktemp -d)
-	trap 'rm -rf "$STATE_DIR"' EXIT
+	STATE_DIR=$ENVSETUP_TMP/state
+	mkdir "$STATE_DIR"
 	cp -r "$ENVSETUP_STATE/." "$STATE_DIR/" 2>/dev/null || true
 	ENVSETUP_USER_CONFIG=$STATE_DIR/config.sh
 	if ! envsetup::has_cmd gum; then
@@ -196,7 +201,7 @@ envsetup::install_packages() {
 	fi
 	if [[ "$manager" == dnf ]]; then envsetup::enable_epel; fi
 	if envsetup::dry_run; then
-		[[ "$manager" == brew || "$manager" == nix ]] || manager="sudo $manager"
+		[[ "$manager" == brew || "$manager" == nix ]] || manager+=" (as root)"
 		envsetup::would "install ${#names[@]} packages with $manager (ones already installed are left alone): ${names[*]}"
 	else
 		gum style --bold --foreground 4 "Installing via $manager: ${names[*]}"

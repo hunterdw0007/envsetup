@@ -16,10 +16,10 @@ concurrency:
 
 jobs:
   shell-checks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # macOS's /bin/bash: install.sh and the start of setup.sh run under it, and the
       # login shell sources shell/ (AGENTS.md).
@@ -34,9 +34,28 @@ jobs:
           [[ $rc == 1 && $out == *"needs bash 4 or newer"* ]] || { echo "rc=$rc: $out"; exit 1; }
           EOF
 
+      # Pinned and verified, so a new release (or the runner image's copy) can't change
+      # what passes. To bump: new version and sha256 here, and in AGENTS.md's commands.
+      - name: Install shellcheck and shfmt (pinned)
+        run: |
+          mkdir "$RUNNER_TEMP/lint" && cd "$RUNNER_TEMP/lint"
+          curl -fsSLo shellcheck.tar.xz https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.xz
+          curl -fsSLo shfmt https://github.com/mvdan/sh/releases/download/v3.14.1/shfmt_v3.14.1_linux_amd64
+          sha256sum -c <<'EOF'
+          8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198  shellcheck.tar.xz
+          76e77641faa025814b77f153b29796b8e6fa2fca03e0c76a691608b86c7ea7bf  shfmt
+          EOF
+          tar -xJf shellcheck.tar.xz --strip-components=1 shellcheck-v0.11.0/shellcheck
+          chmod +x shfmt
+          echo "$PWD" >>"$GITHUB_PATH"
+
       # Also fails on syntax errors, so no separate bash -n.
       - name: shellcheck
         run: find . -name '*.sh' -not -path './.git/*' -print0 | xargs -0 shellcheck
+
+      # -i 0: tabs, and an explicit flag also makes shfmt ignore any .editorconfig.
+      - name: shfmt
+        run: shfmt -d -i 0 .
 
       # .github/scripts/release.sh, the only code that pushes to main, run the way the
       # release job below runs it, against a scratch origin. See tests/release.sh.
@@ -48,10 +67,10 @@ jobs:
   smoke:
     # Runs the real tool on a bare Ubuntu box (install.sh -> setup.sh -> real bash/zsh);
     # only gum's UI, package installs and vendor downloads are stubbed. See tests/smoke.sh.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20 # a cache miss fetches from Ubuntu's archive; a hit takes seconds
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Ubuntu's archive is slow from CI often enough (minutes for a few packages, or a
       # stall), so the smoke test runs offline. What it installs with real apt (git for
@@ -63,7 +82,7 @@ jobs:
           docker pull -q ubuntu:24.04 >/dev/null
           echo "digest=$(docker inspect --format '{{index .RepoDigests 0}}' ubuntu:24.04 | cut -d@ -f2)" >>"$GITHUB_OUTPUT"
 
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: apt
         with:
           path: ${{ runner.temp }}/smoke-apt
@@ -90,7 +109,7 @@ jobs:
     # .github/scripts/release.sh.
     needs: [shell-checks, smoke]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: write # push the bump commit and tag, create the release
@@ -100,7 +119,7 @@ jobs:
       group: release
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # every commit and tag: the bump is worked out from the commits since the last tag
           # No token left in .git/config: commitizen runs in the next steps, and only the

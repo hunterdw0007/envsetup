@@ -5,7 +5,6 @@ set -euo pipefail
 source "$ENVSETUP_ROOT/lib/common.sh"
 
 envsetup::has_cmd lazygit && exit 0
-[[ "$OSTYPE" == darwin* ]] && exec brew install lazygit
 
 version=$(envsetup::pin lazygit)
 sha=$(envsetup::pin lazygit "linux-$(envsetup::arch)")

@@ -17,15 +17,9 @@ envsetup::dry_run() { [[ "${ENVSETUP_DRY_RUN:-0}" == 1 ]]; }
 envsetup::would() { gum style --foreground 6 "  would $*"; }
 envsetup::has_cmd() { command -v "$1" &>/dev/null; }
 
-# On macOS, puts Homebrew on PATH if it isn't (see the file). Bash 3.2-safe: setup.sh
-# calls it before switching to a newer bash.
-# shellcheck source=shell/shared/brew.sh
-envsetup::brew_shellenv() { source "$ENVSETUP_ROOT/shell/shared/brew.sh"; }
-
 # The checked-out release (v1.2.0), "v1.2.0-3-gabc1234" three commits past it, a bare
 # commit before the first release; "-dirty" when tracked files were edited. Outside a
-# checkout, the release envsetup::copy_shell recorded. Bash 3.2-safe: setup.sh
-# --version calls it before switching to a newer bash.
+# checkout, the release envsetup::copy_shell recorded.
 envsetup::version() {
 	git -C "$ENVSETUP_ROOT" describe --tags --match 'v[0-9]*' --always --dirty 2>/dev/null ||
 		cat "$ENVSETUP_DATA/version" 2>/dev/null || echo unknown
@@ -63,7 +57,7 @@ envsetup::os_release() {
 envsetup::arch() {
 	case $HOSTTYPE in
 	x86_64) echo amd64 ;;
-	aarch64 | arm64) echo arm64 ;;
+	aarch64) echo arm64 ;;
 	*) echo "$HOSTTYPE" ;;
 	esac
 }
@@ -192,15 +186,11 @@ envsetup::pkg_manager() {
 # pkg_name <manager> <package>: what <package> (as packages/*.txt name it) is called by
 # <manager>, from packages/names.txt. Prints nothing if that manager needs nothing.
 envsetup::pkg_name() {
-	local -A col=([apt]=1 [dnf]=2 [zypper]=3 [pacman]=4 [apk]=5 [brew]=6 [nix]=8)
+	local -A col=([apt]=1 [dnf]=2 [zypper]=3 [pacman]=4 [apk]=5 [brew]=6 [nix]=7)
 	local fields=() name=$2
 	while read -ra fields; do
 		if [[ "${fields[0]:-}" == "$2" ]]; then
 			name=${fields[${col[$1]:-0}]:-=}
-			# The macos column overrides brew's on a Mac, unless it's ^ ("as brew").
-			if [[ "$1" == brew && "$OSTYPE" == darwin* && "${fields[7]:-^}" != ^ ]]; then
-				name=${fields[7]}
-			fi
 			break
 		fi
 	done <"$ENVSETUP_ROOT/packages/names.txt"
@@ -242,12 +232,12 @@ envsetup::fetch() {
 
 # gum_release <dir>: installs gum's pinned release binary into <dir>, checksum-verified.
 envsetup::gum_release() {
-	local os key arch asset version sha tmp rc=1
-	# key: versions.txt names gum's Linux_x86_64 linux-amd64.
-	case $OSTYPE in linux*) os=Linux key=linux ;; darwin*) os=Darwin key=darwin ;; *) return 1 ;; esac
-	case $HOSTTYPE in x86_64 | arm64) arch=$HOSTTYPE ;; aarch64) arch=arm64 ;; armv7*) arch=armv7 ;; *) return 1 ;; esac
-	version=$(envsetup::pin gum) && sha=$(envsetup::pin gum "$key-${arch/x86_64/amd64}") || return 1
-	asset=gum_${version}_${os}_$arch.tar.gz
+	local arch asset version sha tmp rc=1
+	[[ "$OSTYPE" == linux* ]] || return 1
+	case $HOSTTYPE in x86_64) arch=$HOSTTYPE ;; aarch64) arch=arm64 ;; armv7*) arch=armv7 ;; *) return 1 ;; esac
+	version=$(envsetup::pin gum) && sha=$(envsetup::pin gum "linux-${arch/x86_64/amd64}") || return 1
+	# versions.txt names gum's Linux_x86_64 linux-amd64.
+	asset=gum_${version}_Linux_$arch.tar.gz
 	tmp=$(mktemp -d)
 	if envsetup::fetch "https://github.com/charmbracelet/gum/releases/download/v$version/$asset" "$tmp/$asset" &&
 		echo "$sha  $tmp/$asset" | sha256sum -c >/dev/null &&

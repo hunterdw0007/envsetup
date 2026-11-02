@@ -5,7 +5,6 @@ set -euo pipefail
 source "$ENVSETUP_ROOT/lib/common.sh"
 
 envsetup::has_cmd k9s && exit 0
-[[ "$OSTYPE" == darwin* ]] && exec brew install k9s
 
 version=$(envsetup::pin k9s)
 sha=$(envsetup::pin k9s "linux-$(envsetup::arch)")

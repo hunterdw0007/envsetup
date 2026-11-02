@@ -2,6 +2,14 @@
 # Entry point: the gum menu that sets up this machine's shell, git, packages and tools.
 set -euo pipefail
 
+# This check runs first, so the bash 3.2 of a Mac can parse it. A clone on a Mac stops here.
+if [[ "$OSTYPE" != linux* ]]; then
+	printf '%s\n' "envsetup supports Linux only." "v0.3.0 is the last release that supports macOS." \
+		"To install v0.3.0, run: git fetch --tags && git checkout v0.3.0 && ./setup.sh" \
+		"To uninstall envsetup, run: git fetch --tags && git checkout v0.3.0 && ./setup.sh --uninstall" >&2
+	exit 1
+fi
+
 ENVSETUP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export ENVSETUP_ROOT
 source "$ENVSETUP_ROOT/lib/common.sh"
@@ -39,8 +47,8 @@ release, or the one in ENVSETUP_VERSION (e.g. ENVSETUP_VERSION=v0.2.0), to a
 temporary folder, runs this menu from it, and deletes it afterwards.
 
 "Link shell config" copies shell/ to ~/.local/share/envsetup (or $XDG_DATA_HOME/envsetup),
-which new shells load, and links ~/.bashrc and your login shell's rc file (~/.zshrc for
-zsh, ~/.bash_profile for bash on macOS) to it.
+which new shells load, and links ~/.bashrc to it, and ~/.zshrc too if zsh is your login
+shell.
 
 "Set up zsh + oh-my-zsh" installs both if missing, offers to make zsh your login shell
 and links the same config into ~/.zshrc. Set ENVSETUP_SHELL=zsh in config.sh to make
@@ -63,7 +71,6 @@ Options:
 EOF
 }
 
-ARGS=("$@") # for re-running under a newer bash, below
 ENVSETUP_DRY_RUN=0
 UNINSTALL=0
 while (($#)); do
@@ -86,22 +93,6 @@ while (($#)); do
 	esac
 	shift
 done
-
-# macOS ships bash 3.2 and everything past here needs 4+, so re-run under Homebrew's
-# bash (install.sh installs it). Until then, keep this file bash 3.2-safe.
-envsetup::need_bash4() {
-	local bash
-	((BASH_VERSINFO[0] < 4)) || return 0
-	bash="${HOMEBREW_PREFIX:-$(brew --prefix 2>/dev/null || true)}/bin/bash"
-	if [[ -x "$bash" ]] && "$bash" -c '((BASH_VERSINFO[0] >= 4))' 2>/dev/null; then
-		exec "$bash" "${BASH_SOURCE[0]}" "$@"
-	fi
-	echo "envsetup needs bash 4 or newer; this is bash $BASH_VERSION. On macOS: brew install bash" >&2
-	exit 1
-}
-envsetup::brew_shellenv
-# ${ARGS[@]+...}: bash 3.2 calls an empty array unbound under set -u.
-envsetup::need_bash4 ${ARGS[@]+"${ARGS[@]}"}
 
 # This session's scratch space, shared with installers (their own processes).
 ENVSETUP_TMP=$(mktemp -d)
@@ -156,7 +147,7 @@ envsetup::link_rc() {
 	# ENVSETUP_STATE is fixed here, so every shell uses the directory that setup used
 	# (see shell/state.sh). %q quotes the two paths. Thus a space, ", $ or ` in a path
 	# does not stop the rc file, and the rc file does not run it as a command. bash
-	# (also 3.2) and zsh both read %q's output.
+	# and zsh both read %q's output.
 	local root state block old
 	printf -v root 'export ENVSETUP_ROOT=%q' "$ENVSETUP_DATA"
 	printf -v state 'export ENVSETUP_STATE=%q ENVSETUP_STATE_HOME=%q' "$ENVSETUP_STATE" "$HOME"
@@ -205,24 +196,13 @@ envsetup::drop_checkout() {
 	fi
 }
 
-# The rc file a new terminal's shell reads: your login shell's. macOS terminals start
-# bash as a login shell, which reads ~/.bash_profile rather than ~/.bashrc.
-envsetup::login_rc() {
-	case ${SHELL##*/} in
-	zsh) echo "$HOME/.zshrc" ;;
-	bash) if [[ "$OSTYPE" == darwin* ]]; then echo "$HOME/.bash_profile"; else echo "$HOME/.bashrc"; fi ;;
-	esac
-}
-
 # ~/.bashrc always, so the config is there whenever bash runs; your login shell's rc
 # file too, so new terminals get it. Setting up zsh + oh-my-zsh stays opt-in
 # (ENVSETUP_SHELL=zsh, or its own menu action).
 envsetup::link_shell_config() {
-	local rc
 	envsetup::copy_shell
 	envsetup::link_rc "$HOME/.bashrc"
-	rc=$(envsetup::login_rc)
-	if [[ -n "$rc" && "$rc" != "$HOME/.bashrc" ]]; then envsetup::link_rc "$rc"; fi
+	if [[ "${SHELL##*/}" == zsh ]]; then envsetup::link_rc "$HOME/.zshrc"; fi
 	if [[ "$ENVSETUP_SHELL" == zsh ]]; then
 		envsetup::install_zsh
 		envsetup::link_rc "$HOME/.zshrc"

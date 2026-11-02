@@ -10,10 +10,7 @@ That block loads `shell/init.sh` in each new shell.
 `shell/init.sh` loads the shared config and then your profile's config.
 
 **Link shell config** always changes `~/.bashrc`.
-It also changes the startup file of your login shell:
-
-- `~/.zshrc` if your login shell is zsh
-- `~/.bash_profile` if your login shell is bash on macOS
+It also changes `~/.zshrc` if your login shell is zsh.
 
 zsh is optional.
 **Set up zsh + oh-my-zsh** installs zsh and [oh-my-zsh](https://ohmyz.sh) if they are missing.
@@ -31,7 +28,6 @@ A non-interactive shell gets less.
 Examples are `ssh host cmd`, `scp`, `rsync` and scripts.
 A non-interactive shell gets only these things:
 
-- Homebrew on `PATH`, on macOS
 - the environment variables, except on work lite
 - the variables for dotfiles that envsetup moved to XDG folders
 - your `config.sh`
@@ -77,7 +73,6 @@ envsetup adds a hook for each of these tools that you have:
 - `mise` sets the runtime versions for each project.
 
 On Debian and Ubuntu, `fd` runs `fdfind`.
-On macOS, envsetup puts Homebrew and its tools on `PATH` if your shell does not.
 
 ## Environment variables
 
@@ -94,7 +89,7 @@ Then envsetup keeps your value.
 
 ## Functions
 
-The functions work in bash, including bash 3.2 on macOS.
+The functions work in bash.
 They help you work with a folder that contains many git repos.
 
 | Function | Short name |
@@ -143,7 +138,7 @@ Some settings change what git does by default:
 - `git p`, `git pf` and `git su` expect a remote named `origin` and a branch named `main`.
 - `git aa` runs `git add .`. It adds every file that `.gitignore` does not exclude, for example an `.env` file.
 
-On macOS or WSL, you can use the operating system's credential helper instead.
+On WSL, you can use the credential helper of Windows instead.
 `config.example.sh` shows how.
 
 To change a setting, add your own value to `ENVSETUP_GIT_CONFIG` in `config.sh`.

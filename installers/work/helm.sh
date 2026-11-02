@@ -7,7 +7,6 @@ set -euo pipefail
 source "$ENVSETUP_ROOT/lib/common.sh"
 
 envsetup::has_cmd helm && exit 0
-[[ "$OSTYPE" == darwin* ]] && exec brew install helm
 
 version=$(envsetup::pin helm)
 platform="linux-$(envsetup::arch)"

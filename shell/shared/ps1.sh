@@ -15,7 +15,7 @@
 
 # ~/dev/envsetup -> ~/d/envsetup; dot-directories keep two characters (~/.c/envsetup).
 _envsetup_prompt_dir() {
-	# bash 3.2 keeps the backslash of a literal \~ in the replacement.
+	# A variable, so no bash version keeps a backslash or expands the ~ in the replacement.
 	local IFS=/ i tilde='~'
 	local -a parts
 	read -ra parts <<<"${PWD/#$HOME/$tilde}"
@@ -68,7 +68,7 @@ _envsetup_prompt_tracking() {
 # kubectl's current context: the first kubeconfig file that sets one. kubectl writes it
 # after every cluster, so a big kubeconfig is read again only when it changes: the cache
 # holds the files it's for and the context, and stays current while it's strictly newer
-# than each of them (a same-second change, at bash 3.2's whole-second mtimes, reads again).
+# than each of them (a change in the same second as the cache reads again).
 _envsetup_prompt_context() {
 	local IFS=: file line key='' cached value fresh=true cache=${XDG_CACHE_HOME:-$HOME/.cache}/envsetup/kube-context
 	local -a files=()

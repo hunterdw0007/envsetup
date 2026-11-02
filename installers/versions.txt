@@ -8,7 +8,7 @@
 # their published checksums and rewrites this file, and the bump goes through a PR.
 # awscli is checked against AWS's signing key instead, so it has no hashes; ohmyzsh is
 # the commit of ohmyzsh/ohmyzsh whose tools/install.sh runs.
-gum 2.0.2 linux-amd64=d842e06d93dbed90af48cb8dd10698db6f22e331fc40346bb37bbc753109edc2 linux-arm64=8ebf8b54ec1e8c81f2bb58b59ff9b70998186a4d11375f0cf357b80e0ccfa1d5 darwin-amd64=5374966c7c7199ea879fcaa525ddc6d447a098d3d35496e430a9a1ef38d30485 darwin-arm64=4777a69b1170b8db23c95d5889fb32186cfda1a3ac950d339aa17e3513633890 linux-armv7=a7ee9b68052e401c47335982fec7fc1d246868abfe6b542654432ee2df7a8141
+gum 2.0.2 linux-amd64=d842e06d93dbed90af48cb8dd10698db6f22e331fc40346bb37bbc753109edc2 linux-arm64=8ebf8b54ec1e8c81f2bb58b59ff9b70998186a4d11375f0cf357b80e0ccfa1d5 linux-armv7=a7ee9b68052e401c47335982fec7fc1d246868abfe6b542654432ee2df7a8141
 ohmyzsh d2b7f557cceaddb16ba89bbf8200d8a8df35c4d8
 awscli 2.38.5
 gh 2.103.2 linux-amd64=62ccf747115ddc61237efffdde66a3c8f70ba249433dc64f70801089b59c59c8 linux-arm64=4c3e99a50bd8b181a3fe9d69b25dd978bac768148d88f01507c6b4d1ef61a443

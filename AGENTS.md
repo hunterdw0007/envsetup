@@ -98,11 +98,6 @@ next to it in `version`.
 - Shebang `#!/usr/bin/env bash`, and `set -euo pipefail` at the top of every
   executable script (`setup.sh`, `install.sh`, everything under `installers/`). Test
   harnesses under `tests/` may leave out `-e`, so one failed check doesn't stop the rest.
-- `install.sh`, and `setup.sh` up to where it re-runs itself under a newer bash, run under
-  macOS's bash 3.2: no `readarray`/`mapfile`, associative arrays, `${x,,}`, or bare
-  `"${arr[@]}"` of a possibly empty array under `set -u` (use `${arr[@]+"${arr[@]}"}`).
-  The `lib/` and `shell/` files may use bash 4+ inside functions, but must still parse
-  under 3.2. CI's bash 3.2 step checks the parsing, `setup.sh --help` and its "needs bash 4" exit.
 - Indent with tabs, matching the rest of the repo.
 - Use `[[ ]]` over `[ ]`, quote variable expansions, prefer bash builtins
   (`readarray`, `[[ =~ ]]`, parameter expansion) over spawning external tools where
@@ -164,9 +159,6 @@ next to it in `version`.
 - One script failing must not stop the others — `lib/installers.sh` already handles
   this; don't add a `set -e`-defeating workaround inside an individual script to try
   to do the same thing.
-- On macOS, hand over to Homebrew right after the already-installed check:
-  `[[ "$OSTYPE" == darwin* ]] && exec brew install <formula>`, which ends the script there
-  (the downloads that follow are Linux builds).
 - Every download that gets installed or run is a pinned version, verified before it is,
   and a failed check stops the script. Never resolve "latest" at install time: the
   version and each platform's sha256 live in `installers/versions.txt`, read with
@@ -200,8 +192,7 @@ next to it in `version`.
 - A tool installable by name from the distros' package managers → `packages/common.txt`
   or `packages/<profile>.txt`, by its Debian/Ubuntu name. If another manager (`dnf`,
   `zypper`, `pacman`, `apk`, `brew`, `nix`) calls it something else, or has it in the base
-  system, add a row to `packages/names.txt` (its `macos` column is for where Homebrew on
-  macOS differs from Homebrew on Linux).
+  system, add a row to `packages/names.txt`.
 - Anything else — a vendor installer script, a manual binary download, an arbitrary
   custom setup step → `installers/common/` or `installers/<profile>/`. A popular tool
   that only some users want and that major distros (Ubuntu LTS, Fedora) don't package →
@@ -236,15 +227,16 @@ CI (`.github/workflows/ci.yml`) runs two jobs on every push and PR, plus `releas
 Releases) on pushes to `main` once they pass; `.github/workflows/commits.yml` checks
 commit messages and the PR title on every PR:
 
-- `shell-checks`: `shellcheck` and `shfmt` over every `*.sh` file, the bash 3.2 checks, and
+- `shell-checks`: `shellcheck` and `shfmt` over every `*.sh` file, and
   `tests/release.sh`: the release flow against a scratch origin, with the hash-locked
   commitizen (run it locally with `cz` on PATH).
-- `smoke`: `tests/smoke.sh` in a bare `ubuntu:24.04` container — `install.sh` on a box
-  with no git, picking and switching releases, then every profile's "Run everything",
-  then a real bash and zsh loading the result. Only gum's UI, package installs and vendor
-  downloads are stubbed, so it takes about 15s. CI runs it offline, from cached copies of
-  the few packages it installs with real apt (Ubuntu's archive is often slow from CI); run
-  it locally with `docker run --rm -t -v "$PWD:/src:ro" ubuntu:24.04 bash /src/tests/smoke.sh`.
+- `smoke`: `tests/smoke.sh` in a bare `ubuntu:24.04` container — `install.sh` stopping
+  on macOS, then on a box with no git, picking and switching releases, then every
+  profile's "Run everything", then a real bash and zsh loading the result. Only gum's UI,
+  package installs and vendor downloads are stubbed, so it takes about 15s. CI runs it
+  offline, from cached copies of the few packages it installs with real apt (Ubuntu's
+  archive is often slow from CI); run it locally with
+  `docker run --rm -t -v "$PWD:/src:ro" ubuntu:24.04 bash /src/tests/smoke.sh`.
   A new menu action, profile or mode needs a scenario there, and every check must be
   able to fail: compare against a non-empty expected value, never two things that
   could both come back empty.
@@ -253,14 +245,10 @@ commit messages and the PR title on every PR:
 dozen distros with real installs. The `distros` workflow runs it weekly, opening an issue
 when that run fails, and on demand from the Actions tab. Run it after changing anything distro-specific: package
 lists, `envsetup::pkg_install`/`pkg_manager`, installers, `install.sh`.
-`tests/macos.sh` is the same for macOS, on GitHub's macOS runners (the `macos` workflow,
-opt-in by label or dispatch, since macOS runners are slow to start) or on a Mac. Run it
-after changing anything a Mac takes a different path through (`brew`, bash 3.2 code, BSD
-tools).
 
-The smoke, macOS and distros tests share one scripted gum, `tests/gum.sh` (answers from
+The smoke and distros tests share one scripted gum, `tests/gum.sh` (answers from
 `$SMOKE_CHOICES` / `$SMOKE_CONFIRMS`, calls logged to `$SMOKE_LOG`); extend it there
-rather than writing another. macOS runs it too, so it sticks to bash 3.2 and BSD tools.
+rather than writing another.
 
 The smoke test proves the flows run; it doesn't prove every branch. Behavior is still
 verified and described in the PR:

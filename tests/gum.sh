@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# gum stand-in for the tests (smoke.sh, macos.sh and distros/ copy it onto PATH as `gum`):
+# gum stand-in for the tests (smoke.sh and distros/ copy it onto PATH as `gum`):
 # answers `choose` from $SMOKE_CHOICES (one per line; "ESC", or running out, cancels),
 # `confirm` from $SMOKE_CONFIRMS (only "yes" accepts; running out declines), fills
-# `input`, and logs every call to $SMOKE_LOG. Bash 3.2 and BSD tools: macOS runs it too.
+# `input`, and logs every call to $SMOKE_LOG.
 
 echo "gum $*" >>"$SMOKE_LOG"
 # pop <file>: prints its first line and removes it.

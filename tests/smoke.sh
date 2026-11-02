@@ -172,6 +172,14 @@ not_interactive() {
 	HOME=$1 BASH_ENV=$1/rc-block.sh bash -c "$2" 2>&1 </dev/null
 }
 
+echo "== install.sh on macOS: stops before it changes anything (#103)"
+# bash keeps an OSTYPE from the environment. First, while the box still has no git.
+mac() { OSTYPE=darwin24 curl_bash >$W/mac.out 2>&1; }
+check "exited non-zero" not mac
+check "  ...named the last release for macOS" grep -qF 'ENVSETUP_VERSION=v0.3.0 bash' $W/mac.out
+check "  ...installed no git" not has git
+check "  ...and downloaded nothing" left_nothing
+
 echo "== install.sh on a bare box: real apt for git, a real download, hand-off to setup.sh"
 printf '[safe]\n\tdirectory = *\n' >/etc/gitconfig # /src is owned by the host's user
 printf 'Quit\n' >"$SMOKE_CHOICES"
@@ -190,6 +198,9 @@ check "  ...which is gone" left_nothing
 git clone -q "$SRC" "$CLONE"
 git -C "$CLONE" checkout -q --detach "$(git -C "$SRC" rev-parse HEAD)"
 check "(the checkout is at the commit under test)" same_commit "$SRC" "$CLONE"
+mac_setup() { OSTYPE=darwin24 "$CLONE/setup.sh" --help >$W/mac-setup.out 2>&1; }
+check "setup.sh in a clone on macOS: exited non-zero" not mac_setup
+check "  ...and named the last release for macOS" grep -qF 'git checkout v0.3.0 && ./setup.sh --uninstall' $W/mac-setup.out
 
 # Real zsh, so the home profile's shell config is checked in the shell it targets, and
 # real jq, which "Move dotfiles to XDG dirs" reads xdg-ninja's notes with.

@@ -4,5 +4,3 @@
 # tests/distros/run.sh output
 distros-report/
 
-# tests/macos.sh output
-macos-report/

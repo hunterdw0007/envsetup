@@ -6,7 +6,6 @@ set -euo pipefail
 source "$ENVSETUP_ROOT/lib/common.sh"
 
 envsetup::has_cmd gh && exit 0
-[[ "$OSTYPE" == darwin* ]] && exec brew install gh
 
 version=$(envsetup::pin gh)
 sha=$(envsetup::pin gh "linux-$(envsetup::arch)")

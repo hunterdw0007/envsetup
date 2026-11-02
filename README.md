@@ -154,7 +154,8 @@ Read [the git settings](docs/shell.md#git-settings) before you run **Configure g
 
 envsetup supports Linux only, including WSL.
 On macOS, `install.sh` stops and changes nothing.
-It names v0.3.0, the last release that supports macOS, and shows how to install it.
+It names v0.3.0, the last release that supports macOS.
+It also shows the commands that install and uninstall v0.3.0.
 
 envsetup uses the package manager that the machine has.
 If the machine has Homebrew, envsetup uses Homebrew.

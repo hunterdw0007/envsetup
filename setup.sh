@@ -2,6 +2,12 @@
 # Entry point: the gum menu that sets up this machine's shell, git, packages and tools.
 set -euo pipefail
 
+# First, before anything parses that an older bash can't: a clone on a Mac stops here.
+if [[ "$OSTYPE" != linux* ]]; then
+	printf '%s\n' "envsetup supports Linux only." "On macOS, run v0.3.0: git checkout v0.3.0 && ./setup.sh" >&2
+	exit 1
+fi
+
 ENVSETUP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export ENVSETUP_ROOT
 source "$ENVSETUP_ROOT/lib/common.sh"
@@ -139,7 +145,7 @@ envsetup::link_rc() {
 	# ENVSETUP_STATE is fixed here, so every shell uses the directory that setup used
 	# (see shell/state.sh). %q quotes the two paths. Thus a space, ", $ or ` in a path
 	# does not stop the rc file, and the rc file does not run it as a command. bash
-	# (also 3.2) and zsh both read %q's output.
+	# and zsh both read %q's output.
 	local root state block old
 	printf -v root 'export ENVSETUP_ROOT=%q' "$ENVSETUP_DATA"
 	printf -v state 'export ENVSETUP_STATE=%q ENVSETUP_STATE_HOME=%q' "$ENVSETUP_STATE" "$HOME"

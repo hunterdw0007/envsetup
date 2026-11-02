@@ -18,6 +18,10 @@ v0.3.0 is the last release that supports macOS.
 To install v0.3.0, run:
 
   curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/v0.3.0/install.sh | ENVSETUP_VERSION=v0.3.0 bash
+
+To uninstall envsetup, run:
+
+  curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/v0.3.0/install.sh | ENVSETUP_VERSION=v0.3.0 bash -s -- --uninstall
 EOF
 	exit 1
 fi

@@ -57,7 +57,7 @@ envsetup::os_release() {
 envsetup::arch() {
 	case $HOSTTYPE in
 	x86_64) echo amd64 ;;
-	aarch64 | arm64) echo arm64 ;;
+	aarch64) echo arm64 ;;
 	*) echo "$HOSTTYPE" ;;
 	esac
 }
@@ -234,7 +234,7 @@ envsetup::fetch() {
 envsetup::gum_release() {
 	local arch asset version sha tmp rc=1
 	[[ "$OSTYPE" == linux* ]] || return 1
-	case $HOSTTYPE in x86_64 | arm64) arch=$HOSTTYPE ;; aarch64) arch=arm64 ;; armv7*) arch=armv7 ;; *) return 1 ;; esac
+	case $HOSTTYPE in x86_64) arch=$HOSTTYPE ;; aarch64) arch=arm64 ;; armv7*) arch=armv7 ;; *) return 1 ;; esac
 	version=$(envsetup::pin gum) && sha=$(envsetup::pin gum "linux-${arch/x86_64/amd64}") || return 1
 	# versions.txt names gum's Linux_x86_64 linux-amd64.
 	asset=gum_${version}_Linux_$arch.tar.gz

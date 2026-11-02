@@ -5,7 +5,6 @@ set -euo pipefail
 source "$ENVSETUP_ROOT/lib/common.sh"
 
 envsetup::has_cmd mise && exit 0
-[[ "$OSTYPE" == darwin* ]] && exec brew install mise
 
 # shell/shared/tools.sh activates it in new shells.
 version=$(envsetup::pin mise)

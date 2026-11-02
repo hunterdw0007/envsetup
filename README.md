@@ -1,6 +1,6 @@
 # envsetup
 
-envsetup sets up the shell on a new or wiped machine.
+envsetup sets up the shell on a new or wiped Linux machine.
 It adds aliases, environment variables, shell functions and common command-line tools.
 You choose what it does from a menu in the terminal.
 The menu uses [gum](https://github.com/charmbracelet/gum).
@@ -152,6 +152,10 @@ Read [the git settings](docs/shell.md#git-settings) before you run **Configure g
 
 ## Supported systems
 
+envsetup supports Linux only, including WSL.
+On macOS, `install.sh` stops and changes nothing.
+It names v0.3.0, the last release that supports macOS, and shows how to install it.
+
 envsetup uses the package manager that the machine has.
 If the machine has Homebrew, envsetup uses Homebrew.
 `packages/names.txt` translates package names for each package manager.
@@ -166,7 +170,6 @@ If the machine has Homebrew, envsetup uses Homebrew.
 | openSUSE Tumbleweed and Leap | `zypper` | |
 | Alpine | `apk` | Install bash first: `apk add bash curl`. |
 | Bazzite, Aurora, Silverblue, SteamOS, Aeon | `brew` | `/usr` is read-only, so envsetup needs Homebrew or Nix. Bazzite and Aurora include Homebrew. |
-| macOS | `brew` | See [macOS](#macos). |
 | NixOS | `nix` | Installs into your user profile with `nix profile` or `nix-env`. |
 
 ### EPEL
@@ -179,19 +182,6 @@ Docker comes from Docker CE's own package repo.
 Amazon Linux 2023 has no EPEL.
 On Amazon Linux, envsetup cannot install fzf, ripgrep, bat and some other packages.
 Add them to `ENVSETUP_SKIP` in `config.sh`.
-
-### macOS
-
-macOS needs Apple's Command Line Tools and Homebrew.
-`install.sh` offers to install both.
-macOS includes bash 3.2, but envsetup needs bash 4 or newer.
-So `install.sh` also offers to install Homebrew's bash.
-
-On macOS, installers use Homebrew too.
-terraform comes from HashiCorp's Homebrew tap, `hashicorp/tap`.
-A tap is an extra package source for Homebrew.
-Homebrew then uses that tap for upgrades too.
-Uninstall does not remove the tap.
 
 ### Root access and downloads
 
@@ -269,7 +259,7 @@ curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.
 
 Uninstall removes everything that envsetup added:
 
-- envsetup's block in `~/.bashrc`, `~/.bash_profile` and `~/.zshrc`
+- envsetup's block in `~/.bashrc` and `~/.zshrc`
 - the copy of `shell/` in `~/.local/share/envsetup`, and its `version` file
 - the include line in `~/.gitconfig` and the file it includes
 - your saved profile and mode

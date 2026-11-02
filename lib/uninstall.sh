@@ -35,7 +35,7 @@ envsetup::uninstall() {
 	fi
 
 	[[ -f "$ENVSETUP_CHSH_MARKER" ]] && chsh_by_us=1 # read before the state dir goes
-	for rc in "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.zshrc"; do
+	for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
 		if [[ ! -f "$rc" ]] || ! grep -qxF "$ENVSETUP_RC_BEGIN" "$rc"; then continue; fi
 		if envsetup::dry_run; then
 			envsetup::would "remove the envsetup block from $rc"

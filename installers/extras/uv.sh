@@ -5,7 +5,6 @@ set -euo pipefail
 source "$ENVSETUP_ROOT/lib/common.sh"
 
 envsetup::has_cmd uv && exit 0
-[[ "$OSTYPE" == darwin* ]] && exec brew install uv
 
 version=$(envsetup::pin uv)
 sha=$(envsetup::pin uv "linux-$(envsetup::arch)")

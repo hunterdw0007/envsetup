@@ -172,6 +172,14 @@ not_interactive() {
 	HOME=$1 BASH_ENV=$1/rc-block.sh bash -c "$2" 2>&1 </dev/null
 }
 
+echo "== install.sh on macOS: stops before it changes anything (#103)"
+# bash keeps an OSTYPE from the environment. First, while the box still has no git.
+mac() { OSTYPE=darwin24 curl_bash >$W/mac.out 2>&1; }
+check "exited non-zero" not mac
+check "  ...named the last release for macOS" grep -qF 'ENVSETUP_VERSION=v0.3.0 bash' $W/mac.out
+check "  ...installed no git" not has git
+check "  ...and downloaded nothing" left_nothing
+
 echo "== install.sh on a bare box: real apt for git, a real download, hand-off to setup.sh"
 printf '[safe]\n\tdirectory = *\n' >/etc/gitconfig # /src is owned by the host's user
 printf 'Quit\n' >"$SMOKE_CHOICES"

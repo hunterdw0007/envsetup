@@ -65,9 +65,7 @@
 # them; an empty value clears the list first. E.g. to keep HTTPS credentials on disk
 # (plain text, in ~/.git-credentials) instead of in memory for an hour:
 # ENVSETUP_GIT_CONFIG+=("credential.helper=" "credential.helper=store")
-# Or the credential helper of the OS: osxkeychain on macOS, and on WSL the Git Credential
-# Manager of Windows:
-# ENVSETUP_GIT_CONFIG+=("credential.helper=" "credential.helper=osxkeychain")
+# Or on WSL, the Git Credential Manager of Windows:
 # ENVSETUP_GIT_CONFIG+=("credential.helper=" "credential.helper=/mnt/c/Program\ Files/Git/mingw64/bin/git-credential-manager.exe")
 # Settings that only fit one machine go here too, e.g. on a work box:
 # [[ $ENVSETUP_PROFILE == work ]] && ENVSETUP_GIT_CONFIG+=(

@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 # Shell functions loaded on every machine except work lite. Bash only (arrays), so zsh
-# skips them. Bash 3.2-safe (no mapfile), since that's macOS's /bin/bash.
+# skips them.
 
 [[ -n "${BASH_VERSION:-}" ]] || return 0
 
@@ -21,8 +21,8 @@ _envsetup_format_with_pipes() {
 }
 
 # _envsetup_tabulate <heading>...: ':'-separated lines on stdin, as aligned columns
-# under those headings. util-linux's column (Linux) names them and truncates the last to
-# fit; BSD's (macOS) can't name columns, so it gets a heading row instead.
+# under those headings. A newer util-linux column names them and truncates the last to
+# fit; an older one can't name columns, so it gets a heading row instead.
 _envsetup_tabulate() {
 	local args=() heading
 	if column -C name=x </dev/null >/dev/null 2>&1; then
@@ -67,7 +67,6 @@ branchAll() {
 			printf '%s\n' "$b$repo_name:$r$blue$branch_name$r $red$branch_info$r:$yellow$branch_tag$r:$branch_description"
 		done
 	)
-	# The trailing newline matters: BSD column drops a last line without one.
 	printf "%s\n" "$output" | _envsetup_tabulate Repository Tracking "Latest Tag" Description
 }
 

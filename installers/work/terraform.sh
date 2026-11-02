@@ -6,8 +6,6 @@ set -euo pipefail
 source "$ENVSETUP_ROOT/lib/common.sh"
 
 envsetup::has_cmd terraform && exit 0
-# Homebrew's own tap dropped terraform after its license change; HashiCorp keeps one.
-[[ "$OSTYPE" == darwin* ]] && exec brew install hashicorp/tap/terraform
 
 version=$(envsetup::pin terraform)
 sha=$(envsetup::pin terraform "linux-$(envsetup::arch)")

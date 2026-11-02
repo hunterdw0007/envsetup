@@ -2,8 +2,7 @@
 # Aliases loaded on every machine, regardless of profile/mode. Git shortcuts are git
 # aliases in git/gitconfig (git s, git d, git l, ...), not shell aliases.
 
-# macOS's (BSD) ls colors with -G; GNU's --color would be an error there.
-if [[ "$OSTYPE" == darwin* ]]; then alias ls='ls -G'; else alias ls='ls --color=auto'; fi
+alias ls='ls --color=auto'
 alias la='ls -a'
 alias ll='ls -alh'
 

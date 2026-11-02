@@ -9,7 +9,7 @@ It also gives an overview of the repo.
 
 Every change must keep these requirements true.
 To break a requirement, first change it in its own PR.
-Requirements 1 and 2 hold after [#103](https://github.com/hunterdw0007/envsetup/issues/103) and [#104](https://github.com/hunterdw0007/envsetup/issues/104).
+Requirement 2 holds after [#104](https://github.com/hunterdw0007/envsetup/issues/104).
 
 1. **Linux only.**
    envsetup supports the Linux systems in the README table, including WSL.
@@ -74,11 +74,11 @@ config.example.sh    # template for ~/.config/envsetup/config.sh
 AGENTS.md            # the rules for this repo
 CHANGELOG.md         # the changes in each release (CI writes it)
 docs/                # user docs that the README links to
-tests/               # smoke.sh and release.sh (CI), distros/ and macos.sh (manual)
+tests/               # smoke.sh and release.sh (CI), distros/ (manual)
 shell/
   shared/            # prompt, aliases, tool hooks, environment variables and functions
                      # for every machine (work lite loads only the prompt, aliases and
-                     # tool hooks), plus colors.sh and Homebrew's PATH on macOS
+                     # tool hooks), plus colors.sh
   profiles/
     work/            # config for the work profile only
     home/            # config for the home profile only
@@ -149,7 +149,7 @@ The Releases section of `AGENTS.md` has the details.
 
 ## Tests
 
-CI runs `shellcheck` on every shell script and checks that they parse under macOS's bash 3.2.
+CI runs `shellcheck` and `shfmt` on every shell script.
 It also runs `tests/smoke.sh` and `tests/release.sh`.
 To run them on your machine:
 
@@ -161,8 +161,8 @@ tests/release.sh                       # needs commitizen's cz on PATH
 
 The Testing section of `AGENTS.md` has the details.
 
-Two more tests run real installs.
-They take too long for CI, so you run them yourself.
+One more test runs real installs.
+It takes too long for CI, so you run it yourself.
 
 ### Test on other distros
 
@@ -199,35 +199,3 @@ The run summary then shows the report.
 
 Behind a proxy, set `DISTROS_PREHOOK` to a script that sets up the proxy in each container.
 The top of `run.sh` explains how.
-
-### Test on macOS
-
-`tests/macos.sh` runs on a Mac and does not change it.
-It checks these things:
-
-- `install.sh`, and `setup.sh` under macOS's bash 3.2
-- the switch to Homebrew's bash
-- **Run everything** for home, work full and work lite, each in a temporary `$HOME`
-- every installer
-- whether zsh, login bash and Homebrew's bash load envsetup
-- uninstall
-
-A script selects the options in gum's menu.
-The test records `brew install` and `chsh` commands instead of running them.
-It runs every other brew command for real.
-So the test also checks that Homebrew has every formula that envsetup uses.
-
-```sh
-tests/macos.sh
-```
-
-The test uses the commit that you have checked out.
-It writes `macos-report/<time>/report.md`, with logs next to it.
-
-The `macos` workflow runs the test on GitHub's macOS runners.
-The run summary then shows the report.
-macOS runners start slowly, and the test takes a few minutes.
-So the workflow runs only when you ask for it.
-Open the Actions tab, then "macos", then "Run workflow".
-Or add the `macos` label to a PR.
-The label runs the test again on every push to that PR.

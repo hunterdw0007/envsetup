@@ -10,6 +10,18 @@
 # (v1.2.0 or 1.2.0), or a branch or commit.
 set -euo pipefail
 
+# First, so it runs under the bash 3.2 that macOS ships, and before anything changes.
+if [[ "$OSTYPE" == darwin* ]]; then
+	cat >&2 <<'EOF'
+envsetup supports Linux only.
+v0.3.0 is the last release that supports macOS.
+To install v0.3.0, run:
+
+  curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/v0.3.0/install.sh | ENVSETUP_VERSION=v0.3.0 bash
+EOF
+	exit 1
+fi
+
 REPO_URL="${ENVSETUP_REPO_URL:-https://github.com/hunterdw0007/envsetup.git}"
 ENVSETUP_VERSION="${ENVSETUP_VERSION:-latest}"
 
@@ -25,52 +37,6 @@ envsetup::as_root() {
 		echo "Needs root, but there's no sudo or doas: $*" >&2
 		return 1
 	fi
-}
-
-# macOS: git comes with Apple's Command Line Tools, and the rest from Homebrew, including
-# a newer bash than the 3.2 macOS ships (setup.sh needs 4+). This file runs under that
-# 3.2 (`curl | bash`), so it stays bash 3.2-safe.
-envsetup::bootstrap_macos() {
-	local reply installer
-	[[ "$OSTYPE" == darwin* ]] || return 0
-	if ! xcode-select -p &>/dev/null; then
-		xcode-select --install || true # opens Apple's installer dialog
-		echo "Install Apple's Command Line Tools from the dialog that just opened (they include git), then run this again." >&2
-		exit 1
-	fi
-	envsetup::brew_shellenv
-	if ! command -v brew &>/dev/null; then
-		reply=
-		read -rp "envsetup installs everything with Homebrew, which isn't installed. Install it now (https://brew.sh, asks for your password)? [y/N] " reply </dev/tty || true
-		if [[ "$reply" != [yY]* ]]; then
-			echo "Install Homebrew from https://brew.sh, then run this again." >&2
-			exit 1
-		fi
-		# Homebrew's documented install. It has no published checksum to verify: it's the
-		# script at HEAD, so it's only as trusted as Homebrew's repo. Downloaded first:
-		# `bash -c "$(curl ...)"` would run an empty script, and "succeed", if the
-		# download failed.
-		installer=$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)
-		/bin/bash -c "$installer" </dev/tty
-		envsetup::brew_shellenv
-	fi
-	if ! "$(brew --prefix)/bin/bash" -c '((BASH_VERSINFO[0] >= 4))' 2>/dev/null; then
-		echo "Installing a current bash with Homebrew (macOS ships 3.2)..." >&2
-		brew install bash
-	fi
-}
-
-# A copy of shell/shared/brew.sh, which isn't downloaded yet; keep the two in sync. Only
-# called on macOS.
-envsetup::brew_shellenv() {
-	local brew
-	command -v brew &>/dev/null && return 0
-	for brew in /opt/homebrew/bin/brew /usr/local/bin/brew; do
-		if [[ -x "$brew" ]]; then
-			eval "$("$brew" shellenv)"
-			return 0
-		fi
-	done
 }
 
 envsetup::bootstrap_git() {
@@ -144,11 +110,9 @@ envsetup::use_version() {
 	"${git[@]}" checkout -q --detach "$target"
 }
 
-envsetup::bootstrap_macos
 envsetup::bootstrap_git
 
-# A template, since macOS's mktemp -d alone ignores TMPDIR.
-download=$(mktemp -d "${TMPDIR:-/tmp}/envsetup.XXXXXX")
+download=$(mktemp -d)
 trap 'rm -rf "$download"' EXIT
 # A signal (Ctrl-C, a closed terminal, kill) would otherwise end this without the EXIT trap.
 trap 'exit 130' INT TERM HUP

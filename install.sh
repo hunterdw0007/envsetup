@@ -10,7 +10,7 @@
 # (v1.2.0 or 1.2.0), or a branch or commit.
 set -euo pipefail
 
-# First, so it runs under the bash 3.2 that macOS ships, and before anything changes.
+# This check runs first, so the bash 3.2 of a Mac can parse it, and nothing changes.
 if [[ "$OSTYPE" == darwin* ]]; then
 	cat >&2 <<'EOF'
 envsetup supports Linux only.

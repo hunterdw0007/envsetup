@@ -2,9 +2,11 @@
 # Entry point: the gum menu that sets up this machine's shell, git, packages and tools.
 set -euo pipefail
 
-# First, before anything parses that an older bash can't: a clone on a Mac stops here.
+# This check runs first, so the bash 3.2 of a Mac can parse it. A clone on a Mac stops here.
 if [[ "$OSTYPE" != linux* ]]; then
-	printf '%s\n' "envsetup supports Linux only." "On macOS, run v0.3.0: git checkout v0.3.0 && ./setup.sh" >&2
+	printf '%s\n' "envsetup supports Linux only." "v0.3.0 is the last release that supports macOS." \
+		"To install v0.3.0, run: git fetch --tags && git checkout v0.3.0 && ./setup.sh" \
+		"To uninstall envsetup, run: git fetch --tags && git checkout v0.3.0 && ./setup.sh --uninstall" >&2
 	exit 1
 fi
 

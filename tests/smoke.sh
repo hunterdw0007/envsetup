@@ -200,7 +200,7 @@ git -C "$CLONE" checkout -q --detach "$(git -C "$SRC" rev-parse HEAD)"
 check "(the checkout is at the commit under test)" same_commit "$SRC" "$CLONE"
 mac_setup() { OSTYPE=darwin24 "$CLONE/setup.sh" --help >$W/mac-setup.out 2>&1; }
 check "setup.sh in a clone on macOS: exited non-zero" not mac_setup
-check "  ...and named the last release for macOS" grep -qF 'git checkout v0.3.0' $W/mac-setup.out
+check "  ...and named the last release for macOS" grep -qF 'git checkout v0.3.0 && ./setup.sh --uninstall' $W/mac-setup.out
 
 # Real zsh, so the home profile's shell config is checked in the shell it targets, and
 # real jq, which "Move dotfiles to XDG dirs" reads xdg-ninja's notes with.

@@ -4,6 +4,12 @@ Every release of envsetup, newest first, with what changed in it. CI writes each
 from the commits on `main` when it releases them (see "Releases" in AGENTS.md), so
 don't edit this file by hand.
 
+## v0.4.0 (2026-11-02)
+
+### Breaking changes
+
+- support Linux only and drop macOS (#108)
+
 ## v0.3.0 (2026-11-01)
 
 ### Breaking changes

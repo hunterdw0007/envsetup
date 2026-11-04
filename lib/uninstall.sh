@@ -26,6 +26,7 @@ envsetup::remove_rc_block() {
 # where set -e doesn't apply, so each step reports its own failure.
 envsetup::uninstall() {
 	local state=$ENVSETUP_STATE gitconfig=$ENVSETUP_GIT_GENERATED failed=0 chsh_by_us=0 rc f re kept=()
+	local key=$HOME/.ssh/id_ed25519 key_by_us=0
 	gum style --bold "Removes what envsetup added: its block in your shell rc files, the copy" \
 		"of its shell config, its git include and its saved state, and moves back any" \
 		"dotfiles it moved. Packages and tools it installed stay."
@@ -35,6 +36,7 @@ envsetup::uninstall() {
 	fi
 
 	[[ -f "$ENVSETUP_CHSH_MARKER" ]] && chsh_by_us=1 # read before the state dir goes
+	[[ -f "$ENVSETUP_SSH_KEY_MARKER" ]] && key_by_us=1
 	for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
 		if [[ ! -f "$rc" ]] || ! grep -qxF "$ENVSETUP_RC_BEGIN" "$rc"; then continue; fi
 		if envsetup::dry_run; then
@@ -62,11 +64,21 @@ envsetup::uninstall() {
 		fi
 	fi
 
+	# Signing settings for a key envsetup created, while they still name that key.
+	if ((key_by_us)) && [[ "$(git config --global user.signingkey)" == "$key.pub" ]]; then
+		if envsetup::dry_run; then
+			envsetup::would "remove the settings that sign your commits with $key from ~/.gitconfig"
+		else
+			for f in gpg.format user.signingkey commit.gpgsign; do git config --global --unset "$f"; done
+			gum style --foreground 2 "Removed the settings that sign your commits with $key"
+		fi
+	fi
+
 	envsetup::xdg_restore || failed=1
 
 	# The last two are the prompt's kube-context cache (shell/shared/ps1.sh) and the log
 	# of fetchAll --quiet (shell/shared/functions.sh).
-	for f in "$gitconfig" "$gitconfig.tmp" "$state/profile" "$state/mode" "$ENVSETUP_CHSH_MARKER" "$ENVSETUP_DATA" \
+	for f in "$gitconfig" "$gitconfig.tmp" "$state/profile" "$state/mode" "$ENVSETUP_CHSH_MARKER" "$ENVSETUP_SSH_KEY_MARKER" "$ENVSETUP_DATA" \
 		"${XDG_CACHE_HOME:-$HOME/.cache}/envsetup/kube-context" "${XDG_CACHE_HOME:-$HOME/.cache}/envsetup/fetchAll.log"; do
 		[[ -e "$f" ]] || continue
 		if envsetup::dry_run; then envsetup::would "delete $f"; else rm -rf "$f"; fi
@@ -78,6 +90,17 @@ envsetup::uninstall() {
 			envsetup::would "delete $state/config.sh"
 		else
 			rm -f "$state/config.sh"
+		fi
+	fi
+	# Only asked for a key envsetup created; it stays unless you say no.
+	if ((key_by_us)) && [[ -e "$key" ]]; then
+		if gum confirm "Keep ~/.ssh/id_ed25519? It is this machine's SSH key."; then
+			kept+=("your SSH key: $key")
+		elif envsetup::dry_run; then
+			envsetup::would "delete $key and $key.pub"
+		else
+			rm -f "$key" "$key.pub"
+			rmdir "$HOME/.ssh" 2>/dev/null || true # only if the key was all it held
 		fi
 	fi
 	envsetup::dry_run || rmdir "$state" "${XDG_CACHE_HOME:-$HOME/.cache}/envsetup" 2>/dev/null || true

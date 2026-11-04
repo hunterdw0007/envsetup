@@ -6,7 +6,8 @@
 source "$ENVSETUP_ROOT/shell/state.sh"
 ENVSETUP_RC_BEGIN="# >>> envsetup >>>"
 ENVSETUP_RC_END="# <<< envsetup <<<"
-ENVSETUP_CHSH_MARKER="$ENVSETUP_STATE/chsh" # exists once envsetup switched you to zsh
+ENVSETUP_CHSH_MARKER="$ENVSETUP_STATE/chsh"       # exists once envsetup switched you to zsh
+ENVSETUP_SSH_KEY_MARKER="$ENVSETUP_STATE/ssh-key" # exists once envsetup created ~/.ssh/id_ed25519
 # The copy of shell/ that new shells load (see envsetup::copy_shell), and its release.
 ENVSETUP_DATA=$HOME/.local/share/envsetup
 if [[ "${XDG_DATA_HOME:-}" == /* ]]; then ENVSETUP_DATA=$XDG_DATA_HOME/envsetup; fi

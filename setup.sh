@@ -17,6 +17,7 @@ source "$ENVSETUP_ROOT/lib/config.sh"
 source "$ENVSETUP_ROOT/lib/zsh.sh"
 source "$ENVSETUP_ROOT/lib/installers.sh"
 source "$ENVSETUP_ROOT/lib/git.sh"
+source "$ENVSETUP_ROOT/lib/ssh.sh"
 source "$ENVSETUP_ROOT/lib/uninstall.sh"
 source "$ENVSETUP_ROOT/lib/xdg.sh"
 
@@ -34,7 +35,7 @@ Profiles (pick one from the menu; switch any time):
   home  bash, general-use and light-dev packages
   work  bash, SRE tools (kubectl, terraform, helm, ...), in one of two modes:
           full  uses sudo: installs packages and runs vendor installers
-          lite  no sudo: only the prompt, aliases and git config; installs nothing
+          lite  no sudo: only the prompt, aliases, git config and SSH key; installs nothing
 
 Your own changes go in ~/.config/envsetup/config.sh ("Edit config" in the menu,
 template: config.example.sh), outside this repo, so updates never conflict. If you set
@@ -54,6 +55,9 @@ shell.
 and links the same config into ~/.zshrc. Set ENVSETUP_SHELL=zsh in config.sh to make
 it part of "Run everything".
 
+"Set up SSH key" creates ~/.ssh/id_ed25519 if it is missing. It offers to add the key
+to GitHub with gh, and to sign your git commits with it.
+
 "Move dotfiles to XDG dirs" moves dotfiles out of $HOME into ~/.config, ~/.local and
 ~/.cache where that's safe to do automatically (from xdg-ninja's notes). Set
 ENVSETUP_XDG_NINJA=1 in config.sh to make it part of "Run everything".
@@ -63,9 +67,9 @@ Options:
                    what it would do instead; profile picks and "Edit config" work
                    but only last until you quit
       --uninstall  remove what envsetup added (rc-file block, copied shell config,
-                   git include, saved state), asking before anything that might
-                   be yours; packages and tools stay. Combine with --dry-run to
-                   preview it
+                   git include, saved state, SSH signing settings), asking
+                   before anything that might be yours, like your SSH key;
+                   packages and tools stay. Combine with --dry-run to preview it
       --version    show which release this is and exit
   -h, --help       show this help and exit
 EOF
@@ -273,7 +277,7 @@ envsetup::mode_labels() {
 	readarray -t pkgs < <(envsetup::resolved_packages)
 	readarray -t scripts < <(envsetup::resolved_installers)
 	echo "full  uses sudo: installs ${#pkgs[@]} packages and runs ${#scripts[@]} installers"
-	echo "lite  no sudo: only the prompt, aliases and git config; installs nothing"
+	echo "lite  no sudo: only the prompt, aliases, git config and SSH key; installs nothing"
 }
 
 envsetup::pick_profile() {
@@ -308,7 +312,7 @@ envsetup::run_step() {
 # doesn't stop the rest.
 envsetup::run_everything() {
 	local step
-	for step in link_shell_config configure_git install_packages run_installers; do
+	for step in link_shell_config configure_git install_packages run_installers set_up_ssh_key; do
 		envsetup::run_step "envsetup::$step"
 	done
 	if [[ "$ENVSETUP_XDG_NINJA" == 1 ]]; then envsetup::run_step envsetup::xdg_tidy; fi
@@ -328,7 +332,7 @@ envsetup::main_menu() {
 		label="${profile:-none}"
 		[[ "$profile" == work ]] && label+=" ($ENVSETUP_MODE)"
 		choice="$(gum choose "Select profile (current: $label)" "Edit config" "Link shell config" \
-			"Set up zsh + oh-my-zsh" "Configure git" "Install packages" "Run installers" \
+			"Set up zsh + oh-my-zsh" "Configure git" "Set up SSH key" "Install packages" "Run installers" \
 			"Move dotfiles to XDG dirs" "Preview everything" "Run everything" "Uninstall" \
 			"Quit")" || break # esc/ctrl+c
 
@@ -349,6 +353,7 @@ envsetup::main_menu() {
 		"Link shell config") envsetup::run_step envsetup::link_shell_config ;;
 		"Set up zsh + oh-my-zsh") envsetup::run_step envsetup::set_up_zsh ;;
 		"Configure git") envsetup::run_step envsetup::configure_git ;;
+		"Set up SSH key") envsetup::run_step envsetup::set_up_ssh_key ;;
 		"Install packages") envsetup::run_step envsetup::install_packages ;;
 		"Run installers") envsetup::run_step envsetup::run_installers ;;
 		"Move dotfiles to XDG dirs") envsetup::run_step envsetup::xdg_tidy ;;

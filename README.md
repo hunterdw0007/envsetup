@@ -1,5 +1,7 @@
 # envsetup
 
+[![Release](https://img.shields.io/github/v/release/hunterdw0007/envsetup)](https://github.com/hunterdw0007/envsetup/releases/latest) [![CI](https://img.shields.io/github/actions/workflow/status/hunterdw0007/envsetup/ci.yml?branch=main&label=CI)](https://github.com/hunterdw0007/envsetup/actions/workflows/ci.yml) [![License](https://img.shields.io/github/license/hunterdw0007/envsetup)](LICENSE)
+
 envsetup sets up the shell on a new or wiped Linux machine.
 It adds aliases, environment variables, shell functions and common command-line tools.
 You choose what it does from a menu in the terminal.

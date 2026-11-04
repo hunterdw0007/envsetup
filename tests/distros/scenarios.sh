@@ -57,6 +57,8 @@ answers() {
 # gum stand-in: answers choose/confirm from the queues above, fills input, logs calls.
 mkdir -p "$stubs"
 install -m 755 /src/tests/gum.sh "$stubs/gum"
+# A real ssh-keygen would wait for a passphrase. The real ssh, from openssh-client, is checked below.
+install -m 755 /src/tests/ssh-keygen.sh "$stubs/ssh-keygen"
 
 # The code under test: the commit checked out in /src, which install.sh downloads.
 # No git yet, so the safe.directory exception is written by hand.
@@ -98,7 +100,7 @@ fi
 
 # --- each profile: Run everything, then check what a new shell gets -----------------
 # Commands each profile's packages and installers should leave on PATH.
-common_cmds="git tmux vim curl wget htop tree unzip jq fzf rg column bat|batcat"
+common_cmds="git tmux vim curl wget htop tree unzip jq fzf rg column bat|batcat ssh"
 declare -A expect=(
 	[home]="$common_cmds python3 pip3 node npm nvim direnv shellcheck tig ncdu docker zsh"
 	["work-full"]="$common_cmds nmap tcpdump strace lsof iostat mtr iotop iftop netstat rsync dig kubectl helm gh terraform aws"
@@ -128,8 +130,8 @@ for run in home work-full work-lite; do
 
 	case $run in
 	# zsh first, so "no" always lands on its chsh question (chsh would ask for a password);
-	# "yes" then moves dotfiles, if there are any to move.
-	home) answers "$user" no yes -- "Select profile" home "Set up zsh + oh-my-zsh" "Run everything" Quit ;;
+	# the next "no" declines SSH signing; "yes" then moves dotfiles, if there are any to move.
+	home) answers "$user" no no yes --"Select profile" home "Set up zsh + oh-my-zsh" "Run everything" Quit ;;
 	work-full) answers "$user" -- "Select profile" work full "Run everything" Quit ;;
 	work-lite) answers "$user" -- "Select profile" work lite "Run everything" Quit ;;
 	esac

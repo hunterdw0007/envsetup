@@ -16,6 +16,8 @@ jq
 fzf
 ripgrep
 bat
+# ssh and ssh-keygen, for git over SSH and "Set up SSH key".
+openssh-client
 
 # `column` (branchAll/fetchAll/pullMainAll tables).
 bsdextrautils

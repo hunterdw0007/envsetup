@@ -96,20 +96,8 @@ esac
 EOF
 for tool in kubectl helm terraform aws docker lazygit; do printf '#!/bin/sh\n' >"$OFFLINE/$tool"; done
 printf '#!/bin/sh\necho "gh $*" >>"$SMOKE_LOG"\n' >"$OFFLINE/gh"
-# The box has no openssh-client. This one writes the key pair that -f and -C name.
-cat >"$OFFLINE/ssh-keygen" <<'EOF'
-#!/bin/sh
-echo "ssh-keygen $*" >>"$SMOKE_LOG"
-while [ $# -gt 0 ]; do
-	case $1 in
-	-C) c=$2 ;;
-	-f) f=$2 ;;
-	esac
-	shift
-done
-echo smoke-private-key >"$f"
-echo "ssh-ed25519 AAAAsmoke $c" >"$f.pub"
-EOF
+# The box has no openssh-client, and a real ssh-keygen would wait for a passphrase.
+cp "$SRC/tests/ssh-keygen.sh" "$OFFLINE/ssh-keygen"
 mkdir -p "$HOOKS"
 printf '#!/bin/sh\necho "_direnv_hook() { :; }"\n' >"$HOOKS/direnv"
 printf '#!/bin/sh\necho "__zoxide_z() { :; }"\n' >"$HOOKS/zoxide"
@@ -406,6 +394,22 @@ check "--uninstall exited 0" run_menu "$h"
 SETUP_ARGS=() CONFIRMS=()
 check "  ...deleted the key and ~/.ssh" none_exist "$key" "$key.pub" "$h/.ssh"
 check "  ...and its marker" [ ! -e "$h/.config/envsetup" ]
+((failures)) && show "$h/setup.out"
+
+echo "== Set up SSH key: signing settings of your own are left alone"
+h=$(new_home)
+git config --file "$h/.gitconfig" user.signingkey SMOKEGPGKEY
+git config --file "$h/.gitconfig" commit.gpgsign true
+mine="user.signingkey SMOKEGPGKEY commit.gpgsign true "
+check "exited 0" run_menu "$h" "Select profile" work lite "Set up SSH key" Quit
+check "  ...created the key" [ -f "$h/.ssh/id_ed25519" ]
+check "  ...didn't offer to sign with it" not_grep 'gum confirm Sign your git commits' "$SMOKE_LOG"
+check "  ...and said why" grep -qF 'git already has signing settings' "$SMOKE_LOG"
+check "  ...and kept your settings" [ "$(signing "$h" | tr '\n' ' ')" = "$mine" ]
+SETUP_ARGS=(--uninstall) CONFIRMS=(yes yes)
+check "--uninstall exited 0" run_menu "$h"
+SETUP_ARGS=() CONFIRMS=()
+check "  ...and kept your settings" [ "$(signing "$h" | tr '\n' ' ')" = "$mine" ]
 ((failures)) && show "$h/setup.out"
 
 echo "== Set up SSH key: a key of your own is left alone"

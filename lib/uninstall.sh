@@ -26,7 +26,7 @@ envsetup::remove_rc_block() {
 # where set -e doesn't apply, so each step reports its own failure.
 envsetup::uninstall() {
 	local state=$ENVSETUP_STATE gitconfig=$ENVSETUP_GIT_GENERATED failed=0 chsh_by_us=0 rc f re kept=()
-	local key=$HOME/.ssh/id_ed25519 key_by_us=0
+	local key=$HOME/.ssh/id_ed25519 key_by_us=0 sign_failed=0
 	gum style --bold "Removes what envsetup added: its block in your shell rc files, the copy" \
 		"of its shell config, its git include and its saved state, and moves back any" \
 		"dotfiles it moved. Packages and tools it installed stay."
@@ -69,8 +69,14 @@ envsetup::uninstall() {
 		if envsetup::dry_run; then
 			envsetup::would "remove the settings that sign your commits with $key from ~/.gitconfig"
 		else
-			for f in gpg.format user.signingkey commit.gpgsign; do git config --global --unset "$f"; done
-			gum style --foreground 2 "Removed the settings that sign your commits with $key"
+			# Exit code 5: the setting is already gone.
+			for f in gpg.format user.signingkey commit.gpgsign; do git config --global --unset-all "$f" || (($? == 5)) || sign_failed=1; done
+			if ((sign_failed)); then
+				gum style --foreground 1 "Couldn't remove the settings that sign your commits from ~/.gitconfig"
+				failed=1
+			else
+				gum style --foreground 2 "Removed the settings that sign your commits with $key"
+			fi
 		fi
 	fi
 

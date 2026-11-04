@@ -2,6 +2,12 @@
 # "Set up SSH key": creates this machine's SSH key once, then offers to add it to GitHub
 # and to sign git commits with it. Never needs sudo, so work lite gets it too.
 
+# True if git already has a signing key or signs commits, e.g. with GPG. envsetup then
+# leaves signing alone, so it never replaces settings of yours.
+envsetup::git_signs() {
+	[[ -n "$(git config --global --includes user.signingkey)$(git config --global --includes commit.gpgsign)" ]]
+}
+
 envsetup::set_up_ssh_key() {
 	local key=$HOME/.ssh/id_ed25519 url=https://github.com/settings/keys comment
 	# GitHub advises one key per machine; the comment names the machine in a list of keys.
@@ -21,7 +27,7 @@ envsetup::set_up_ssh_key() {
 		else
 			envsetup::would "show the public key, to add at $url"
 		fi
-		envsetup::would "ask to sign your git commits with it"
+		if ! envsetup::git_signs; then envsetup::would "ask to sign your git commits with it"; fi
 		return 0
 	fi
 
@@ -41,7 +47,9 @@ envsetup::set_up_ssh_key() {
 		gum style "Add this public key at $url:" "$(<"$key.pub")"
 	fi
 
-	if gum confirm "Sign your git commits with this key?"; then
+	if envsetup::git_signs; then
+		gum style --foreground 3 "git already has signing settings, so envsetup leaves them as they are."
+	elif gum confirm "Sign your git commits with this key?"; then
 		git config --global gpg.format ssh
 		git config --global user.signingkey "$key.pub"
 		git config --global commit.gpgsign true

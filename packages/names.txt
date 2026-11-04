@@ -17,6 +17,8 @@ npm              =       =                   npm-default                      = 
 shellcheck       =       ShellCheck          ShellCheck                       =            =                =       =
 net-tools        =       =                   net-tools-deprecated             =            =                =       =
 dnsutils         =       bind-utils          bind-utils                       bind         bind-tools       bind    =
+# Systems that use brew (macOS, immutable Linux) ship ssh in the base system.
+openssh-client   =       openssh-clients     openssh-clients                  openssh      =                -       openssh
 # Only awscli.sh needs it (gpgv or gpg). dnf asks for gpg, so Amazon Linux's
 # gnupg2-minimal counts instead of conflicting with gnupg2.
 gnupg            =       /usr/bin/gpg        gpg2                             =            =                =       =

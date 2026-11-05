@@ -98,7 +98,18 @@ envsetup::uninstall() {
 		[[ -e "$f" ]] || continue
 		if envsetup::dry_run; then envsetup::would "delete $f"; else rm -rf "$f"; fi
 	done
-	if [[ -f "$state/config.sh" ]]; then
+	# The repo belongs to the user, so the default answer keeps it.
+	if [[ -d "$ENVSETUP_CONFIG_CLONE" ]]; then
+		if gum confirm "Keep $ENVSETUP_CONFIG_CLONE? It is the clone of your own config repo."; then
+			kept+=("your config repo: $ENVSETUP_CONFIG_CLONE")
+		elif envsetup::dry_run; then
+			envsetup::would "delete $ENVSETUP_CONFIG_CLONE"
+		else
+			rm -rf "$ENVSETUP_CONFIG_CLONE"
+		fi
+	fi
+	# -L also finds a link to a config.sh that is gone.
+	if [[ -f "$state/config.sh" || -L "$state/config.sh" ]]; then
 		if gum confirm "Keep your own config ($state/config.sh)? Only envsetup reads it."; then
 			kept+=("your config: $state/config.sh")
 		elif envsetup::dry_run; then

@@ -14,9 +14,24 @@ So every shell uses the same folder, even a shell without `XDG_CONFIG_HOME`.
 
 ## Use config.sh on other machines
 
-Keep `config.sh` in your own dotfiles repo.
-On a new machine, create a symlink to it at the path above.
-Then run the curl command from the [README](../README.md#install).
+Keep `config.sh` at the top of your own git repo.
+On a new machine, set `ENVSETUP_CONFIG_REPO` in the curl command from the [README](../README.md#install):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | ENVSETUP_CONFIG_REPO=github.com/me/dotfiles bash
+```
+
+- `ENVSETUP_CONFIG_REPO=me` is short for `github.com/me/envsetup-config`.
+- A URL without a scheme uses https.
+  An SSH URL such as `git@github.com:me/dotfiles.git` works too.
+- envsetup clones the repo into `~/.config/envsetup/repo` before the menu opens.
+- Then `config.sh` becomes a symlink to the `config.sh` in the repo.
+- You may already have a `config.sh`.
+  Then envsetup asks "Keep …?" first.
+  The default answer keeps your file.
+- Each later run pulls the repo before the menu opens.
+  Later runs do not need `ENVSETUP_CONFIG_REPO`.
+- A dry run only describes the clone and the link.
 
 ## Popular packages
 

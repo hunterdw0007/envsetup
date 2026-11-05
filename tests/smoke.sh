@@ -799,6 +799,79 @@ SETUP_ARGS=() CONFIRMS=()
 check "kept config.sh by default" [ -f "$h/.config/envsetup/config.sh" ]
 check "  ...but removed the saved profile" [ ! -e "$h/.config/envsetup/profile" ]
 
+echo "== ENVSETUP_CONFIG_REPO: config.sh from your own git repo (#94)"
+cfg=$W/config-repo
+cgit() { git -C "$cfg" -c user.name=smoke -c user.email=smoke@example.com "$@"; }
+git init -q -b main "$cfg"
+echo 'ENVSETUP_PACKAGES=(smoke-from-repo)' >"$cfg/config.sh"
+cgit add config.sh
+cgit commit -q -m config
+h=$(new_home)
+st=$h/.config/envsetup
+before=$(snapshot "$h")
+SETUP_ARGS=(--dry-run)
+ENVSETUP_CONFIG_REPO=$cfg check "--dry-run: exited 0" run_menu "$h" Quit
+SETUP_ARGS=()
+check "  ...said it would clone the repo" grep -qF "would clone $cfg into $st/repo" "$SMOKE_LOG"
+check "  ...and link config.sh to it" grep -qF "would link $st/config.sh to $st/repo/config.sh" "$SMOKE_LOG"
+check "  ...and changed nothing" [ "$(snapshot "$h")" = "$before" ]
+ENVSETUP_CONFIG_REPO=$cfg SETUP=curl_bash check "curl | ENVSETUP_CONFIG_REPO=<repo> bash: exited 0" run_menu "$h" "Select profile" home "Install packages" Quit
+check "  ...cloned the repo" same_commit "$cfg" "$st/repo"
+check "  ...linked config.sh to it" [ "$(readlink "$st/config.sh")" = "$st/repo/config.sh" ]
+check "  ...and used its settings on the first run" same_list smoke-from-repo "$(installed)"
+# git pull writes its own notes into .git, for example FETCH_HEAD.
+# So this check leaves out the clone's .git folder.
+but_git() {
+	(
+		cd "$h" || exit 1
+		find . -path ./.config/envsetup/repo/.git -prune -o ! -name setup.out -print | sort
+		find . -path ./.config/envsetup/repo/.git -prune -o -type f ! -name setup.out -exec md5sum {} + | sort
+	) | md5sum
+}
+before=$(but_git)
+check "a second run, with nothing new in the repo: exited 0" run_menu "$h" Quit
+check "  ...and changed nothing outside the clone's .git" [ "$(but_git)" = "$before" ]
+echo 'ENVSETUP_PACKAGES=(smoke-pulled)' >"$cfg/config.sh"
+cgit commit -q -am update
+check "a second run, after a new commit: exited 0" run_menu "$h" "Install packages" Quit
+check "  ...pulled the repo, without ENVSETUP_CONFIG_REPO" same_commit "$cfg" "$st/repo"
+check "  ...and used the new settings" same_list smoke-pulled "$(installed)"
+SETUP_ARGS=(--uninstall) CONFIRMS=(yes yes no) # remove; keep the repo; keep config.sh, no
+check "--uninstall: exited 0" run_menu "$h"
+SETUP_ARGS=() CONFIRMS=()
+check "  ...asked about the repo" grep -qF "gum confirm Keep $st/repo?" "$SMOKE_LOG"
+check "  ...kept it, as answered" same_commit "$cfg" "$st/repo"
+check "  ...and removed the link, as answered" not [ -L "$st/config.sh" ]
+((failures)) && show "$h/setup.out"
+
+echo "== ENVSETUP_CONFIG_REPO with a config.sh of your own (#94)"
+h=$(new_home)
+st=$h/.config/envsetup
+mkdir -p "$st"
+echo 'alias mine=true' >"$st/config.sh"
+CONFIRMS=(yes) # keep your own config.sh
+ENVSETUP_CONFIG_REPO=$cfg check "keep it: exited 0" run_menu "$h" Quit
+CONFIRMS=()
+check "  ...asked first" grep -qF "gum confirm Keep your own $st/config.sh?" "$SMOKE_LOG"
+check "  ...still cloned the repo" same_commit "$cfg" "$st/repo"
+kept_mine() { [ ! -L "$st/config.sh" ] && grep -qxF "alias mine=true" "$st/config.sh"; }
+check "  ...and kept config.sh" kept_mine
+check "a second run: exited 0" run_menu "$h" Quit
+check "  ...did not ask again" [ "$(count 'Keep your own' "$SMOKE_LOG")" = 0 ]
+check "  ...and kept config.sh" kept_mine
+h=$(new_home)
+st=$h/.config/envsetup
+mkdir -p "$st"
+echo 'alias mine=true' >"$st/config.sh"
+CONFIRMS=(no) # replace it
+ENVSETUP_CONFIG_REPO=$cfg check "replace it: exited 0" run_menu "$h" Quit
+check "  ...linked config.sh to the repo" [ "$(readlink "$st/config.sh")" = "$st/repo/config.sh" ]
+SETUP_ARGS=(--uninstall) CONFIRMS=(yes no no) # remove; keep the repo, no; keep config.sh, no
+check "--uninstall: exited 0" run_menu "$h"
+SETUP_ARGS=() CONFIRMS=()
+check "  ...deleted the repo and config.sh, as answered" [ ! -e "$st" ]
+((failures)) && show "$h/setup.out"
+
 echo "== a package that can't be installed doesn't stop the rest"
 h=$(new_home)
 mkdir -p "$h/.config/envsetup"

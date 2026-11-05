@@ -40,6 +40,7 @@ These variables change what the command does:
 | --- | --- |
 | `ENVSETUP_REPO_URL` | Sets the repo URL, for example an SSH URL. |
 | `ENVSETUP_VERSION` | Selects a release. See [Select a release](#select-a-release). |
+| `ENVSETUP_CONFIG_REPO` | Gets `config.sh` from your own git repo. See [Use config.sh on other machines](docs/customizing.md#use-configsh-on-other-machines). |
 
 ### Select a release
 
@@ -315,6 +316,8 @@ Then uninstall leaves that dotfile in its new path and tells you why.
 After you fix the problem, run uninstall again.
 
 Uninstall asks before it removes your `config.sh`.
+If you set `ENVSETUP_CONFIG_REPO`, uninstall asks "Keep ~/.config/envsetup/repo?".
+The default answer keeps it.
 If envsetup created `~/.ssh/id_ed25519`, uninstall asks "Keep ~/.ssh/id_ed25519?".
 The default answer keeps it.
 If envsetup changed your login shell to zsh, uninstall asks to change it back to bash.

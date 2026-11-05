@@ -3,6 +3,11 @@
 # It lives at ~/.config/envsetup/config.sh.
 # If you set XDG_CONFIG_HOME, it lives at $XDG_CONFIG_HOME/envsetup/config.sh.
 # This file is outside the repo, so an envsetup update never changes it.
+# To keep this file in your own git repo, set ENVSETUP_CONFIG_REPO in the curl command.
+# For example, ENVSETUP_CONFIG_REPO=github.com/me/dotfiles uses the config.sh at the top of that repo.
+# ENVSETUP_CONFIG_REPO=me is short for github.com/me/envsetup-config.
+# envsetup clones the repo into ~/.config/envsetup/repo and links this file to it.
+# Each later run pulls the repo again.
 # New shells load the copy of shell/ in ~/.local/share/envsetup.
 # Put your own changes in this file, not in that copy.
 # "Edit config" in the menu copies this template to that path and opens it in $EDITOR.

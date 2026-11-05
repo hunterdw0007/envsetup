@@ -46,6 +46,11 @@ Put your own changes in ~/.config/envsetup/config.sh.
 If you set XDG_CONFIG_HOME, the file is $XDG_CONFIG_HOME/envsetup/config.sh.
 "Edit config" in the menu creates the file from config.example.sh.
 The file is outside this repo, so updates never change it.
+To get config.sh from your own git repo, set ENVSETUP_CONFIG_REPO.
+For example, ENVSETUP_CONFIG_REPO=github.com/me/dotfiles uses the config.sh in that repo.
+ENVSETUP_CONFIG_REPO=me is short for github.com/me/envsetup-config.
+envsetup clones the repo into ~/.config/envsetup/repo before the menu opens.
+Each later run pulls the repo again.
 
 To see the changes first, use --dry-run, or "Preview everything" in the menu.
 To remove what envsetup added, use --uninstall, or "Uninstall" in the menu.
@@ -409,4 +414,5 @@ if ((UNINSTALL)); then
 	envsetup::uninstall || (($? == 2)) # a cancelled uninstall is not an error
 	exit 0
 fi
+envsetup::sync_config_repo
 envsetup::main_menu

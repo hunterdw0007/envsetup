@@ -5,6 +5,8 @@
 # shellcheck disable=SC2034 # setup.sh, lib/*.sh and the user's config read the ENVSETUP_* variables
 
 ENVSETUP_USER_CONFIG="$ENVSETUP_STATE/config.sh"
+# The clone of the user's own config repo (see envsetup::sync_config_repo).
+ENVSETUP_CONFIG_CLONE="$ENVSETUP_STATE/repo"
 
 envsetup::load_config() {
 	ENVSETUP_PROFILE=$1
@@ -106,6 +108,54 @@ envsetup::resolved_installers() {
 		name=${script##*/}
 		envsetup::skipped "${name%.sh}" || echo "$script"
 	done
+}
+
+# sync_config_repo gets config.sh from the user's own git repo.
+# The first run clones ENVSETUP_CONFIG_REPO into ENVSETUP_CONFIG_CLONE.
+# Later runs pull that clone, and they do not need ENVSETUP_CONFIG_REPO.
+# Then config.sh becomes a symlink to the config.sh in the clone.
+# The function asks before it replaces a config.sh of the user's own.
+# It asks only in the run that clones, so later runs do not ask again.
+envsetup::sync_config_repo() {
+	local url=${ENVSETUP_CONFIG_REPO:-} repo=$ENVSETUP_CONFIG_CLONE link=$ENVSETUP_STATE/config.sh cloned=0
+	if [[ -d "$repo/.git" ]]; then
+		if envsetup::dry_run; then
+			envsetup::would "pull $repo"
+		elif ! git -C "$repo" pull -q --ff-only; then
+			gum style --foreground 3 "Couldn't pull $repo. envsetup uses the config.sh that it has."
+		fi
+	elif [[ -n "$url" ]]; then
+		# The short form "me" means github.com/me/envsetup-config.
+		if [[ "$url" != */* && "$url" != *:* ]]; then url=github.com/$url/envsetup-config; fi
+		# A URL without a scheme, such as github.com/me/dotfiles, uses https.
+		if [[ "$url" != *:* && "$url" != /* ]]; then url=https://$url; fi
+		if envsetup::dry_run; then
+			envsetup::would "clone $url into $repo"
+			envsetup::would "link $link to $repo/config.sh"
+			return 0
+		fi
+		git clone -q "$url" "$repo"
+		gum style --foreground 2 "Cloned $url into $repo"
+		cloned=1
+	else
+		return 0
+	fi
+
+	if [[ ! -f "$repo/config.sh" ]]; then
+		gum style --foreground 3 "$repo has no config.sh, so envsetup links none."
+		return 0
+	fi
+	if [[ -L "$link" && "$(readlink "$link")" == "$repo/config.sh" ]]; then return 0; fi
+	if [[ -e "$link" || -L "$link" ]]; then
+		if ((! cloned)); then return 0; fi
+		if gum confirm "Keep your own $link? No replaces it with a link to $repo/config.sh."; then return 0; fi
+	fi
+	if envsetup::dry_run; then
+		envsetup::would "link $link to $repo/config.sh"
+		return 0
+	fi
+	ln -sfn "$repo/config.sh" "$link"
+	gum style --foreground 2 "Linked $link to $repo/config.sh"
 }
 
 envsetup::edit_config() {

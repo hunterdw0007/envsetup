@@ -1,21 +1,24 @@
 # shellcheck shell=bash
-# Prompt loaded on every machine, regardless of profile/mode:
+# Every machine loads this prompt, in every profile and mode:
 #
 #   [14:02:11] <kube context> ~/d/envsetup main [⤻ 1]
 #   ❯
 #
-# Bash only: zsh uses different prompt escapes, and there the oh-my-zsh theme owns the
-# prompt. PS1 isn't exported, so it doesn't leak into shells that can't read it.
+# The prompt works only in bash.
+# zsh uses different prompt escapes, and in zsh the oh-my-zsh theme sets the prompt.
+# PS1 is not exported, so shells that cannot read it do not get it.
 #
-# _envsetup_prompt runs from PROMPT_COMMAND and sets the variables PS1 shows. Only the
-# ahead/behind count runs a program (one git call, inside a repo): the path, branch and
-# kube context are read in bash.
+# _envsetup_prompt runs from PROMPT_COMMAND and sets the variables that PS1 shows.
+# Only the ahead and behind count runs a program: one git command, inside a repo.
+# bash itself reads the path, the branch and the Kubernetes context.
 
 [[ -n "${BASH_VERSION:-}" ]] || return 0
 
-# ~/dev/envsetup -> ~/d/envsetup; dot-directories keep two characters (~/.c/envsetup).
+# This function shortens ~/dev/envsetup to ~/d/envsetup.
+# Folders that start with a dot keep two characters (~/.c/envsetup).
 _envsetup_prompt_dir() {
-	# A variable, so no bash version keeps a backslash or expands the ~ in the replacement.
+	# The ~ is in a variable.
+	# So no bash version keeps a backslash or expands the ~ in the replacement.
 	local IFS=/ i tilde='~'
 	local -a parts
 	read -ra parts <<<"${PWD/#$HOME/$tilde}"
@@ -27,7 +30,8 @@ _envsetup_prompt_dir() {
 	_envsetup_prompt_dir=${_envsetup_prompt_dir:-/}
 }
 
-# The branch (or short commit, when detached) of the repo $PWD is in, from its HEAD file.
+# This function reads the branch of the repo that $PWD is in, from its HEAD file.
+# When HEAD is detached, it reads the short commit instead.
 _envsetup_prompt_branch() {
 	local dir=$PWD git head
 	_envsetup_prompt_branch=
@@ -36,7 +40,7 @@ _envsetup_prompt_branch() {
 		dir=${dir%/*}
 	done
 	git=$dir/.git
-	# Worktrees and submodules: .git is a file naming the real git dir.
+	# In worktrees and submodules, .git is a file that names the real git folder.
 	if [[ -f "$git" ]]; then
 		read -r head <"$git" || true
 		git=${head#gitdir: }
@@ -48,14 +52,15 @@ _envsetup_prompt_branch() {
 	else
 		_envsetup_prompt_branch=${head:0:7}
 	fi
-	# A reftable repo's HEAD file is a placeholder.
+	# In a repo with the reftable format, the HEAD file holds no real branch.
 	if [[ "$_envsetup_prompt_branch" == .invalid ]]; then
 		_envsetup_prompt_branch=$(git -C "$dir" rev-parse --abbrev-ref HEAD 2>/dev/null)
 	fi
 }
 
-# _envsetup_prompt_tracking <repo>: " [⤻ ahead, ⤺ behind]" against the upstream, if either
-# isn't 0 (also used by branchAll).
+# _envsetup_prompt_tracking <repo> sets " [⤻ ahead, ⤺ behind]", compared with the upstream.
+# It sets the text only if either count is not 0.
+# branchAll also uses this function.
 _envsetup_prompt_tracking() {
 	local behind ahead
 	_envsetup_prompt_tracking=
@@ -65,10 +70,12 @@ _envsetup_prompt_tracking() {
 	if [[ -n "$_envsetup_prompt_tracking" ]]; then _envsetup_prompt_tracking=" [$_envsetup_prompt_tracking]"; fi
 }
 
-# kubectl's current context: the first kubeconfig file that sets one. kubectl writes it
-# after every cluster, so a big kubeconfig is read again only when it changes: the cache
-# holds the files it's for and the context, and stays current while it's strictly newer
-# than each of them (a change in the same second as the cache reads again).
+# This function reads kubectl's current context from the first kubeconfig file that sets one.
+# kubectl adds every cluster to the kubeconfig, so the file can get big.
+# So the function reads the kubeconfig again only when it changes.
+# The cache file holds the context and the names of the kubeconfig files.
+# The cache stays valid while it is newer than each of those files.
+# A change in the same second as the cache counts as a change.
 _envsetup_prompt_context() {
 	local IFS=: file line key='' cached value fresh=true cache=${XDG_CACHE_HOME:-$HOME/.cache}/envsetup/kube-context
 	local -a files=()
@@ -113,7 +120,7 @@ _envsetup_prompt() {
 	return "$status"
 }
 
-# Newline-separated, since an existing PROMPT_COMMAND may end in ';'.
+# A newline separates the commands, because an existing PROMPT_COMMAND may end in ';'.
 [[ "${PROMPT_COMMAND:-}" == *_envsetup_prompt* ]] || PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND$'\n'}_envsetup_prompt"
-# shellcheck disable=SC2016 # single-quoted on purpose: expanded at every prompt
+# shellcheck disable=SC2016 # single quotes on purpose, so it expands at every prompt
 PS1='\[\033[0;96m\][\t]\[\033[0;95m\] ${_envsetup_prompt_context}\[\033[0;92m\]${_envsetup_prompt_dir}\[\033[0;94m\]${_envsetup_prompt_git}\n\[\033[0;93m\]❯ \[\033[0m\]'

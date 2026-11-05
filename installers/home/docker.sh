@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Installs Docker if it isn't already on PATH. An installer rather than a package-list
-# entry because the package differs per distro (RHEL clones don't ship one at all), and
-# a Docker CE or Docker Desktop that's already installed must be left alone.
+# This script installs Docker if it is not already on PATH.
+# Docker needs an installer, not a line in a package list.
+# The package differs for each distro, and RHEL-like systems do not ship one at all.
+# The script must also leave an installed Docker CE or Docker Desktop alone.
 set -euo pipefail
 
 source "$ENVSETUP_ROOT/lib/common.sh"
@@ -17,7 +18,8 @@ dnf)
 	fedora) pkgs=(moby-engine) ;;
 	amzn) pkgs=(docker) ;;
 	*)
-		# RHEL and its clones ship podman, not docker: use Docker CE's own repo.
+		# RHEL-like systems ship podman, not docker.
+		# So this uses Docker CE's own repo.
 		repo=centos
 		[[ "$id" == rhel ]] && repo=rhel
 		tmp="$(mktemp -d)"
@@ -30,9 +32,9 @@ dnf)
 	;;
 zypper | pacman | apk) pkgs=(docker) ;;
 *)
-	echo "Not installing Docker with ${manager:-no package manager}: use Docker Desktop, or virtualisation.docker on NixOS."
+	echo "Not installing Docker with ${manager:-no package manager}. Use Docker Desktop, or virtualisation.docker on NixOS."
 	exit 0
 	;;
 esac
 envsetup::pkg_install "$manager" "${pkgs[@]}"
-echo "Docker installed. If it isn't running yet: sudo systemctl enable --now docker"
+echo "Docker is installed. If it is not running yet, run: sudo systemctl enable --now docker"

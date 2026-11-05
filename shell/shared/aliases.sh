@@ -1,6 +1,7 @@
 # shellcheck shell=bash
-# Aliases loaded on every machine, regardless of profile/mode. Git shortcuts are git
-# aliases in git/gitconfig (git s, git d, git l, ...), not shell aliases.
+# Every machine loads these aliases, in every profile and mode.
+# The git short commands are git aliases in git/gitconfig (git s, git d, git l, ...).
+# They are not shell aliases.
 
 alias ls='ls --color=auto'
 alias la='ls -a'
@@ -10,13 +11,14 @@ alias ..='cd ..'
 alias ...='cd ../..'
 alias ....='cd ../../..'
 
-# cat/less through bat (packages/common.txt; installed as `batcat` on Debian/Ubuntu),
-# only when it's there: work lite installs nothing, and a cat alias to a missing
-# command would break cat itself.
+# cat and less use bat (packages/common.txt), but only when bat is installed.
+# Debian and Ubuntu install bat as `batcat`.
+# work lite installs nothing.
+# A cat alias to a missing command would break cat itself.
 for _envsetup_bat in bat batcat; do
 	[[ "$(command -v "$_envsetup_bat")" == /* ]] || continue # a real binary, not an alias
 	[[ "$_envsetup_bat" == batcat ]] && alias bat=batcat
-	# shellcheck disable=SC2139 # expanded now on purpose: whichever name exists
+	# shellcheck disable=SC2139 # this expands now on purpose, to the name that exists
 	alias cat="$_envsetup_bat" less="$_envsetup_bat --paging=always"
 	break
 done

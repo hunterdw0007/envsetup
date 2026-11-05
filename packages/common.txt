@@ -1,6 +1,7 @@
-# One package per line, by its Debian/Ubuntu name; packages/names.txt has what other
-# package managers call it, where that differs.
-# Lines starting with # are ignored. Installed on every profile (home, work/full).
+# Write one package on each line, by its Debian or Ubuntu name.
+# packages/names.txt holds the names that other package managers use, where they differ.
+# envsetup ignores lines that start with #.
+# Every profile installs these packages (home, and work in full mode).
 git
 tmux
 vim
@@ -9,7 +10,8 @@ wget
 htop
 tree
 unzip
-# Installers unpack .tar.gz releases; minimal images (Amazon Linux, Leap) lack these.
+# Installers unpack .tar.gz releases.
+# Minimal images (Amazon Linux, Leap) do not have these two tools.
 tar
 gzip
 jq
@@ -17,5 +19,5 @@ fzf
 ripgrep
 bat
 
-# `column` (branchAll/fetchAll/pullMainAll tables).
+# This package has `column`, for the tables of branchAll, fetchAll and pullMainAll.
 bsdextrautils

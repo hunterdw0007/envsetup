@@ -1,8 +1,8 @@
 name: commitizen
 description: >-
-  Installs commitizen and every dependency at the versions and hashes in requirements.txt
-  (next to this file), and puts cz on PATH. To update: edit requirements.in, then re-run
-  the command at the top of requirements.txt.
+  Installs commitizen and every dependency at the versions and hashes in requirements.txt,
+  next to this file. Puts cz on PATH. To update, edit requirements.in. Then run the
+  command at the top of requirements.txt again.
 runs:
   using: composite
   steps:

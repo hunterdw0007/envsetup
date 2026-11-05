@@ -1,8 +1,11 @@
 # shellcheck shell=bash
-# ANSI color and style variables for your own shell, loaded by functions.sh.
-# Usage: echo -e "${RED}This is red text${RESET}"; run show_colors to see them all.
-# Each value is only a default. If a variable of the same name is already set (in your
-# rc file before the envsetup block, for example), this file does not change it.
+# This file sets ANSI color and style variables for your own shell.
+# functions.sh loads it.
+# Usage: echo -e "${RED}This is red text${RESET}"
+# Run show_colors to see every color.
+# Each value is only a default.
+# If a variable with the same name already has a value, this file does not change it.
+# For example, you may set one in your startup file before the envsetup block.
 # envsetup's own functions do not use these variables.
 
 # Reset
@@ -77,7 +80,7 @@
 : "${REVERSE=\033[7m}"
 : "${STRIKETHROUGH=\033[9m}"
 
-# Reset Styles (turn off specific formatting)
+# Reset Styles (turn off one style)
 : "${RESET_BOLD=\033[22m}"
 : "${RESET_DIM=\033[22m}"
 : "${RESET_ITALIC=\033[23m}"
@@ -86,12 +89,12 @@
 : "${RESET_REVERSE=\033[27m}"
 : "${RESET_STRIKETHROUGH=\033[29m}"
 
-# Convenience aliases
+# Short names
 : "${NC=$RESET}"
 : "${GRAY=$BRIGHT_BLACK}"
 : "${GREY=$BRIGHT_BLACK}"
 
-# Function to display all colors (optional demo function)
+# show_colors prints every color and style.
 show_colors() {
 	echo -e "${BOLD}Regular Colors:${RESET}"
 	echo -e "${BLACK}BLACK${RESET} ${RED}RED${RESET} ${GREEN}GREEN${RESET} ${YELLOW}YELLOW${RESET}"

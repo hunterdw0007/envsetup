@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Runs as root inside one distro container, after inside.sh. Uses envsetup the way a
-# beta tester would, as non-root users with sudo, with real package installs and
-# downloads. Only gum's UI is scripted, so the menu can run unattended. Every phase
-# writes a line to /report/<slug>/summary.tsv; logs go next to it.
-set -uo pipefail # no -e: each phase reports its own outcome and the next one still runs
+# This script runs as root inside one distro container, after inside.sh.
+# It uses envsetup the way a tester would: as users with sudo who are not root.
+# It uses real package installs and downloads.
+# Only gum's menus are scripted, so the menu can run without a person.
+# Every phase writes a line to /report/<slug>/summary.tsv, and the logs go next to it.
+set -uo pipefail # no -e, so each phase reports its own result and the next phase still runs
 
 pm=$1
 slug=${DISTRO_SLUG:?}
@@ -19,26 +20,28 @@ result() {
 	printf '  %-4s %-22s %s\n' "$2" "$1" "$3"
 }
 
-# A non-root user with passwordless sudo that keeps the hook's env (proxy, CA).
+# This creates a user who is not root and has sudo without a password.
+# sudo keeps the hook's environment (proxy, CA).
 mkuser() {
 	useradd -m -s /bin/bash "$1"
 	printf '%s ALL=(ALL) NOPASSWD: ALL\nDefaults env_keep += "DEBIAN_FRONTEND %s"\n' "$1" "${DISTROS_KEEP_ENV:-}" >"/etc/sudoers.d/$1"
 	chmod 0440 "/etc/sudoers.d/$1"
 }
 
-# as <user> <command>: runs it in a login-like bash for that user, on the terminal
-# (install.sh and setup.sh read answers from /dev/tty).
+# as <user> <command> runs the command for that user in a bash that acts like a login shell.
+# It runs on the terminal, because install.sh and setup.sh read answers from /dev/tty.
 as() {
 	local user=$1
 	shift
-	# shellcheck disable=SC2024 # root opening /dev/tty for the user's process is the point
+	# shellcheck disable=SC2024 # root opens /dev/tty for the user's process on purpose
 	sudo -u "$user" -H env "PATH=$stubs:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
 		"SMOKE_LOG=/tmp/$user/gum.log" "SMOKE_CHOICES=/tmp/$user/choices" "SMOKE_CONFIRMS=/tmp/$user/confirms" \
 		bash -c "cd ~ && $*" </dev/tty
 }
 
-# answers <user> <confirm answers...> -- <menu choices...>. Kept in a directory the
-# user owns: the stub replaces them as it reads, which it can't do to root's files in /tmp.
+# answers <user> <confirm answers...> -- <menu choices...> saves the answers for gum.
+# They go in a folder that the user owns.
+# The fake gum replaces the files as it reads them, and it cannot do that to root's files in /tmp.
 answers() {
 	local user=$1 confirms=()
 	shift
@@ -54,16 +57,17 @@ answers() {
 	chown -R "$user:" "/tmp/$user"
 }
 
-# gum stand-in: answers choose/confirm from the queues above, fills input, logs calls.
+# The fake gum answers choose and confirm from the lists above.
+# It fills in input and logs each call.
 mkdir -p "$stubs"
 install -m 755 /src/tests/gum.sh "$stubs/gum"
 
-# The code under test: the commit checked out in /src, which install.sh downloads.
-# No git yet, so the safe.directory exception is written by hand.
+# The code under test is the commit checked out in /src, and install.sh downloads it.
+# git is not installed yet, so the script writes the safe.directory setting by hand.
 cp -a /src /srv/envsetup
 printf '[safe]\n\tdirectory = *\n' >>/etc/gitconfig
-# Pinned with ENVSETUP_VERSION, or install.sh would check out the newest release: the
-# branch checked out in /src, or its commit if that's detached.
+# ENVSETUP_VERSION pins the version, or install.sh would check out the newest release.
+# The version is the branch checked out in /src, or its commit if HEAD is detached.
 read -r version </srv/envsetup/.git/HEAD
 version=${version#ref: refs/heads/}
 install="ENVSETUP_VERSION=${version@Q} ENVSETUP_REPO_URL=/srv/envsetup bash /srv/envsetup/install.sh"
@@ -75,7 +79,7 @@ mkuser beta
 if command -v git >/dev/null; then
 	result bootstrap WARN "git was already in the image, so install.sh's git install wasn't exercised"
 fi
-# deleted <log>: the download install.sh names in its log is gone.
+# deleted <log> passes when the download that install.sh names in its log is gone.
 deleted() {
 	local dl
 	dl=$(sed -n 's/^Downloaded envsetup .* to \(.*\), which .*/\1/p' "$1")
@@ -88,8 +92,9 @@ else
 	result bootstrap FAIL "install.sh failed: $(tail -n 3 "$out/bootstrap.log")"
 fi
 
-# --- gum: the menu can't start without it ---------------------------------------------
-# ENVSETUP_ROOT: as() starts from a clean env, and gum's pinned version is read from the code.
+# --- gum: the menu cannot start without it -------------------------------------------
+# as() starts from a clean environment, so pass ENVSETUP_ROOT.
+# envsetup reads gum's pinned version from the code.
 if as beta "PATH=\${PATH#$stubs:}; export ENVSETUP_ROOT=/srv/envsetup; source /srv/envsetup/lib/common.sh && envsetup::ensure_gum && command -v gum" >"$out/gum.log" 2>&1; then
 	result gum PASS "installed: $(tail -n 1 "$out/gum.log")"
 else
@@ -97,17 +102,19 @@ else
 fi
 
 # --- each profile: Run everything, then check what a new shell gets -----------------
-# Commands each profile's packages and installers should leave on PATH.
+# These are the commands that each profile's packages and installers should put on PATH.
 common_cmds="git tmux vim curl wget htop tree unzip jq fzf rg column bat|batcat"
 declare -A expect=(
 	[home]="$common_cmds python3 pip3 node npm nvim direnv shellcheck tig ncdu docker zsh"
 	["work-full"]="$common_cmds nmap tcpdump strace lsof iostat mtr iotop iftop netstat rsync dig kubectl helm gh terraform aws"
 	["work-lite"]=""
 )
-# Gaps the README's distro table documents: skipped the way it tells users to, and
-# reported as a WARN instead of a FAIL. The packages, then the commands they provide.
+# The README's distro table documents these gaps.
+# The test skips them the way the README tells users to.
+# It reports them as WARN, not FAIL.
+# The first list holds the packages, and the second holds the commands that they provide.
 known_pkgs='' known_cmds=''
-# shellcheck disable=SC1091 # the container's own os-release, not a file in this repo
+# shellcheck disable=SC1091 # this is the container's own os-release, not a file in this repo
 case $(. /etc/os-release && echo "${ID-}:${VERSION_ID-}") in
 almalinux:9.* | rocky:9.*) known_pkgs=direnv known_cmds=direnv ;;
 amzn:2023)
@@ -127,8 +134,9 @@ for run in home work-full work-lite; do
 	chown -R "$user:" "/home/$user/.config"
 
 	case $run in
-	# zsh first, so "no" always lands on its chsh question (chsh would ask for a password);
-	# "yes" then moves dotfiles, if there are any to move.
+	# zsh comes first, so "no" always answers its chsh question.
+	# chsh would ask for a password.
+	# Then "yes" moves dotfiles, if there are any to move.
 	home) answers "$user" no yes -- "Select profile" home "Set up zsh + oh-my-zsh" "Run everything" Quit ;;
 	work-full) answers "$user" -- "Select profile" work full "Run everything" Quit ;;
 	work-lite) answers "$user" -- "Select profile" work lite "Run everything" Quit ;;
@@ -188,7 +196,7 @@ for run in home work-full work-lite; do
 		fi
 	done
 
-	# Remove? yes; keep config.sh? yes.
+	# The answers: remove, yes; keep config.sh, yes.
 	answers "$user" yes yes --
 	if as "$user" "$install --uninstall" >"$out/$run.uninstall.log" 2>&1 &&
 		! grep -qs '# >>> envsetup >>>' "/home/$user/.bashrc" "/home/$user/.zshrc" &&

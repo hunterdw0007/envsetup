@@ -1,10 +1,12 @@
-# What each package in packages/*.txt (and in ENVSETUP_PACKAGES) is called by each
-# package manager, where that differs. The lists use Debian/Ubuntu's names; a package
-# that isn't in this table is installed under that same name everywhere.
-#   =  same name as the list
-#   -  nothing to install there: it comes with the base system or with another package
-# A path (dnf) installs whichever package provides that file, so an already-installed
-# variant (Amazon Linux's curl-minimal) counts instead of conflicting.
+# This table lists the name that each package manager uses for a package, where the name differs.
+# It covers the packages in packages/*.txt and in ENVSETUP_PACKAGES.
+# The lists use Debian or Ubuntu names.
+# envsetup installs a package that is not in this table under the same name everywhere.
+#   =  the same name as in the list
+#   -  nothing to install, because the base system or another package includes it
+# A path (dnf) installs the package that provides that file.
+# So a variant that is already installed counts, and it does not conflict.
+# Amazon Linux's curl-minimal is an example.
 #
 # list name      apt     dnf                 zypper                           pacman       apk              brew    nix
 vim              =       vim-enhanced        =                                =            =                =       =
@@ -17,16 +19,18 @@ npm              =       =                   npm-default                      = 
 shellcheck       =       ShellCheck          ShellCheck                       =            =                =       =
 net-tools        =       =                   net-tools-deprecated             =            =                =       =
 dnsutils         =       bind-utils          bind-utils                       bind         bind-tools       bind    =
-# Only awscli.sh needs it (gpgv or gpg). dnf asks for gpg, so Amazon Linux's
-# gnupg2-minimal counts instead of conflicting with gnupg2.
+# Only awscli.sh needs this package (gpgv or gpg).
+# dnf asks for gpg, so Amazon Linux's gnupg2-minimal counts and does not conflict with gnupg2.
 gnupg            =       /usr/bin/gpg        gpg2                             =            =                =       =
-# Popular extras for ENVSETUP_PACKAGES (not in the default lists), where names differ.
+# Popular packages for ENVSETUP_PACKAGES that are not in the default lists, where the names differ.
 fd-find          =       =                   fd                               fd           fd               fd      fd
 git-delta        =       =                   =                                =            delta            =       delta
 golang-go        =       golang              go                               go           go               go      go
 build-essential  =       @development-tools  patterns-devel-base-devel_basis  base-devel   build-base       -       gcc
-# Debian splits venv out of python3; everywhere else it's built in.
+# Debian puts venv in its own package.
+# Every other distro includes venv in python3.
 python3-venv     =       -                   -                                -            -                -       -
 pipx             =       =                   python3-pipx                     python-pipx  =                =       =
-# Not in the lists: install_zsh installs it when chsh is missing (Fedora, Alpine).
+# This package is not in the lists.
+# install_zsh installs it when chsh is missing (Fedora, Alpine).
 chsh             passwd  util-linux-user     shadow                           util-linux   shadow           -       -

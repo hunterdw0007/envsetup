@@ -1,9 +1,11 @@
-{#- A CHANGELOG.md entry, which is also the release's notes (see .cz.toml and
-    .github/scripts/release.sh). Breaking changes are listed once, in their own section
-    first, since they decide whether someone can move to this version. commitizen files
-    them three ways: a "feat!:"/"fix!:" commit under its type with `breaking` set, a
-    "BREAKING CHANGE:" footer under that key, and any other "type!:" (chore!, docs!, ...)
-    under no key at all. -#}
+{#- This template writes a CHANGELOG.md entry.
+    The entry is also the release's notes (see .cz.toml and .github/scripts/release.sh).
+    The entry lists breaking changes once, first, in their own section.
+    They decide whether someone can move to this version.
+    commitizen sorts breaking changes in three ways:
+    - a "feat!:" or "fix!:" commit goes under its type, with `breaking` set
+    - a "BREAKING CHANGE:" footer goes under that key
+    - any other "type!:" (chore!, docs!, ...) goes under no key at all -#}
 {% for entry in tree %}
 ## {{ entry.version }}{{ " (%s)" % entry.date if entry.date }}
 {% set breaking = [] %}

@@ -1,20 +1,24 @@
 # shellcheck shell=bash
-# This file sets ENVSETUP_STATE: the directory where envsetup keeps its settings
-# (profile, mode, config.sh) and the files that it makes. shell/init.sh and
-# lib/common.sh both use this file. Thus they always use the same directory.
+# This file sets ENVSETUP_STATE.
+# That is the folder where envsetup keeps its settings (profile, mode, config.sh).
+# envsetup also keeps the files that it makes there.
+# shell/init.sh and lib/common.sh both use this file.
+# So they always use the same folder.
 #
-# The rc block exports ENVSETUP_STATE with the directory that setup used, and this file
-# keeps that value. Thus each shell uses the same directory, also when XDG_CONFIG_HOME
-# is set only in some shells (for example in the desktop session, but not over ssh).
-# The rc block also exports ENVSETUP_STATE_HOME, the $HOME that the value is for. A
-# process with a different $HOME (a test with a throwaway $HOME, for example) does not
-# keep the value. Thus it does not use the real state dir.
+# The startup file block exports ENVSETUP_STATE with the folder that setup used.
+# This file keeps that value.
+# So each shell uses the same folder, even when only some shells set XDG_CONFIG_HOME.
+# For example, the desktop session may set it, but a shell over ssh may not.
+# The block also exports ENVSETUP_STATE_HOME, the $HOME that the value belongs to.
+# A process with a different $HOME does not keep the value.
+# A test with a temporary $HOME is an example.
+# So such a process does not use the real state folder.
 #
-# Without that value, the directory is $XDG_CONFIG_HOME/envsetup, or ~/.config/envsetup
-# if XDG_CONFIG_HOME is not set. The XDG specification tells programs not to use a
-# relative XDG_CONFIG_HOME, so this file does not use it. If ~/.config/envsetup is there
-# and the new directory is not there, envsetup continues to use ~/.config/envsetup. Thus
-# current settings stay in use.
+# Without that value, the folder is $XDG_CONFIG_HOME/envsetup.
+# If XDG_CONFIG_HOME is not set, the folder is ~/.config/envsetup.
+# The XDG specification tells programs to ignore a relative XDG_CONFIG_HOME, so this file ignores it.
+# ~/.config/envsetup may exist while the new folder does not.
+# Then envsetup keeps using ~/.config/envsetup, so the current settings stay in use.
 if [[ -z "${ENVSETUP_STATE:-}" || "${ENVSETUP_STATE_HOME:-}" != "$HOME" ]]; then
 	if [[ "${XDG_CONFIG_HOME:-}" == /* ]]; then
 		ENVSETUP_STATE=$XDG_CONFIG_HOME/envsetup
@@ -22,6 +26,6 @@ if [[ -z "${ENVSETUP_STATE:-}" || "${ENVSETUP_STATE_HOME:-}" != "$HOME" ]]; then
 		ENVSETUP_STATE=$HOME/.config/envsetup
 	fi
 	if [[ ! -d "$ENVSETUP_STATE" && -d "$HOME/.config/envsetup" ]]; then ENVSETUP_STATE=$HOME/.config/envsetup; fi
-	# The two values stay a pair, also in child processes when the rc block exported them.
+	# The two values stay together, also in child processes when the block exported them.
 	ENVSETUP_STATE_HOME=$HOME
 fi

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Installs lazygit, the git TUI (pinned in installers/versions.txt; linux x86_64 or arm64).
+# This script installs lazygit, a terminal app for git.
+# installers/versions.txt pins the version, for linux x86_64 or arm64.
 set -euo pipefail
 
 source "$ENVSETUP_ROOT/lib/common.sh"

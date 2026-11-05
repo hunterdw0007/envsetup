@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
-# Bootstraps envsetup on a new machine:
+# install.sh starts envsetup on a new machine:
 #
 #   curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | bash
 #
-# Downloads the newest release to a temporary folder, runs setup.sh's menu from it, and
-# deletes the folder when that ends, however it ends. "Link shell config" copies what new
-# shells need out of it first. Arguments go to setup.sh, e.g. `... | bash -s -- --dry-run`
-# to look around without changing anything. ENVSETUP_VERSION picks another release
-# (v1.2.0 or 1.2.0), or a branch or commit.
+# It downloads the newest release to a temporary folder.
+# It runs the setup.sh menu from that folder.
+# When the menu ends, in any way, it deletes the folder.
+# Before that, "Link shell config" copies what new shells need out of the folder.
+# Arguments go to setup.sh.
+# For example, `... | bash -s -- --dry-run` opens the menu without changing anything.
+# ENVSETUP_VERSION selects another release (v1.2.0 or 1.2.0), or a branch or commit.
 set -euo pipefail
 
-# This check runs first, so the bash 3.2 of a Mac can parse it, and nothing changes.
+# This check runs first, so the old bash 3.2 on a Mac can parse it.
+# On a Mac, nothing changes.
 if [[ "$OSTYPE" == darwin* ]]; then
 	cat >&2 <<'EOF'
 envsetup supports Linux only.
@@ -29,7 +32,9 @@ fi
 REPO_URL="${ENVSETUP_REPO_URL:-https://github.com/hunterdw0007/envsetup.git}"
 ENVSETUP_VERSION="${ENVSETUP_VERSION:-latest}"
 
-# As root already (containers, WSL), via sudo, or via doas (Alpine).
+# as_root runs a command as root.
+# If the user is already root, it runs the command directly (containers, WSL).
+# Otherwise it uses sudo, or doas (Alpine).
 envsetup::as_root() {
 	if ((EUID == 0)); then
 		"$@"
@@ -38,7 +43,7 @@ envsetup::as_root() {
 	elif command -v doas &>/dev/null; then
 		doas "$@"
 	else
-		echo "Needs root, but there's no sudo or doas: $*" >&2
+		echo "This command needs root, but this machine has no sudo or doas: $*" >&2
 		return 1
 	fi
 }
@@ -46,19 +51,20 @@ envsetup::as_root() {
 envsetup::bootstrap_git() {
 	command -v git &>/dev/null && return 0
 
-	echo "git not found, attempting to install it..." >&2
+	echo "git is not installed. Installing git..." >&2
 	if command -v brew &>/dev/null; then
 		brew install git
 	elif command -v apt-get &>/dev/null; then
-		# See envsetup::pkg_install: a single broken source fails update, not the install.
-		envsetup::as_root apt-get update || echo "apt-get update reported errors; installing anyway." >&2
+		# One broken source fails the update, but not the install (see envsetup::pkg_install).
+		envsetup::as_root apt-get update || echo "apt-get update reported errors. Installing anyway." >&2
 		envsetup::as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y git
 	elif command -v dnf &>/dev/null; then
 		envsetup::as_root dnf install -y git
 	elif command -v zypper &>/dev/null; then
 		envsetup::as_root zypper --non-interactive install git
 	elif command -v pacman &>/dev/null; then
-		# Never synced (a fresh container): sync with -u, since Arch doesn't do partial upgrades.
+		# A new container has never synced.
+		# The sync uses -u, because Arch does not support partial upgrades.
 		compgen -G '/var/lib/pacman/sync/*.db' >/dev/null || envsetup::as_root pacman -Syu --noconfirm
 		envsetup::as_root pacman -S --noconfirm --needed git
 	elif command -v apk &>/dev/null; then
@@ -66,12 +72,13 @@ envsetup::bootstrap_git() {
 	elif command -v nix-env &>/dev/null; then
 		nix-env -f '<nixpkgs>' -iA git
 	else
-		echo "Could not auto-install git. Install it manually, then re-run this script." >&2
+		echo "Couldn't install git. Install git yourself, then run this script again." >&2
 		exit 1
 	fi
 }
 
-# Release tags (vX.Y.Z), newest first. Pre-releases (v1.2.0-rc.1) aren't listed.
+# releases prints the release tags (vX.Y.Z), newest first.
+# It leaves out test releases such as v1.2.0-rc.1.
 envsetup::releases() {
 	local tag
 	while read -r tag; do
@@ -79,8 +86,10 @@ envsetup::releases() {
 	done < <(git -C "$download" tag --list 'v*' --sort=-v:refname)
 }
 
-# use_version <version>: checks out "latest" (the newest release, or the default branch
-# before the first one), a release (v1.2.0 or 1.2.0), or a branch or commit, detached.
+# use_version <version> checks out a version, detached from any branch.
+# The version can be a release (v1.2.0 or 1.2.0), a branch or a commit.
+# "latest" means the newest release.
+# Before the first release, "latest" means the default branch.
 envsetup::use_version() {
 	local ref=$1 releases target
 	local git=(git -C "$download")
@@ -91,7 +100,7 @@ envsetup::use_version() {
 			ref=${ref#origin/}
 		fi
 		if [[ -z "$ref" ]]; then
-			echo "No releases yet, and no default branch to fall back to; staying on what's checked out."
+			echo "envsetup has no releases and no default branch yet. Using the checked-out commit."
 			return 0
 		fi
 	fi
@@ -118,12 +127,14 @@ envsetup::bootstrap_git
 
 download=$(mktemp -d)
 trap 'rm -rf "$download"' EXIT
-# A signal (Ctrl-C, a closed terminal, kill) would otherwise end this without the EXIT trap.
+# A signal (Ctrl-C, a closed terminal, kill) would otherwise skip the EXIT trap.
 trap 'exit 130' INT TERM HUP
 git clone -q "$REPO_URL" "$download"
 envsetup::use_version "$ENVSETUP_VERSION"
-echo "Downloaded envsetup $(git -C "$download" describe --tags --always) to $download, which is deleted when setup ends."
+echo "Downloaded envsetup $(git -C "$download" describe --tags --always) to $download. envsetup deletes this folder when setup ends."
 
-# stdin from the terminal: under `curl ... | bash` it's the pipe from curl, which would
-# starve setup.sh's interactive gum prompts. Not exec'd, so the traps above still run.
+# setup.sh reads from the terminal.
+# Under `curl ... | bash`, stdin is the pipe from curl.
+# gum's questions in setup.sh would then get no input.
+# This line does not use exec, so the traps above still run.
 "$download/setup.sh" "$@" </dev/tty

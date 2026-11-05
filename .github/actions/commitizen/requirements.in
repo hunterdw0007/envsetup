@@ -1,3 +1,4 @@
-# The one place commitizen's version is set; requirements.txt locks it and its
-# dependencies, with hashes. See action.yml.
+# This is the only place that sets commitizen's version.
+# requirements.txt locks commitizen and its dependencies by hash.
+# See action.yml.
 commitizen==4.19.2

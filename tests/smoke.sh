@@ -100,7 +100,11 @@ OMZ
 	*) echo "smoke: unexpected download: curl $*" >&2; exit 1 ;;
 esac
 EOF
-for tool in kubectl helm gh terraform aws docker lazygit; do printf '#!/bin/sh\n' >"$OFFLINE/$tool"; done
+for tool in kubectl helm terraform aws docker lazygit; do printf '#!/bin/sh\n' >"$OFFLINE/$tool"; done
+printf '#!/bin/sh\necho "gh $*" >>"$SMOKE_LOG"\n' >"$OFFLINE/gh"
+# The container has no openssh-client.
+# A real ssh-keygen would also wait for a passphrase.
+cp "$SRC/tests/ssh-keygen.sh" "$OFFLINE/ssh-keygen"
 mkdir -p "$HOOKS"
 printf '#!/bin/sh\necho "_direnv_hook() { :; }"\n' >"$HOOKS/direnv"
 printf '#!/bin/sh\necho "__zoxide_z() { :; }"\n' >"$HOOKS/zoxide"
@@ -284,6 +288,8 @@ for s in "$CLONE"/installers/work/*.sh; do
 	check "ran installer ${s##*/}" grep -qF "Running ${s##*/}" "$SMOKE_LOG"
 done
 check "no downloads (vendor tools already installed)" not_grep '^curl ' "$SMOKE_LOG"
+check "asked to sign commits with the new SSH key" grep -qF 'gum confirm Sign your git commits' "$SMOKE_LOG"
+check "  ...and, on no, added no signing key with gh" not_grep '--type signing' "$SMOKE_LOG"
 check "bash loads the aliases" [ "$(in_shell "$h" bash 'alias ll')" = "alias ll='ls -alh'" ]
 check "bash gets the prompt" has_prompt "$h"
 check "  ...which collapses the path" [ "$(prompt_var "$h" /usr/share/doc dir)" = /u/s/doc ]
@@ -361,6 +367,97 @@ check "  ...saved none" [ "$(identity "$h")" = none ]
 SMOKE_INPUT=not-an-email check "an email without @: exited 0" run_menu "$h" "Configure git" Quit
 check "  ...saved the name, not the email" [ "$(identity "$h")" = "user.name not-an-email" ]
 check "  ...and said why" grep -qF 'Skipped user.email: "not-an-email" is not an email address' "$h/setup.out"
+((failures)) && show "$h/setup.out"
+
+echo "== Set up SSH key: work lite, with gh (#93)"
+h=$(new_home)
+key=$h/.ssh/id_ed25519
+signing() { git config --file "$1/.gitconfig" --get-regexp '^(gpg\.format|user\.signingkey|commit\.gpgsign)$' || echo none; }
+before=$(snapshot "$h")
+SETUP_ARGS=(--dry-run)
+check "--dry-run: exited 0" run_menu "$h" "Select profile" work lite "Set up SSH key" Quit
+SETUP_ARGS=()
+check "  ...said it would create the key" grep -qF "would create the SSH key $key ($(id -un)@$HOSTNAME)" "$SMOKE_LOG"
+check "  ...and offer it to gh" grep -qF 'would ask to add it to your GitHub account with gh' "$SMOKE_LOG"
+check "  ...and add it as a signing key on yes" grep -qF 'would add it to your GitHub account as a signing key with gh, if you say yes to both questions' "$SMOKE_LOG"
+check "  ...ran no ssh-keygen or gh" not_grep '^\(ssh-keygen\|gh\) ' "$SMOKE_LOG"
+check "  ...and changed nothing" [ "$(snapshot "$h")" = "$before" ]
+CONFIRMS=(yes yes) # add it with gh; sign commits with it
+check "exited 0" run_menu "$h" "Select profile" work lite "Set up SSH key" Quit
+CONFIRMS=()
+check "created the key, named for this machine" grep -qxF "ssh-ed25519 AAAAsmoke $(id -un)@$HOSTNAME" "$key.pub"
+check "added it with gh" grep -qxF "gh ssh-key add $key.pub --title $(id -un)@$HOSTNAME" "$SMOKE_LOG"
+check "  ...and as a signing key, once you said yes to signing" grep -qxF "gh ssh-key add $key.pub --type signing --title $(id -un)@$HOSTNAME signing" "$SMOKE_LOG"
+check "set git to sign commits with it" [ "$(signing "$h" | tr '\n' ' ')" = "gpg.format ssh user.signingkey $key.pub commit.gpgsign true " ]
+before=$(snapshot "$h")
+check "a second run exited 0" run_menu "$h" "Set up SSH key" Quit
+check "  ...ran no ssh-keygen" not_grep '^ssh-keygen ' "$SMOKE_LOG"
+check "  ...and changed nothing" [ "$(snapshot "$h")" = "$before" ]
+SETUP_ARGS=(--uninstall) CONFIRMS=(yes yes) # remove; keep the key
+check "--uninstall exited 0" run_menu "$h"
+SETUP_ARGS=() CONFIRMS=()
+check "  ...asked about the key" grep -qF 'gum confirm Keep ~/.ssh/id_ed25519?' "$SMOKE_LOG"
+check "  ...kept it, as answered" grep -qxF smoke-private-key "$key"
+check "  ...and removed the signing settings" [ "$(signing "$h")" = none ]
+((failures)) && show "$h/setup.out"
+
+echo "== Set up SSH key: no to gh, yes to signing"
+h=$(new_home)
+key=$h/.ssh/id_ed25519
+CONFIRMS=(no yes)
+check "exited 0" run_menu "$h" "Select profile" work lite "Set up SSH key" Quit
+CONFIRMS=()
+check "  ...set git to sign commits with the key" [ "$(git config --file "$h/.gitconfig" user.signingkey)" = "$key.pub" ]
+check "  ...added no signing key" not_grep '--type signing' "$SMOKE_LOG"
+check "  ...and called no gh at all" not_grep '^gh ' "$SMOKE_LOG"
+check "  ...and said where to add the signing key" grep -qF 'Add the public key as a signing key at https://github.com/settings/keys' "$SMOKE_LOG"
+((failures)) && show "$h/setup.out"
+
+echo "== Set up SSH key: no gh, then uninstall deletes it when told to"
+h=$(new_home)
+key=$h/.ssh/id_ed25519
+mv "$OFFLINE/gh" $W/gh
+check "exited 0" run_menu "$h" "Select profile" work lite "Run everything" Quit
+mv $W/gh "$OFFLINE/gh"
+check "created the key in Run everything" [ -f "$key" ]
+check "  ...and showed it, with where to add it" grep -qF 'Add this public key at https://github.com/settings/keys' "$SMOKE_LOG"
+check "  ...left git signing alone when told no" [ "$(signing "$h")" = none ]
+SETUP_ARGS=(--uninstall) CONFIRMS=(yes no) # remove; don't keep the key
+check "--uninstall exited 0" run_menu "$h"
+SETUP_ARGS=() CONFIRMS=()
+check "  ...deleted the key and ~/.ssh" none_exist "$key" "$key.pub" "$h/.ssh"
+check "  ...and its marker" [ ! -e "$h/.config/envsetup" ]
+((failures)) && show "$h/setup.out"
+
+echo "== Set up SSH key: signing settings of your own are left alone"
+h=$(new_home)
+git config --file "$h/.gitconfig" user.signingkey SMOKEGPGKEY
+git config --file "$h/.gitconfig" commit.gpgsign true
+mine="user.signingkey SMOKEGPGKEY commit.gpgsign true "
+check "exited 0" run_menu "$h" "Select profile" work lite "Set up SSH key" Quit
+check "  ...created the key" [ -f "$h/.ssh/id_ed25519" ]
+check "  ...didn't offer to sign with it" not_grep 'gum confirm Sign your git commits' "$SMOKE_LOG"
+check "  ...or add it to GitHub as a signing key" not_grep '--type signing' "$SMOKE_LOG"
+check "  ...and said why" grep -qF 'git already has signing settings' "$SMOKE_LOG"
+check "  ...and kept your settings" [ "$(signing "$h" | tr '\n' ' ')" = "$mine" ]
+SETUP_ARGS=(--uninstall) CONFIRMS=(yes yes)
+check "--uninstall exited 0" run_menu "$h"
+SETUP_ARGS=() CONFIRMS=()
+check "  ...and kept your settings" [ "$(signing "$h" | tr '\n' ' ')" = "$mine" ]
+((failures)) && show "$h/setup.out"
+
+echo "== Set up SSH key: a key of your own is left alone"
+h=$(new_home)
+mkdir -m 700 "$h/.ssh"
+echo mine >"$h/.ssh/id_ed25519"
+check "exited 0" run_menu "$h" "Select profile" work lite "Set up SSH key" Quit
+check "  ...ran no ssh-keygen" not_grep '^ssh-keygen ' "$SMOKE_LOG"
+check "  ...and kept the key as it was" [ "$(cat "$h/.ssh/id_ed25519")" = mine ]
+SETUP_ARGS=(--uninstall) CONFIRMS=(yes)
+check "--uninstall exited 0" run_menu "$h"
+SETUP_ARGS=() CONFIRMS=()
+check "  ...didn't ask about the key" not_grep 'Keep ~/.ssh/id_ed25519' "$SMOKE_LOG"
+check "  ...and kept it" [ "$(cat "$h/.ssh/id_ed25519")" = mine ]
 ((failures)) && show "$h/setup.out"
 
 echo "== config.sh with a failed command, then with a syntax error (#51)"
@@ -520,7 +617,8 @@ check "said it would link ~/.bashrc" grep -qF "would add a 5-line block to $h/.b
 check "  ...and nothing about zsh" not_grep 'would .*\(oh-my-zsh\|zshrc\)' "$SMOKE_LOG"
 check "said it would ask for a git identity" grep -qF 'would ask for your git user.name' "$SMOKE_LOG"
 check "said it would install common + home packages" described "$hm" "would install $hm packages"
-check "ran nothing that changes the machine" not_grep '^\(apt-get\|curl\|chsh\) ' "$SMOKE_LOG"
+check "said it would create an SSH key" grep -qF "would create the SSH key $h/.ssh/id_ed25519" "$SMOKE_LOG"
+check "ran nothing that changes the machine" not_grep '^\(apt-get\|curl\|chsh\|ssh-keygen\) ' "$SMOKE_LOG"
 check "left \$HOME exactly as it was" [ "$(snapshot "$h")" = "$before" ]
 touch "$h/.bashrc"
 echo "# control" >>"$h/.bashrc"
@@ -545,7 +643,7 @@ h=$(new_home)
 check "exited 0" run_menu "$h" "Select profile" work full "Preview everything" Quit
 check "said it would install common + work packages" described "$w" "would install $w packages"
 check "said it would run the work installers" described "$wi" "would run $wi installer scripts"
-check "ran nothing that changes the machine" not_grep '^\(apt-get\|curl\|chsh\) ' "$SMOKE_LOG"
+check "ran nothing that changes the machine" not_grep '^\(apt-get\|curl\|chsh\|ssh-keygen\) ' "$SMOKE_LOG"
 check "left ~/.bashrc as it was" cmp -s /etc/skel/.bashrc "$h/.bashrc"
 check "still saved the profile you picked" [ "$(cat "$h/.config/envsetup/profile" 2>/dev/null)" = work ]
 
@@ -677,12 +775,12 @@ echo "== Uninstall from the menu: home on zsh, with a config.sh"
 h=$(new_home)
 mkdir -p "$h/.config/envsetup"
 echo 'alias smoke=true' >"$h/.config/envsetup/config.sh"
-CONFIRMS=(yes) # make zsh the login shell
+CONFIRMS=(no no yes) # no to the SSH key's two questions, yes to make zsh the login shell
 run_menu "$h" "Select profile" home "Run everything" "Set up zsh + oh-my-zsh" Quit
 check "(before: ~/.zshrc is linked)" grep -qF '# >>> envsetup >>>' "$h/.zshrc"
 check "(before: noted that it switched the login shell)" [ -f "$h/.config/envsetup/chsh" ]
-# The answers: remove, yes; keep config.sh, no; keep zsh as the login shell, no.
-CONFIRMS=(yes no no)
+# The answers: remove, yes; keep config.sh, no; keep the SSH key, no; keep zsh as the login shell, no.
+CONFIRMS=(yes no no no)
 SHELL=/usr/bin/zsh check "exited 0" run_menu "$h" Uninstall
 CONFIRMS=()
 check "unlinked ~/.zshrc" not_grep '# >>> envsetup >>>' "$h/.zshrc"
@@ -754,7 +852,7 @@ SETUP_ARGS=(--dry-run)
 check "--dry-run exits 0" run_menu "$h" "Move dotfiles to XDG dirs" Quit
 check "  ...says it would fetch the notes" grep -qF "would download xdg-ninja's notes" "$SMOKE_LOG"
 check "  ...and changes nothing" [ "$(snapshot "$h")" = "$before" ]
-SETUP_ARGS=() CONFIRMS=(yes)
+SETUP_ARGS=() CONFIRMS=(no no yes) # no to the SSH key's two questions, yes to the moves
 check "Run everything exited 0" run_menu "$h" "Select profile" work full "Run everything" Quit
 check "moved ~/.htoprc (program reads the XDG path)" cmp -s <(echo 'color_scheme=1') "$h/.config/htop/htoprc"
 check "moved ~/.docker" [ -f "$h/.config/docker/config.json" ]

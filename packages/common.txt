@@ -18,6 +18,9 @@ jq
 fzf
 ripgrep
 bat
+# openssh-client provides ssh and ssh-keygen.
+# git over SSH and "Set up SSH key" need them.
+openssh-client
 
 # This package has `column`, for the tables of branchAll, fetchAll and pullMainAll.
 bsdextrautils

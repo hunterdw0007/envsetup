@@ -132,7 +132,8 @@ For example, `work` shows how many packages it installs and which installers it 
 2. **Configure git** writes envsetup's git settings and asks for your name and email.
 3. **Install packages** installs the packages for your profile.
 4. **Run installers** runs scripts for tools that package managers do not have.
-5. **Move dotfiles to XDG dirs**, only if you set `ENVSETUP_XDG_NINJA=1`.
+5. **Set up SSH key** creates `~/.ssh/id_ed25519` if it does not exist. See [SSH key](#ssh-key).
+6. **Move dotfiles to XDG dirs**, only if you set `ENVSETUP_XDG_NINJA=1`.
 
 With `ENVSETUP_SHELL=zsh`, **Link shell config** also runs **Set up zsh + oh-my-zsh**.
 
@@ -163,6 +164,29 @@ Every profile except work lite also gets environment variables and shell functio
 For example, `git pull` rebases your commits and does not merge.
 Also, `git aa` adds every file that `.gitignore` does not exclude, including `.env` files.
 Read [the git settings](docs/shell.md#git-settings) before you run **Configure git**.
+
+### SSH key
+
+**Set up SSH key** creates one SSH key for this machine, so `git clone git@...` works.
+If `~/.ssh/id_ed25519` exists, the action changes nothing.
+Otherwise, `ssh-keygen` asks for a passphrase.
+You can leave the passphrase empty.
+The key comment is `<user>@<hostname>`, so you can find the key in a list of keys.
+If `gh` is installed, the action offers to add the key to your GitHub account.
+A scope is a permission that you give `gh` when you log in.
+`gh` needs the `admin:public_key` scope for this: `gh auth refresh -s admin:public_key`.
+If `gh` is missing, you say no, or the upload fails, the action shows the public key.
+Then add the public key at <https://github.com/settings/keys>.
+The action also offers to sign your git commits with the key.
+It skips this offer if git already has `user.signingkey` or `commit.gpgsign`.
+If you say yes to both offers, the action also adds the key to GitHub as a signing key.
+GitHub then shows a signed commit as "Verified" if its email is verified on your GitHub account.
+`gh` needs the `admin:ssh_signing_key` scope for this: `gh auth refresh -s admin:ssh_signing_key`.
+If the action does not add the signing key, add the public key at <https://github.com/settings/keys>.
+Choose the key type **Signing Key** there.
+Uninstall asks before it deletes the key.
+Uninstall does not remove the key from your GitHub account.
+Work lite installs no packages, so it needs `ssh-keygen` from the system's `openssh-client` package.
 
 ## Supported systems
 
@@ -282,6 +306,7 @@ Uninstall removes everything that envsetup added:
 - the include line in `~/.gitconfig` and the file it includes
 - your saved profile and mode
 - the dotfile moves to XDG folders
+- the git settings that sign your commits with the SSH key that envsetup created
 
 Uninstall does not change the rest of each startup file.
 Uninstall moves each dotfile back to its old path.
@@ -290,6 +315,8 @@ Then uninstall leaves that dotfile in its new path and tells you why.
 After you fix the problem, run uninstall again.
 
 Uninstall asks before it removes your `config.sh`.
+If envsetup created `~/.ssh/id_ed25519`, uninstall asks "Keep ~/.ssh/id_ed25519?".
+The default answer keeps it.
 If envsetup changed your login shell to zsh, uninstall asks to change it back to bash.
 
 Uninstall keeps these things, because they can exist without envsetup:

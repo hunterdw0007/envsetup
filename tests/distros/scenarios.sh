@@ -61,6 +61,9 @@ answers() {
 # It fills in input and logs each call.
 mkdir -p "$stubs"
 install -m 755 /src/tests/gum.sh "$stubs/gum"
+# A real ssh-keygen would wait for a passphrase.
+# The test checks the real ssh from openssh-client below.
+install -m 755 /src/tests/ssh-keygen.sh "$stubs/ssh-keygen"
 
 # The code under test is the commit checked out in /src, and install.sh downloads it.
 # git is not installed yet, so the script writes the safe.directory setting by hand.
@@ -103,7 +106,7 @@ fi
 
 # --- each profile: Run everything, then check what a new shell gets -----------------
 # These are the commands that each profile's packages and installers should put on PATH.
-common_cmds="git tmux vim curl wget htop tree unzip jq fzf rg column bat|batcat"
+common_cmds="git tmux vim curl wget htop tree unzip jq fzf rg column bat|batcat ssh"
 declare -A expect=(
 	[home]="$common_cmds python3 pip3 node npm nvim direnv shellcheck tig ncdu docker zsh"
 	["work-full"]="$common_cmds nmap tcpdump strace lsof iostat mtr iotop iftop netstat rsync dig kubectl helm gh terraform aws"
@@ -134,10 +137,11 @@ for run in home work-full work-lite; do
 	chown -R "$user:" "/home/$user/.config"
 
 	case $run in
-	# zsh comes first, so "no" always answers its chsh question.
+	# zsh comes first, so the first "no" always answers its chsh question.
 	# chsh would ask for a password.
+	# The next "no" turns down SSH signing.
 	# Then "yes" moves dotfiles, if there are any to move.
-	home) answers "$user" no yes -- "Select profile" home "Set up zsh + oh-my-zsh" "Run everything" Quit ;;
+	home) answers "$user" no no yes -- "Select profile" home "Set up zsh + oh-my-zsh" "Run everything" Quit ;;
 	work-full) answers "$user" -- "Select profile" work full "Run everything" Quit ;;
 	work-lite) answers "$user" -- "Select profile" work lite "Run everything" Quit ;;
 	esac

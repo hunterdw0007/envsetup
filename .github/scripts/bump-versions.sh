@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
-# Rewrites installers/versions.txt with the newest release of every tool it pins, and the
-# sha256 of each platform's download as the project publishes it. Review the diff and
-# open a PR: once merged, those are the versions and hashes every install checks against.
-# .github/workflows/bump-versions.yml runs it weekly and opens that PR (bump-pr.sh).
+# This script writes installers/versions.txt again with the newest release of every pinned tool.
+# It also writes the sha256 that the project publishes for each platform's download.
+# Review the diff and open a PR.
+# After the merge, every install checks against those versions and hashes.
+# .github/workflows/bump-versions.yml runs this script every week and opens that PR (bump-pr.sh).
 #
 #   .github/scripts/bump-versions.sh
 #
-# Prints what changed as a Markdown list. Any lookup that fails stops it before the file
-# changes. Needs curl and git.
+# The script prints the changes as a Markdown list.
+# A failed lookup stops the script before the file changes.
+# The script needs curl and git.
 set -euo pipefail
 
 ENVSETUP_ROOT=$(cd "${BASH_SOURCE[0]%/*}/../.." && pwd)
@@ -16,9 +18,11 @@ export ENVSETUP_ROOT
 source "$ENVSETUP_ROOT/lib/common.sh"
 file=$ENVSETUP_ROOT/installers/versions.txt
 
-# Only here, never in lib/: installs use the pins, not what is newest that day.
-# The version of a GitHub project's latest release, without the "v": github.com
-# redirects releases/latest to the tag, which avoids the rate-limited API.
+# These lookups live only here, never in lib/.
+# Installs use the pins, not the newest version on that day.
+# latest prints the version of a GitHub project's newest release, without the "v".
+# github.com redirects releases/latest to the tag.
+# So the script does not need the GitHub API and its rate limit.
 envsetup::github_latest() {
 	local url
 	url=$(curl -fsSL -o /dev/null -w '%{url_effective}' "https://github.com/$1/releases/latest") || return 1
@@ -26,15 +30,16 @@ envsetup::github_latest() {
 	echo "${BASH_REMATCH[1]}"
 }
 
-# sha <key> <checksums url> <file>: " <key>=<sha256>", <file>'s hash from the list.
+# sha <key> <checksums url> <file> prints " <key>=<sha256>", with the hash of <file> from the list.
 sha() {
 	local hash
 	hash=$(envsetup::release_sha256 "$2" "$3")
 	printf ' %s=%s' "$1" "$hash"
 }
 
-# One pin_<name> per name in the file: prints "<version> <key>=<sha256>...", where each key is
-# the platform the installer asks envsetup::pin for.
+# Each name in the file has one pin_<name> function.
+# The function prints "<version> <key>=<sha256>...".
+# Each key is the platform that the installer asks envsetup::pin for.
 pin_gum() {
 	local v base arch
 	v=$(envsetup::github_latest charmbracelet/gum)
@@ -54,8 +59,9 @@ pin_ohmyzsh() {
 
 pin_awscli() {
 	local v
-	# AWS tags releases on GitHub but publishes no GitHub releases; the download is
-	# checked against its signing key at install time, so only the version is pinned.
+	# AWS tags releases on GitHub, but it publishes no GitHub releases.
+	# The install checks the download against AWS's signing key.
+	# So only the version is pinned.
 	v=$(git ls-remote --tags --refs https://github.com/aws/aws-cli 'refs/tags/2.*' | sed 's#.*/##' | sort -V | tail -n 1)
 	printf %s "${v:?no 2.x tags in aws/aws-cli}"
 }
@@ -148,7 +154,8 @@ pin_yq() {
 	v=$(envsetup::github_latest mikefarah/yq)
 	base=https://github.com/mikefarah/yq/releases/download/v$v
 	printf %s "$v"
-	# Its checksums file lists many hashes per file, in the order checksums_hashes_order gives.
+	# Its checksums file lists many hashes for each file.
+	# checksums_hashes_order gives their order.
 	readarray -t order < <(curl -fsSL "$base/checksums_hashes_order")
 	for i in "${!order[@]}"; do [[ "${order[i]}" == SHA-256 ]] && break; done
 	[[ "${order[i]:-}" == SHA-256 ]] || return 1
@@ -171,7 +178,7 @@ while IFS= read -r line; do
 		continue
 	fi
 	if ! declare -F "pin_$name" >/dev/null; then
-		echo "No pin_$name in $0 to look up $name with." >&2
+		echo "$0 has no pin_$name function to look up $name." >&2
 		exit 1
 	fi
 	echo "Looking up $name..." >&2
@@ -179,8 +186,10 @@ while IFS= read -r line; do
 	"pin_$name"
 	echo
 done <"$file" >"$tmp"
-# What changed, as Markdown on stdout (bump-pr.sh puts it in the commit and the PR). The
-# same version with other hashes means upstream replaced a release's files: find out why.
+# Print the changes as Markdown on stdout.
+# bump-pr.sh puts this list in the commit and the PR.
+# The same version with new hashes means that the project replaced a release's files.
+# Find out why before you merge.
 awk 'NR == FNR { if (!/^#/ && NF) { old[$1] = $2; line[$1] = $0 }; next }
 	/^#/ || !NF { next }
 	old[$1] != $2 { print "- " $1 ": " (old[$1] == "" ? "new" : old[$1]) " → " $2; next }

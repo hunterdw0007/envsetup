@@ -1,2 +1,2 @@
 # shellcheck shell=bash
-# Home-only aliases.
+# Aliases for the home profile only.

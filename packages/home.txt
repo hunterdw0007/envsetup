@@ -1,5 +1,5 @@
-# Home profile: general use + light dev work on Linux.
-# Installed in addition to packages/common.txt.
+# These packages are for the home profile: general use and light development on Linux.
+# The home profile installs them in addition to packages/common.txt.
 python3
 python3-pip
 nodejs
@@ -10,5 +10,6 @@ shellcheck
 tig
 ncdu
 
-# Docker comes from installers/home/docker.sh: its package differs per distro, and a
-# Docker CE (or Desktop) that's already there must not be replaced.
+# Docker comes from installers/home/docker.sh.
+# Its package differs for each distro.
+# Also, envsetup must not replace a Docker CE or Docker Desktop that is already installed.

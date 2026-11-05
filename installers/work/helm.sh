@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# Installs Helm (pinned in installers/versions.txt; linux amd64 or arm64) if it isn't
-# already on PATH, checksum-verified. Not via get-helm-3: that script needs openssl,
-# which minimal images lack, and sudo.
+# This script installs Helm if it is not already on PATH.
+# installers/versions.txt pins the version, for linux amd64 or arm64.
+# The script checks the checksum of the download.
+# It does not use get-helm-3, because that script needs sudo and openssl.
+# Minimal images do not have openssl.
 set -euo pipefail
 
 source "$ENVSETUP_ROOT/lib/common.sh"

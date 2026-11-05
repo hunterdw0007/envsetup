@@ -1,21 +1,23 @@
 name: distros
 
-# Weekly and on demand (Actions tab > distros > Run workflow): tries envsetup on many
-# distros with real package installs, which takes too long for every push. See
-# tests/distros/run.sh. The report lands in the run summary and as an artifact; a failed
-# weekly run opens an issue (or comments on the open one).
+# This workflow runs every week, and on demand (Actions tab > distros > Run workflow).
+# It tests envsetup on many distros with real package installs.
+# That takes too long for every push.
+# See tests/distros/run.sh.
+# The report goes to the run summary and to an artifact.
+# A failed weekly run opens an issue, or comments on the open issue.
 on:
   schedule:
-    # Thursdays, away from Monday's bump-versions run and the distros run it starts.
+    # It runs on Thursdays, apart from Monday's bump-versions run and the distros run that it starts.
     - cron: "0 6 * * 4"
   workflow_dispatch:
     inputs:
       images:
-        description: Container images, space-separated (empty runs the default list)
+        description: Container images, separated by spaces. Leave it empty to run the default list.
         required: false
         default: ""
       skip:
-        description: Packages/installers to leave out, as in ENVSETUP_SKIP
+        description: Packages and installers to skip, as in ENVSETUP_SKIP
         required: false
         default: ""
 
@@ -29,8 +31,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # The containers mount this checkout and run vendor installers: keep the
-          # token out of it. Every clone in the tests is local.
+          # The containers mount this checkout and run vendor installers.
+          # So keep the token out of the checkout.
+          # Every clone in the tests is local.
           persist-credentials: false
 
       - name: Run tests/distros/run.sh
@@ -40,10 +43,10 @@ jobs:
           DISTROS_OUT: ${{ runner.temp }}/distros-report
           JOBS: "4"
         run: |
-          # Image-name characters only: $IMAGES is split into words, unquoted, below.
+          # Allow only the characters of image names, because $IMAGES is split into words below.
           re='^[a-z0-9./:_ -]*$'
           [[ $IMAGES =~ $re ]] || { echo "::error::images may only contain a-z 0-9 . / : _ - and spaces"; exit 1; }
-          # shellcheck disable=SC2086 # split on purpose: one image per word
+          # shellcheck disable=SC2086 # split on purpose, one image per word
           tests/distros/run.sh $IMAGES
 
       - name: Report
@@ -76,5 +79,5 @@ jobs:
           if [[ -n $n ]]; then
             gh issue comment "$n" --body "Failed again: $RUN"
           else
-            gh issue create --title "$TITLE" --body "The weekly distros run failed: $RUN (report in its summary and artifact)."
+            gh issue create --title "$TITLE" --body "The weekly distros run failed: $RUN. The report is in the run summary and in the artifact."
           fi

@@ -1,6 +1,7 @@
-# Work profile, full mode only (lite skips package installs entirely).
-# SRE-focused tools available from standard repos. Installed in addition to
-# packages/common.txt.
+# These packages are for the work profile in full mode only.
+# Lite mode installs no packages.
+# These are tools for operations work from the standard repos.
+# The work profile installs them in addition to packages/common.txt.
 nmap
 tcpdump
 strace
@@ -12,12 +13,12 @@ iftop
 net-tools
 rsync
 
-# dig/nslookup.
+# This package has dig and nslookup.
 dnsutils
 
-# gpgv/gpg, which check awscli's signature (installers/work/awscli.sh); Debian 13's base
-# image no longer has it.
+# This package has gpgv and gpg, which check awscli's signature (installers/work/awscli.sh).
+# Debian 13's base image no longer includes it.
 gnupg
 
-# terraform, kubectl, helm, awscli v2 and gh aren't in most distros' repos; they come
-# from installers/work/ instead.
+# Most distros' repos do not have terraform, kubectl, helm, awscli v2 and gh.
+# They come from installers/work/ instead.

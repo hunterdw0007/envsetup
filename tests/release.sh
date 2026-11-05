@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-# Tests .github/scripts/release.sh, the only code that pushes to main. Each run is what
-# CI's release job does: a fresh checkout of the pushed commit, `release.sh bump`, then
-# `release.sh publish`, here against a scratch origin, with real git and commitizen and a
-# stand-in gh. The origin starts from this checkout's files (uncommitted edits included),
-# with no releases yet.
+# This script tests .github/scripts/release.sh, the only code that pushes to main.
+# Each run does what CI's release job does.
+# It makes a new checkout of the pushed commit, runs `release.sh bump`, then runs `release.sh publish`.
+# Here it runs against a local test remote, with real git, real commitizen and a fake gh.
+# The remote starts from this checkout's files, including edits that are not committed.
+# The remote has no releases yet.
 #
 #   tests/release.sh
 #
-# Needs git and cz on PATH (pipx install commitizen, or CI's
-# .github/actions/commitizen). Runs in a temp dir and changes nothing else.
-# shellcheck disable=SC2016 # single-quoted code is meant to expand in the stub
-set -uo pipefail # no -e: one failed check doesn't stop the rest
+# The test needs git and cz on PATH (pipx install commitizen, or CI's .github/actions/commitizen).
+# It runs in a temporary folder and changes nothing else.
+# shellcheck disable=SC2016 # code in single quotes expands later, in the fake
+set -uo pipefail # no -e, so one failed check does not stop the rest
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 T=$(mktemp -d)
@@ -36,7 +37,8 @@ command -v cz >/dev/null || {
 	exit 2
 }
 
-# gh: a release exists once it's created (its notes are kept in $GH_STATE/<tag>).
+# The fake gh keeps each release that it creates.
+# It saves the notes in $GH_STATE/<tag>.
 export GH_LOG=$T/gh.log GH_STATE=$T/releases
 mkdir -p "$T/bin" "$T/nocz" "$GH_STATE"
 cat >"$T/bin/gh" <<'EOF'
@@ -53,7 +55,7 @@ case "$1 $2" in
 *) exit 1 ;;
 esac
 EOF
-# publish runs with a cz that fails, so it can't depend on commitizen (see release.sh).
+# publish runs with a cz that always fails, so publish cannot depend on commitizen (see release.sh).
 printf '#!/bin/sh\necho "publish ran cz" >&2\nexit 99\n' >"$T/nocz/cz"
 chmod +x "$T/bin/gh" "$T/nocz/cz"
 export PATH=$T/bin:$PATH GITHUB_REPOSITORY=owner/envsetup GITHUB_SERVER_URL=https://github.example
@@ -64,14 +66,15 @@ git init -q --bare "$O"
 git -C "$O" symbolic-ref HEAD refs/heads/main
 git init -q "$T/seed"
 (cd "$root" && git ls-files -z --cached --others --exclude-standard | tar --null -T - -cf -) | tar -xf - -C "$T/seed"
-# No releases yet, so CHANGELOG.md is just its header: the real one has every entry,
-# for tags this origin doesn't have.
+# The remote has no releases yet, so CHANGELOG.md has only its header.
+# The real file has an entry for every tag, and this remote has none of those tags.
 sed -i '/^## /,$d' "$T/seed/CHANGELOG.md"
 git -C "$T/seed" add -A
 git -C "$T/seed" "${dev[@]}" commit -qm "chore: the code under test"
 git -C "$T/seed" push -q "$O" HEAD:main
 
-# commit <git commit args...>: a commit on the origin's main, as a merged PR; prints it.
+# commit <git commit args...> adds a commit to the remote's main, like a merged PR.
+# It prints the commit.
 commit() {
 	rm -rf "${T:?}/dev"
 	git clone -q "$O" "$T/dev"
@@ -79,7 +82,8 @@ commit() {
 	git -C "$T/dev" push -q origin HEAD:main
 	git -C "$T/dev" rev-parse HEAD
 }
-# release <sha>: CI's release job for that pushed commit; output in $T/out.
+# release <sha> runs CI's release job for that pushed commit.
+# The output goes to $T/out.
 release() {
 	rm -rf "${T:?}/ci"
 	git clone -q "$O" "$T/ci"
@@ -97,13 +101,13 @@ main_subject() { [ "$(git -C "$O" log -1 --format=%s main)" = "$1" ]; }
 created() { [ "$(grep -c "^gh release create $1 " "$GH_LOG")" = 1 ]; }
 none_created() { ! grep -q '^gh release create' "$GH_LOG"; }
 notes_have() { grep -qxF -- "$2" "$GH_STATE/$1"; }
-# notes_are_entry <tag>: the notes, up to the install instructions, are in CHANGELOG.md word for word.
+# notes_are_entry <tag> passes when CHANGELOG.md has the notes exactly, up to the install steps.
 notes_are_entry() {
 	local notes
 	notes=$(sed '/^### Install this version$/,$d' "$GH_STATE/$1")
 	[[ -n "$notes" && "$(git -C "$O" show main:CHANGELOG.md)" == *"$notes"* ]]
 }
-# section <tag> <heading>: the bullets under "### <heading>" in that release's notes.
+# section <tag> <heading> prints the bullets under "### <heading>" in that release's notes.
 section() { sed -n "/^### $2\$/,/^###/{/^- /p}" "$GH_STATE/$1"; }
 
 echo "== first release: everything so far, on 0.x"
@@ -159,7 +163,7 @@ echo "== main moves on while a release runs"
 x=$(commit -m "feat: x")
 y=$(commit -m "fix: y")
 check "the older commit's run exits 0" release "$x"
-check "  ...warns" grep -qF "::warning::main moved on" "$T/out"
+check "  ...warns" grep -qF "::warning::main got a new commit" "$T/out"
 check "  ...and pushes nothing" tags "v0.1.0 v0.1.1 v0.2.0 "
 check "  ...leaving main where it was" main_is "$y"
 check "the newer commit's run exits 0" release "$y"

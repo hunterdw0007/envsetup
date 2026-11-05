@@ -1,7 +1,7 @@
 ## Summary
 
-<!-- What changes and why. "Closes #N" if it fixes an issue; "stacked on #N" if based on another PR. -->
+<!-- What the PR changes, and why. Write "Closes #N" if it fixes an issue. Write "stacked on #N" if it builds on another PR. -->
 
 ## Test plan
 
-<!-- What you actually ran or checked (AGENTS.md, Testing), not just what the change does. -->
+<!-- What you ran or checked (see the Testing section of AGENTS.md). Do not just describe the change. -->

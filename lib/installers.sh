@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Runs the installer scripts in ENVSETUP_INSTALLER_DIRS: anything that isn't a plain
-# package-manager package. Each is a standalone, idempotent bash script.
+# This file runs the installer scripts in ENVSETUP_INSTALLER_DIRS.
+# Installers handle anything that a package manager cannot install.
+# Each installer is a separate bash script that is safe to run more than once.
 
 envsetup::run_installers() {
 	local script scripts=() names=() failed=()
 	if envsetup::lite; then
-		gum style --foreground 3 "work (lite) assumes no sudo access, so installers are skipped."
+		gum style --foreground 3 "work (lite) does not assume sudo, so it runs no installers."
 		return 0
 	fi
 	readarray -t scripts < <(envsetup::resolved_installers)
@@ -16,7 +17,7 @@ envsetup::run_installers() {
 		return 0
 	fi
 	if envsetup::dry_run; then
-		envsetup::would "run ${#scripts[@]} installer scripts, each a no-op if its tool is already there: ${names[*]}"
+		envsetup::would "run ${#scripts[@]} installer scripts, and each one skips a tool that is already installed: ${names[*]}"
 		return 0
 	fi
 	for script in "${scripts[@]}"; do

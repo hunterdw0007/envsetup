@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# Installs mise, the polyglot tool/runtime version manager (pinned in installers/versions.txt; linux x64 or arm64, static).
+# This script installs mise, which sets the tool and runtime versions for each project.
+# installers/versions.txt pins the version, for linux x64 or arm64.
+# The build is static.
 set -euo pipefail
 
 source "$ENVSETUP_ROOT/lib/common.sh"
 
 envsetup::has_cmd mise && exit 0
 
-# shell/shared/tools.sh activates it in new shells.
+# shell/shared/tools.sh turns it on in new shells.
 version=$(envsetup::pin mise)
 sha=$(envsetup::pin mise "linux-$(envsetup::arch)")
 arch=x64

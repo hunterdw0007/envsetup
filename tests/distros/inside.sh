@@ -1,14 +1,17 @@
 #!/bin/sh
-# Runs as root inside one distro container (started by run.sh). Gives the box what a
-# real machine already has (bash, sudo, a non-root user), then hands off to
-# scenarios.sh. POSIX sh: some images (Alpine) have no bash yet.
+# This script runs as root inside one distro container, which run.sh starts.
+# It adds what a real machine already has: bash, sudo and a user who is not root.
+# Then it runs scenarios.sh.
+# It is a POSIX sh script, because some images (Alpine) have no bash yet.
 set -eu
 
-# Optional site hook (proxy, CA, mirrors), mounted by run.sh from DISTROS_PREHOOK.
+# This is an optional hook for the local network (proxy, CA, mirrors).
+# run.sh mounts it from DISTROS_PREHOOK.
 # shellcheck source=/dev/null
 [ -f /prehook.sh ] && . /prehook.sh
 
-# A real machine already has its timezone etc. configured; a bare image would stop to ask.
+# A real machine already has its timezone and other settings.
+# Without them, a bare image would stop and ask.
 export DEBIAN_FRONTEND=noninteractive
 
 for pm in apt-get dnf zypper pacman apk; do

@@ -1,32 +1,37 @@
 #!/usr/bin/env bash
-# Shared helpers for envsetup scripts.
-# shellcheck disable=SC2034 # the ENVSETUP_* constants are used by the other lib files
+# Helpers that the envsetup scripts share.
+# shellcheck disable=SC2034 # the other lib files use the ENVSETUP_* constants
 
 # shellcheck source=shell/state.sh
 source "$ENVSETUP_ROOT/shell/state.sh"
 ENVSETUP_RC_BEGIN="# >>> envsetup >>>"
 ENVSETUP_RC_END="# <<< envsetup <<<"
-ENVSETUP_CHSH_MARKER="$ENVSETUP_STATE/chsh" # exists once envsetup switched you to zsh
-# The copy of shell/ that new shells load (see envsetup::copy_shell), and its release.
+ENVSETUP_CHSH_MARKER="$ENVSETUP_STATE/chsh" # exists after envsetup changes your login shell to zsh
+# New shells load this copy of shell/ (see envsetup::copy_shell).
+# The copy's release is recorded next to it.
 ENVSETUP_DATA=$HOME/.local/share/envsetup
 if [[ "${XDG_DATA_HOME:-}" == /* ]]; then ENVSETUP_DATA=$XDG_DATA_HOME/envsetup; fi
 
-# Dry run (--dry-run, or "Preview everything"): every step that would change the
-# machine checks this first and describes the change instead of making it.
+# A dry run comes from --dry-run or "Preview everything".
+# Every step that changes the machine checks this first.
+# In a dry run, the step describes the change and does not make it.
 envsetup::dry_run() { [[ "${ENVSETUP_DRY_RUN:-0}" == 1 ]]; }
 envsetup::would() { gum style --foreground 6 "  would $*"; }
 envsetup::has_cmd() { command -v "$1" &>/dev/null; }
 
-# The checked-out release (v1.2.0), "v1.2.0-3-gabc1234" three commits past it, a bare
-# commit before the first release; "-dirty" when tracked files were edited. Outside a
-# checkout, the release envsetup::copy_shell recorded.
+# version prints the checked-out release, for example v1.2.0.
+# Three commits after that release, it prints "v1.2.0-3-gabc1234".
+# Before the first release, it prints only the commit.
+# It adds "-dirty" when tracked files have edits.
+# Outside a checkout, it prints the release that envsetup::copy_shell recorded.
 envsetup::version() {
 	git -C "$ENVSETUP_ROOT" describe --tags --match 'v[0-9]*' --always --dirty 2>/dev/null ||
 		cat "$ENVSETUP_DATA/version" 2>/dev/null || echo unknown
 }
 
-# Runs a command as root: directly when already root (containers, WSL), else via sudo
-# or doas (Alpine).
+# as_root runs a command as root.
+# If the user is already root, it runs the command directly (containers, WSL).
+# Otherwise it uses sudo, or doas (Alpine).
 envsetup::as_root() {
 	if ((EUID == 0)); then
 		"$@"
@@ -35,12 +40,13 @@ envsetup::as_root() {
 	elif envsetup::has_cmd doas; then
 		doas "$@"
 	else
-		echo "Needs root, but there's no sudo or doas: $*" >&2
+		echo "This command needs root, but this machine has no sudo or doas: $*" >&2
 		return 1
 	fi
 }
 
-# os_release <KEY>: a field of /etc/os-release, e.g. ID=rocky, ID_LIKE="rhel centos fedora".
+# os_release <KEY> prints a field of /etc/os-release.
+# Examples are ID=rocky and ID_LIKE="rhel centos fedora".
 envsetup::os_release() {
 	local key value
 	[[ -r /etc/os-release ]] || return 0
@@ -53,7 +59,7 @@ envsetup::os_release() {
 	done </etc/os-release
 }
 
-# amd64 or arm64, as most release downloads name them.
+# arch prints amd64 or arm64, the names that most release downloads use.
 envsetup::arch() {
 	case $HOSTTYPE in
 	x86_64) echo amd64 ;;
@@ -62,8 +68,8 @@ envsetup::arch() {
 	esac
 }
 
-# Atomic/immutable systems (Silverblue, Bazzite, SteamOS, Aeon/MicroOS) mount /usr
-# read-only, so their own package manager can't install into the running system.
+# Some systems mount /usr as read-only: Silverblue, Bazzite, SteamOS and Aeon/MicroOS.
+# So their own package manager cannot install into the running system.
 envsetup::immutable() {
 	local mnt opts root="" usr=""
 	[[ -r /proc/mounts ]] || return 1
@@ -76,8 +82,9 @@ envsetup::immutable() {
 	[[ ",${usr:-$root}," == *,ro,* ]]
 }
 
-# pin <name> [<platform>]: <name>'s version from installers/versions.txt, or with
-# <platform> (a key there, e.g. linux-amd64) the sha256 of that platform's download.
+# pin <name> prints the version of <name> from installers/versions.txt.
+# pin <name> <platform> prints the sha256 of that platform's download instead.
+# <platform> is a key in that file, for example linux-amd64.
 envsetup::pin() {
 	local name version sums
 	while read -r name version sums; do
@@ -96,9 +103,10 @@ envsetup::pin() {
 	return 1
 }
 
-# release_sha256 <checksums url> <file>: <file>'s hash from a project's sha256 list,
-# either "<hash>  <file>" lines (sha256sum's format, "*file" and "./file" too) or the
-# bare hash of a one-file .sha256.
+# release_sha256 <checksums url> <file> prints the hash of <file> from a project's sha256 list.
+# The list can have "<hash>  <file>" lines, the format of sha256sum.
+# It also accepts "*file" and "./file".
+# The list can also be a .sha256 file with only one hash.
 envsetup::release_sha256() {
 	local hash file sums
 	sums=$(curl -fsSL "$1") || return 1
@@ -114,9 +122,10 @@ envsetup::release_sha256() {
 	return 1
 }
 
-# install_release <url> <sha256> <member>...: downloads a release (a .tar.gz, a .zip, or
-# a bare binary), checks its hash, and installs each member (a path inside the archive,
-# or the binary's name) into /usr/local/bin under its base name.
+# install_release <url> <sha256> <member>... downloads a release and checks its hash.
+# The release can be a .tar.gz, a .zip or a single binary.
+# A member is a path inside the archive, or the binary's name.
+# The function installs each member into /usr/local/bin under its base name.
 envsetup::install_release() (
 	url=$1 sha=$2 tmp=$(mktemp -d)
 	shift 2
@@ -124,7 +133,7 @@ envsetup::install_release() (
 	file=$tmp/download-${url##*/}
 	curl -fsSL -o "$file" "$url"
 	if ! echo "$sha  $file" | sha256sum -c >/dev/null 2>&1; then
-		echo "${url##*/} doesn't match its published checksum; not installing it." >&2
+		echo "${url##*/} does not match its published checksum. envsetup does not install it." >&2
 		exit 1
 	fi
 	case $file in
@@ -137,19 +146,21 @@ envsetup::install_release() (
 	done
 )
 
-# gpg_verify <file> <signature> <key.asc> <fingerprint>: checks a detached signature
-# against a key kept in this repo, and passes only if it's a valid signature by exactly
-# that key. "Expired" alone doesn't fail it: vendors extend a key's expiry date and keep
-# signing with it, so the copy here goes stale while the key stays the same. gpgv (which
-# Debian and Ubuntu always have; gpg often isn't installed) reads only binary keyrings,
-# hence the dearmoring.
+# gpg_verify <file> <signature> <key.asc> <fingerprint> checks a separate signature file.
+# It checks the signature against a key in this repo.
+# It passes only for a valid signature by exactly that key.
+# An expired key alone does not fail the check.
+# Vendors extend a key's expiry date and keep signing with the same key.
+# So the copy in this repo gets old, but the key stays the same.
+# Debian and Ubuntu always have gpgv, but often not gpg.
+# gpgv reads only binary keyrings, so the function converts the text key first.
 envsetup::gpg_verify() (
 	file=$1 sig=$2 key=$3 fpr=$4 tmp=$(mktemp -d) body=false status=
 	trap 'rm -rf "$tmp"' EXIT
 	while IFS= read -r line; do
 		[[ $line == -----END* ]] && break
 		if $body; then
-			[[ $line == =* ]] || printf '%s\n' "$line" # skip the armor's checksum line
+			[[ $line == =* ]] || printf '%s\n' "$line" # skip the checksum line of the text key
 		elif [[ -z ${line//[[:space:]]/} ]]; then
 			body=true
 		fi
@@ -160,11 +171,11 @@ envsetup::gpg_verify() (
 		status=$(gpg --homedir "$tmp" --no-default-keyring --keyring "$tmp/key.gpg" --batch \
 			--status-fd 1 --verify "$sig" "$file" 2>/dev/null) || true
 	else
-		echo "Can't check ${file##*/}'s signature without gpgv or gpg (install gnupg)." >&2
+		echo "envsetup needs gpgv or gpg to check the signature of ${file##*/}. Install gnupg." >&2
 		exit 1
 	fi
 	if [[ $'\n'"$status" != *$'\n[GNUPG:] VALIDSIG '"$fpr "* ]]; then
-		echo "${file##*/} isn't validly signed by $fpr; not installing it." >&2
+		echo "${file##*/} has no valid signature by $fpr. envsetup does not install it." >&2
 		exit 1
 	fi
 )
@@ -179,12 +190,13 @@ envsetup::pkg_manager() {
 		fi
 	done
 	if envsetup::immutable; then
-		echo "/usr is read-only here (Silverblue, Bazzite, SteamOS, MicroOS, ...), so the system's package manager can't install anything. Install Homebrew (https://brew.sh) and run this again." >&2
+		echo "/usr is read-only on this system (Silverblue, Bazzite, SteamOS, MicroOS, ...). So the system's package manager cannot install anything. Install Homebrew (https://brew.sh), then run envsetup again." >&2
 	fi
 }
 
-# pkg_name <manager> <package>: what <package> (as packages/*.txt name it) is called by
-# <manager>, from packages/names.txt. Prints nothing if that manager needs nothing.
+# pkg_name <manager> <package> prints the name that <manager> uses for <package>.
+# <package> is the name in packages/*.txt, and packages/names.txt holds the other names.
+# It prints nothing if that manager needs no package.
 envsetup::pkg_name() {
 	local -A col=([apt]=1 [dnf]=2 [zypper]=3 [pacman]=4 [apk]=5 [brew]=6 [nix]=7)
 	local fields=() name=$2
@@ -201,42 +213,46 @@ envsetup::pkg_name() {
 	esac
 }
 
-# RHEL and its clones ship a smaller package set; fzf, ripgrep, bat, htop, neovim and
-# about ten more of the listed packages come from EPEL. Asks before adding it.
+# RHEL and similar systems ship fewer packages.
+# fzf, ripgrep, bat, htop, neovim and about ten more listed packages come from EPEL.
+# enable_epel asks before it adds EPEL.
 envsetup::enable_epel() {
 	local id version pkg=epel-release
 	id=$(envsetup::os_release ID)
 	[[ "$id" =~ ^(rhel|ol)$ || " $(envsetup::os_release ID_LIKE) " == *" rhel "* ]] || return 0
 	rpm -q epel-release oracle-epel-release-el{8,9,10} &>/dev/null && return 0
 	if envsetup::dry_run; then
-		envsetup::would "ask to enable EPEL (Fedora's extra packages for $id), where about a third of the packages come from"
+		envsetup::would "ask to turn on EPEL, Fedora's extra packages for $id. About a third of the packages come from EPEL"
 		return 0
 	fi
-	gum confirm "Enable EPEL? It's Fedora's add-on repo for $id; about a third of the packages come from there." || return 0
+	gum confirm "Turn on EPEL? EPEL is Fedora's extra package repo for $id. About a third of the packages come from it." || return 0
 	version=$(envsetup::os_release VERSION_ID)
 	version=${version%%.*}
 	[[ "$id" == ol ]] && pkg=oracle-epel-release-el$version
 	if ! envsetup::as_root dnf install -y "$pkg" &&
 		! envsetup::as_root dnf install -y "https://dl.fedoraproject.org/pub/epel/epel-release-latest-$version.noarch.rpm"; then
-		gum style --foreground 3 "Couldn't enable EPEL; installing what $id's own repos have."
+		gum style --foreground 3 "Couldn't turn on EPEL. envsetup installs what the repos of $id have."
 		return 0
 	fi
-	# CodeReady Builder: some EPEL packages depend on it. epel-release ships the helper.
+	# Some EPEL packages need the CodeReady Builder repo.
+	# The epel-release package includes the helper that turns it on.
 	if envsetup::has_cmd crb; then envsetup::as_root crb enable; fi
 }
 
-# fetch <url> <file>, with curl or wget: Ubuntu's desktop install has only wget.
+# fetch <url> <file> downloads with curl or wget.
+# Ubuntu's desktop install has only wget.
 envsetup::fetch() {
 	if envsetup::has_cmd curl; then curl -fsSL -o "$2" "$1"; else wget -qO "$2" "$1"; fi
 }
 
-# gum_release <dir>: installs gum's pinned release binary into <dir>, checksum-verified.
+# gum_release <dir> installs gum's pinned release binary into <dir>.
+# It checks the checksum first.
 envsetup::gum_release() {
 	local arch asset version sha tmp rc=1
 	[[ "$OSTYPE" == linux* ]] || return 1
 	case $HOSTTYPE in x86_64) arch=$HOSTTYPE ;; aarch64) arch=arm64 ;; armv7*) arch=armv7 ;; *) return 1 ;; esac
 	version=$(envsetup::pin gum) && sha=$(envsetup::pin gum "linux-${arch/x86_64/amd64}") || return 1
-	# versions.txt names gum's Linux_x86_64 linux-amd64.
+	# versions.txt calls gum's Linux_x86_64 build linux-amd64.
 	asset=gum_${version}_Linux_$arch.tar.gz
 	tmp=$(mktemp -d)
 	if envsetup::fetch "https://github.com/charmbracelet/gum/releases/download/v$version/$asset" "$tmp/$asset" &&
@@ -250,18 +266,21 @@ envsetup::gum_release() {
 	return "$rc"
 }
 
-# ensure_gum: the menu needs it. The release binary in ~/.local/bin needs no sudo and
-# works on any distro; Homebrew is used when it's there, Go as a last resort.
+# ensure_gum installs gum, because the menu needs it.
+# The release binary in ~/.local/bin needs no sudo and works on any distro.
+# ensure_gum uses Homebrew if the machine has it.
+# It uses Go only if the other ways fail.
 envsetup::ensure_gum() {
 	local bin=$HOME/.local/bin manager need=()
 	[[ ":$PATH:" == *":$bin:"* || ! -x "$bin/gum" ]] || PATH=$bin:$PATH
 	envsetup::has_cmd gum && return 0
-	echo "gum not found, attempting to install it..." >&2
+	echo "gum is not installed. Installing gum..." >&2
 	if envsetup::has_cmd brew; then
 		brew install gum
 	else
-		# Minimal images (Amazon Linux, Leap) can lack tar or gzip, which tar runs to unpack
-		# .tar.gz; some have neither curl nor wget.
+		# Minimal images (Amazon Linux, Leap) can miss tar or gzip.
+		# tar needs gzip to unpack a .tar.gz.
+		# Some images have neither curl nor wget.
 		envsetup::has_cmd curl || envsetup::has_cmd wget || need+=(curl)
 		envsetup::has_cmd tar || need+=(tar)
 		envsetup::has_cmd gzip || need+=(gzip)
@@ -277,12 +296,12 @@ envsetup::ensure_gum() {
 		fi
 	fi
 	envsetup::has_cmd gum && return 0
-	echo "Could not auto-install gum. See https://github.com/charmbracelet/gum#installation" >&2
+	echo "Couldn't install gum. See https://github.com/charmbracelet/gum#installation" >&2
 	return 1
 }
 
-# pkg_install <manager> <package>...: names as packages/*.txt spell them; pkg_name maps
-# them for the manager.
+# pkg_install <manager> <package>... installs packages by their names in packages/*.txt.
+# pkg_name translates each name for the manager.
 envsetup::pkg_install() {
 	local manager=$1 pkg name i prefix="" failed=() install=() pkgs=() names=()
 	shift
@@ -290,27 +309,31 @@ envsetup::pkg_install() {
 	case "$manager" in
 	brew) install=(brew install) ;;
 	apt)
-		# Once per setup.sh session: its steps and installers share ENVSETUP_TMP.
+		# This runs once in each setup.sh run.
+		# The steps and installers of one run share ENVSETUP_TMP.
 		if [[ ! -e "${ENVSETUP_TMP:-}/apt-updated" ]]; then
-			# One broken source (e.g. a dead PPA) makes update exit non-zero even though the
-			# rest refreshed; install anyway; it still fails loudly if the lists are unusable.
-			envsetup::as_root apt-get update || echo "apt-get update reported errors; installing anyway." >&2
+			# One broken source, such as a removed PPA, makes the update exit non-zero.
+			# The other sources still refresh, so the install goes ahead.
+			# The install still fails with an error if the lists are broken.
+			envsetup::as_root apt-get update || echo "apt-get update reported errors. Installing anyway." >&2
 			if [[ -n "${ENVSETUP_TMP:-}" ]]; then : >"$ENVSETUP_TMP/apt-updated"; fi
 		fi
-		# Through env: sudo drops DEBIAN_FRONTEND, and a debconf prompt (tzdata) would hang.
+		# This passes DEBIAN_FRONTEND through env, because sudo drops it.
+		# Without it, a debconf question (tzdata) would wait forever.
 		install=(envsetup::as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y)
 		;;
 	dnf) install=(envsetup::as_root dnf install -y) ;;
 	zypper) install=(envsetup::as_root zypper --non-interactive install) ;;
 	pacman)
-		# A box that has never synced (a fresh container) has no package lists. Syncing
-		# without upgrading is a partial upgrade, which Arch doesn't support, hence -u.
+		# A machine that has never synced has no package lists, for example a new container.
+		# A sync without an upgrade is a partial upgrade.
+		# Arch does not support partial upgrades, so the command uses -u.
 		compgen -G '/var/lib/pacman/sync/*.db' >/dev/null || envsetup::as_root pacman -Syu --noconfirm
 		install=(envsetup::as_root pacman -S --noconfirm --needed)
 		;;
 	apk) install=(envsetup::as_root apk add) ;;
 	nix)
-		# Flake-style profiles (nix profile) and classic ones (nix-env) don't mix.
+		# New profiles (nix profile) and classic profiles (nix-env) do not work together.
 		if nix profile list &>/dev/null; then
 			install=(nix profile install) prefix='nixpkgs#'
 		else
@@ -325,15 +348,16 @@ envsetup::pkg_install() {
 	for pkg; do
 		name=$(envsetup::pkg_name "$manager" "$pkg")
 		if [[ -z "$name" ]]; then
-			echo "Skipping $pkg: nothing to install for it with $manager." >&2
+			echo "Skipping $pkg: $manager needs no package for it." >&2
 		else
 			pkgs+=("$pkg") names+=("$prefix$name")
 		fi
 	done
 	((${#names[@]})) || return 0
 	"${install[@]}" "${names[@]}" && return 0
-	# One package the system can't take (a conflict, a name this distro doesn't use)
-	# fails the whole batch, so find it by installing them one at a time.
+	# One bad package fails the whole install.
+	# A conflict, or a name that this distro does not use, are examples.
+	# So the function installs the packages one at a time to find the bad one.
 	echo "Installing them one at a time instead..." >&2
 	for i in "${!names[@]}"; do
 		"${install[@]}" "${names[i]}" || failed+=("${pkgs[i]}")

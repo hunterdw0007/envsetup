@@ -1,15 +1,18 @@
-# Shared git config/aliases, included from ~/.gitconfig by lib/git.sh. No identity
-# (user.name/email) here on purpose — that's prompted for per-machine, not committed.
-# Machine-specific settings (hooks path, CA bundle, ...) belong in config.sh.
-# These are defaults for every envsetup user. docs/shell.md lists the ones that change what
-# git does by default.
+# These are shared git settings and aliases.
+# lib/git.sh includes them from ~/.gitconfig.
+# This file has no name or email (user.name, user.email) on purpose.
+# envsetup asks for them on each machine, and nobody commits them.
+# Settings for one machine (hooks path, CA bundle, ...) belong in config.sh.
+# These are defaults for every envsetup user.
+# docs/shell.md lists the ones that change what git does by default.
 [advice]
 	statusHints = false
 [alias]
 	a = add
 	ap = add --patch
-	# Stages every file in the current dir, also files that .gitignore does not cover (an
-	# .env file, for example). Run git s before you commit.
+	# This alias stages every file in the current folder that .gitignore does not exclude.
+	# An .env file is an example.
+	# Run git s before you commit.
 	aa = add .
 	b = branch
 	ba = branch --all

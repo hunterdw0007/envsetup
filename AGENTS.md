@@ -1,53 +1,75 @@
 # AGENTS.md
 
-Standards for anyone (human or agent) working on this repo. This file is the source of
-truth — if a PR or commit doesn't follow it, that's a bug in the PR, not in this file.
+This file sets the standards for this repo. They apply to people and to agents.
+If a PR or commit breaks a rule here, fix the PR, not this file.
 
 ## Requirements and goals
 
 [`CONTRIBUTING.md`](CONTRIBUTING.md#requirements) lists the requirements and goals of envsetup.
 Every change must keep the requirements true.
 
+## Writing rules
+
+All writing in this repo follows these five rules.
+They cover docs, code comments, messages that users see, commit messages and PR descriptions.
+
+1. Use active voice.
+2. Write all sentences in 20 words or fewer.
+3. Include only one idea per sentence.
+4. Use the same word for the same thing every time.
+5. Do not use idioms or jargon.
+
+Names of tools, commands, files and variables are not jargon.
+Explain any other technical term the first time you use it.
+
 ## Commit messages
 
-Conventional Commits, always: `<type>(<scope>)?: <summary>`. They aren't just style:
-releases are versioned and described from them (see Releases below), and CI
-(`.github/workflows/commits.yml`) checks every commit in a PR, and the PR title, with
-commitizen. `cz check --rev-range origin/main..HEAD` runs the same check locally, and
-`cz commit` writes a message interactively (`pipx install commitizen`).
+Every commit message uses Conventional Commits: `<type>(<scope>)?: <summary>`.
+The release job reads these messages to pick the next version and write the release notes (see Releases).
+CI checks every commit in a PR with commitizen (`.github/workflows/commits.yml`).
+CI also checks the PR title.
+`cz check --rev-range origin/main..HEAD` runs the same check locally.
+`cz commit` helps you write a message step by step (`pipx install commitizen`).
 
-- Common types here: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `ci`.
-- Scope is usually the directory or concept the change lives in: `home`, `work`,
-  `packages`, `installers`. Omit it for changes that don't fit one area (e.g. a root
-  `README.md`-only change).
-- A breaking change (e.g. the workflow/menu structure changes such that a prior habit
-  no longer works) uses `!` after the type/scope: `feat!: ...`. It bumps the major
-  version (the minor one while on 0.x; see Releases) and is listed under "Breaking
-  changes" in the release notes.
-- PRs are squash-merged, so the PR title becomes the commit on `main` that the release
-  is worked out from: it follows the same format, with the type and `!` of the most
-  significant change in the PR.
-- Body explains *why*, not a restatement of the diff. Reference the PR/issue that
-  motivated the change if there is one.
+- The common types are `feat`, `fix`, `chore`, `docs`, `refactor`, `test` and `ci`.
+- The scope is usually the directory or area of the change: `home`, `work`, `packages` or `installers`.
+  Leave out the scope when a change does not fit one area.
+  A change to the root `README.md` alone is an example.
+- A breaking change puts `!` after the type or scope: `feat!: ...`.
+  A change is breaking when a user's old way of working stops working.
+  A change to the menu structure is an example.
+  A breaking change raises the major version.
+  While the version is 0.x, it raises the minor version instead (see Releases).
+  The release notes list it under "Breaking changes".
+- GitHub squash-merges PRs, so the PR title becomes the commit on `main`.
+  The release job picks the version from that commit.
+  So the PR title uses the same format.
+  It takes the type and `!` of the most important change in the PR.
+- The body explains *why* you made the change.
+  Do not repeat the diff in words.
+  Link the PR or issue behind the change, if there is one.
 
-## Branching and PRs
+## Branches and PRs
 
-- Never push directly to `main`. Every change goes through a feature branch and a PR.
-  The one exception is the release job's bump commit (see Releases).
-- If a change depends on another open, unmerged PR, base the new branch on that PR's
-  branch (not `main`) so the diff shown is just the incremental change, and say so in
-  the PR description ("stacked on #N").
-- Don't open a PR unless asked to. Creating the branch/commit is not the same as
-  opening the PR — confirm which is wanted when it's ambiguous.
-- PR descriptions include a "Test plan" section stating what was actually verified
-  (see Testing below), not just what the change does.
+- Never push directly to `main`.
+  Every change goes through a feature branch and a PR.
+  The release job's bump commit is the only exception (see Releases).
+- A change may depend on another open PR.
+  In that case, base the new branch on that PR's branch, not on `main`.
+  The diff then shows only the new change.
+  Say so in the PR description: "stacked on #N".
+- Do not open a PR unless someone asks for one.
+  A branch or a commit is not a request for a PR.
+  When the request is unclear, ask which one the person wants.
+- Every PR description has a "Test plan" section.
+  The test plan states what you checked (see Testing).
+  It does not just describe the change.
 
 ## Releases
 
-Every push to `main` whose commits call for a new version is released automatically,
-once CI passes (the `release` job in `.github/workflows/ci.yml`, which runs
-`.github/scripts/release.sh`). commitizen (`.cz.toml`) reads the commits since the last
-release:
+The `release` job in `.github/workflows/ci.yml` releases each push to `main` that needs a new version.
+It runs after CI passes, and it runs `.github/scripts/release.sh`.
+commitizen (`.cz.toml`) reads the commits since the last release:
 
 | Commits since the last release | Next version, while on 0.x | From 1.0.0 on |
 | --- | --- | --- |
@@ -56,216 +78,291 @@ release:
 | `fix`, `refactor`, `perf` | patch: `v0.4.2` → `v0.4.3` | patch: `v1.4.2` → `v1.4.3` |
 | only `docs`, `ci`, `test`, `chore`, `style`, `build` | no release | no release |
 
-A release is a `bump: version X → Y` commit by `github-actions[bot]` on `main` that adds
-the version's entry to `CHANGELOG.md`, an annotated `vX.Y.Z` tag on that commit, and a
-GitHub release with the same entry as its notes. The current version is the newest tag
-(`version_provider = "scm"`). `install.sh` downloads the newest release unless
-`ENVSETUP_VERSION` names another, so a release is what users run. It runs `setup.sh`
-from a temporary folder and deletes it on exit; new shells load the copy of `shell/`
-that "Link shell config" makes in `$XDG_DATA_HOME/envsetup`, with the release recorded
-next to it in `version`.
+A release has three parts:
 
-- `CHANGELOG.md` is written only by the release job: editing it in a PR conflicts with
-  the next bump commit. Fix a wrong entry with a follow-up release, not by hand.
-- Never create, move or delete a `v*` tag or a release by hand. People pin to versions,
-  and a tag that moves changes what they install. A bad release is fixed by the next
-  one (`fix: ...`), not by retagging.
-- Don't run `cz bump` yourself (it commits and tags locally, and only CI pushes those).
-  To see what merging would release, run `cz bump --get-next` on an up-to-date `main`
-  with the PR's commits on top.
-- Leaving 0.x is a deliberate PR: set `major_version_zero = false` in `.cz.toml`, as a
-  breaking change (`chore!: ...`), and its release is `v1.0.0`.
-- If the `release` job fails, re-run it: when the commit is already released, it only
-  creates the missing GitHub release. If `main` moved on while it ran, it pushes nothing
-  and warns; the next commit on `main` to pass CI releases both.
-- commitizen and all its dependencies are hash-locked in
-  `.github/actions/commitizen/requirements.txt` (change the version in `requirements.in`
-  and re-run the command at the top of the `.txt`). That lock is what keeps third-party
-  code out of the job that can push to `main`; don't loosen it. The job also runs
-  `release.sh bump` (commitizen, no token in the checkout) and then `release.sh publish`
-  (the push and the GitHub release; never runs commitizen), which keeps the token out of
-  commitizen's process, but steps of one job share the runner (`$GITHUB_PATH`,
-  `$GITHUB_ENV`, the workspace), so that split is defense in depth, not a boundary.
-- `tests/release.sh` runs the release job's two steps against a scratch origin (first
-  release, re-runs, no-op, race, refused push). CI runs it on every push and PR, and the
-  release job waits for it; extend it with any change to the release flow.
-- The job pushes with `GITHUB_TOKEN`, which works while `main` has no branch protection.
-  If `main` gets protection or a ruleset, add a `RELEASE_TOKEN` secret (a fine-grained
-  token or GitHub App token allowed to bypass it, with contents: write).
+- `github-actions[bot]` adds a `bump: version X → Y` commit to `main`.
+  This commit adds the version's entry to `CHANGELOG.md`.
+- An annotated `vX.Y.Z` tag marks that commit.
+- A GitHub release uses the same entry as its notes.
+
+The newest tag sets the current version (`version_provider = "scm"`).
+`install.sh` downloads the newest release, unless `ENVSETUP_VERSION` names another one.
+So users run a release, not `main`.
+`install.sh` runs `setup.sh` from a temporary folder and deletes the folder when it ends.
+"Link shell config" copies `shell/` to `$XDG_DATA_HOME/envsetup`.
+New shells load that copy.
+The file `version` next to the copy records the release.
+
+- Only the release job writes `CHANGELOG.md`.
+  An edit to it in a PR conflicts with the next bump commit.
+  A later release fixes a wrong entry.
+  Do not fix an entry by hand.
+- Never create, move or delete a `v*` tag or a release by hand.
+  People pin to versions.
+  A moved tag changes what they install.
+  The next release fixes a bad release (`fix: ...`).
+  Do not tag a commit again.
+- Do not run `cz bump` yourself.
+  It commits and tags locally, and only CI pushes those.
+  You can still see what a merge would release.
+  Put the PR's commits on top of an up-to-date `main`.
+  Then run `cz bump --get-next`.
+- Leaving 0.x takes its own PR.
+  That PR sets `major_version_zero = false` in `.cz.toml`.
+  It is a breaking change (`chore!: ...`), and its release is `v1.0.0`.
+- If the `release` job fails, run it again.
+  If the commit already has a release, the job only creates the missing GitHub release.
+  `main` may get a new commit while the job runs.
+  In that case the job pushes nothing and prints a warning.
+  The next commit on `main` that passes CI then releases both commits.
+- `.github/actions/commitizen/requirements.txt` locks commitizen and all its dependencies by hash.
+  To change the version, edit `requirements.in`.
+  Then run the command at the top of the `.txt` file again.
+  The lock keeps other people's code out of the job that can push to `main`.
+  Do not loosen the lock.
+- The job runs `release.sh bump` first.
+  That step runs commitizen without a token in the checkout.
+  The job then runs `release.sh publish`.
+  That step pushes and creates the GitHub release, and it never runs commitizen.
+  This split keeps the token away from commitizen.
+  But all steps of one job share the runner, including `$GITHUB_PATH`, `$GITHUB_ENV` and the workspace.
+  So the split adds a layer of protection, but it does not isolate the steps.
+- `tests/release.sh` runs the release job's two steps against a local test remote.
+  It covers a first release, a second run, a run with nothing to release, a race and a refused push.
+  CI runs it on every push and PR, and the release job waits for it.
+  Add to it whenever you change the release flow.
+- The job pushes with `GITHUB_TOKEN`.
+  That works while `main` has no branch protection.
+  If `main` gets protection or a ruleset, add a `RELEASE_TOKEN` secret.
+  Use a fine-grained token or a GitHub App token that can bypass the protection.
+  It needs contents: write.
 
 ## Shell script standards
 
-- Shebang `#!/usr/bin/env bash`, and `set -euo pipefail` at the top of every
-  executable script (`setup.sh`, `install.sh`, everything under `installers/`). Test
-  harnesses under `tests/` may leave out `-e`, so one failed check doesn't stop the rest.
-- Indent with tabs, matching the rest of the repo.
-- Use `[[ ]]` over `[ ]`, quote variable expansions, prefer bash builtins
-  (`readarray`, `[[ =~ ]]`, parameter expansion) over spawning external tools where
-  a builtin does the job.
-- Namespace functions as `envsetup::<name>` (see `lib/common.sh`, `lib/zsh.sh`,
-  `lib/installers.sh`) — this is a flat function namespace, not real modules, so the
-  prefix is what keeps names from colliding. Variables shared across files use
-  `ENVSETUP_*`; temporaries in a sourced file (e.g. `shell/init.sh`, which runs inside
-  the user's interactive shell) use a `_envsetup_` prefix and are `unset` afterwards.
-- Anything a user picks from should say what it does. Build that text from the resolved
-  config (`envsetup::resolved_packages` / `envsetup::resolved_installers` in
-  `lib/config.sh`, the same functions the actions run on), never a hand-written count
-  that can drift. Picker lines are `"<value>  <description>"` and the caller keeps
-  `${choice%% *}`: `gum choose --label-delimiter` would do the same, but only on newer
-  gum releases, and an older one would reject the flag and silently break the picker.
-- Every step that changes the machine (writes a file, installs, runs sudo/chsh, calls
-  out to the network) checks `envsetup::dry_run` *before its first write* and describes
-  the change with `envsetup::would` instead. The smoke test's dry-run scenarios snapshot
-  `$HOME` and fail on any write, so a missed guard doesn't go unnoticed.
-- Anything new that envsetup writes outside this repo (a file, an rc-file line, a git
-  setting) is also removed by `envsetup::uninstall` (`lib/uninstall.sh`), with a check in
-  the smoke test's uninstall scenarios. Uninstall removes only what envsetup itself
-  created; anything the user may own (their `config.sh`, their login shell) is asked
-  about, phrased as "Keep …?" so the default answer is the safe one.
-- Options are parsed before `envsetup::ensure_gum`, so anything that doesn't need the TUI
-  (`--help`, rejecting an unknown option) works on a machine that doesn't have gum yet.
-- Under `set -e`, a function whose last command is `[[ ... ]] && x` returns non-zero
-  when the test is false, and `var=$(that_function)` then kills the script. End such
-  functions with `if ...; then ...; fi` instead.
-- Never run a step as `step || handle_failure`: bash switches `set -e` off inside
-  everything `step` calls, so a failure halfway through carries on silently. Menu
-  actions go through `envsetup::run_step` (`setup.sh`), which runs them in a subshell
-  with `set -e` intact and returns to the menu if they fail.
-- Every shell script must pass `bash -n <file>` and `shellcheck <file>` before it's
-  committed — CI (`.github/workflows/ci.yml`) runs shellcheck, which also fails on
-  syntax errors, on every push/PR, so a
-  script that doesn't pass locally will fail there too. Prefer an inline
-  `# shellcheck disable=SC____` with a comment explaining why over silencing a whole
-  file, and prefer fixing the actual issue over disabling it when the fix is simple
-  (e.g. `VAR=$(cmd); export VAR` instead of `export VAR=$(cmd)`, per SC2155).
-  A file that's only ever `source`d (never executed directly), like the ones under
-  `shell/shared/` and `shell/profiles/`, needs `# shellcheck shell=bash` as its first
-  line so shellcheck knows the dialect (see SC2148).
-- Formatting is whatever `shfmt -i 0` (tabs, otherwise shfmt's defaults) writes; CI runs
-  `shfmt -d -i 0 .` and fails on any diff. `shfmt -w -i 0 .` fixes it locally. CI pins
-  shellcheck v0.11.0 and shfmt v3.14.1 (the install step in `ci.yml`); use the same
-  versions locally, since a newer one can disagree.
-- No inline `#` comments on a `packages/*.txt` package-name line — the line is passed
-  verbatim to the package manager, so a comment on the same line breaks the install.
+- Every executable script starts with the shebang `#!/usr/bin/env bash` and `set -euo pipefail`.
+  Executable scripts are `setup.sh`, `install.sh` and everything under `installers/`.
+  Test scripts under `tests/` may leave out `-e`.
+  Then one failed check does not stop the rest.
+- Indent with tabs, like the rest of the repo.
+- Use `[[ ]]` instead of `[ ]`.
+- Quote variable expansions.
+- Use a bash builtin when one does the job, instead of an external tool.
+  Examples are `readarray`, `[[ =~ ]]` and parameter expansion.
+- Name functions `envsetup::<name>` (see `lib/common.sh`, `lib/zsh.sh` and `lib/installers.sh`).
+  Bash has one flat set of function names and no real modules.
+  So the prefix keeps names from clashing.
+- Variables that several files share use the prefix `ENVSETUP_`.
+- A sourced file runs inside the user's own shell.
+  `shell/init.sh` is an example.
+  Its temporary variables use the prefix `_envsetup_`, and the file `unset`s them at the end.
+- Each item in a picker says what it does.
+  Build that text from the resolved config.
+  Use `envsetup::resolved_packages` or `envsetup::resolved_installers` in `lib/config.sh`.
+  The actions run on the same functions.
+  Never write a count by hand, because it can get out of date.
+- Picker lines are `"<value>  <description>"`, and the caller keeps `${choice%% *}`.
+  `gum choose --label-delimiter` does the same, but only newer gum releases have it.
+  An older gum rejects the flag, and the picker breaks without an error.
+- A step changes the machine when it writes a file, installs, runs sudo or chsh, or uses the network.
+  Every such step checks `envsetup::dry_run` *before its first write*.
+  In a dry run, it describes the change with `envsetup::would` instead.
+  The smoke test's dry-run scenarios take a snapshot of `$HOME` and fail on any write.
+  So the smoke test catches a missing check.
+- envsetup may write something new outside this repo, such as a file, an rc-file line or a git setting.
+  `envsetup::uninstall` (`lib/uninstall.sh`) must also remove it.
+  The smoke test's uninstall scenarios must check the removal.
+- Uninstall removes only what envsetup created.
+  It asks about anything the user may own, such as their `config.sh` or their login shell.
+  The question reads "Keep …?", so the default answer is the safe one.
+- `setup.sh` parses options before `envsetup::ensure_gum`.
+  So options that need no menu work on a machine without gum.
+  `--help` and the error for an unknown option are examples.
+- Under `set -e`, a function may end with `[[ ... ]] && x`.
+  When the test is false, the function returns non-zero.
+  Then `var=$(that_function)` stops the script.
+  End such functions with `if ...; then ...; fi` instead.
+- Never run a step as `step || handle_failure`.
+  Bash turns off `set -e` inside everything that `step` calls.
+  A failure halfway through then goes unnoticed, and the step keeps running.
+  Menu actions go through `envsetup::run_step` (`setup.sh`).
+  It runs each action in a subshell with `set -e` still on.
+  It returns to the menu if the action fails.
+- Every shell script must pass `bash -n <file>` and `shellcheck <file>` before you commit it.
+  CI (`.github/workflows/ci.yml`) runs shellcheck on every push and PR.
+  shellcheck also fails on syntax errors.
+  So a script that fails locally also fails in CI.
+- To silence one shellcheck warning, add `# shellcheck disable=SC____` on that line.
+  Add a comment that explains why.
+  Do not silence a whole file.
+  Fix the cause instead when the fix is simple.
+  For example, SC2155 asks for `VAR=$(cmd); export VAR` instead of `export VAR=$(cmd)`.
+- Some files are only ever `source`d and never run directly.
+  The files under `shell/shared/` and `shell/profiles/` are examples.
+  Their first line is `# shellcheck shell=bash`, so shellcheck knows the shell (see SC2148).
+- `shfmt -i 0` sets the format: tabs, and shfmt's defaults for everything else.
+  CI runs `shfmt -d -i 0 .` and fails on any diff.
+  `shfmt -w -i 0 .` fixes the format locally.
+- CI pins shellcheck v0.11.0 and shfmt v3.14.1 (see the install step in `ci.yml`).
+  Use the same versions locally, because a newer version can disagree.
+- Do not put a `#` comment at the end of a package name line in `packages/*.txt`.
+  envsetup passes the whole line to the package manager.
+  A comment on the same line breaks the install.
   Put the comment on the line above instead.
 
 ## Installer scripts (`installers/<profile-or-common>/*.sh`)
 
-- Must be idempotent: check whether the tool is already present and `exit 0`
-  immediately if so, before touching the network. `installers/work/kubectl.sh` is the
-  reference example.
-- Runs as its own `bash` process (not sourced), so `source "$ENVSETUP_ROOT/lib/common.sh"`
-  explicitly if you need its helpers.
-- One script failing must not stop the others — `lib/installers.sh` already handles
-  this; don't add a `set -e`-defeating workaround inside an individual script to try
-  to do the same thing.
-- Every download that gets installed or run is a pinned version, verified before it is,
-  and a failed check stops the script. Never resolve "latest" at install time: the
-  version and each platform's sha256 live in `installers/versions.txt`, read with
-  `envsetup::pin`, and the download goes through `envsetup::install_release`. A new tool
-  gets a `pin_<name>` in `.github/scripts/bump-versions.sh` (which finds the newest
-  release and reads its published checksums) and a line in `versions.txt`, written by
-  running that script. When a project only publishes a signature (awscli), pin just the
-  version and use `envsetup::gpg_verify` against the vendor's key, kept next to the
-  script with its fingerprint pinned in the script.
-- Bumping tool versions is a PR. The `bump-versions` workflow opens it every Monday
-  (`.github/scripts/bump-versions.sh`, then `bump-pr.sh`, with `RELEASE_TOKEN` so CI
-  runs on it) and starts the distros workflow on its branch; run it from the Actions tab
-  for one now. Before merging, check the distros run and the list of changes: the same
-  version with other checksums means upstream replaced a release's files. It's a
-  `fix(installers): ...`, so it releases. `RELEASE_TOKEN` needs Contents, Pull requests
-  and Actions: write.
-- Download the build for the machine (`envsetup::arch` gives `amd64`/`arm64`), run root
-  steps through `envsetup::as_root` (sudo, doas, or already root), and document any
-  remaining OS/arch assumption in a comment.
+- An installer must be safe to run more than once.
+  It first checks whether the tool is already installed.
+  If the tool is installed, it runs `exit 0` before it uses the network.
+  `installers/work/kubectl.sh` shows how.
+- Each installer runs in its own `bash` process and is not sourced.
+  To use the helpers in `lib/common.sh`, run `source "$ENVSETUP_ROOT/lib/common.sh"` in the script.
+- One failed installer must not stop the others.
+  `lib/installers.sh` already handles this.
+  Do not add a workaround inside an installer that turns off `set -e`.
+- Every download that envsetup installs or runs has a pinned version.
+  envsetup checks each download before it uses the file.
+  A failed check stops the script.
+- Never look up the latest version at install time.
+  `installers/versions.txt` holds the version and the sha256 for each platform.
+  Read them with `envsetup::pin`.
+  Download through `envsetup::install_release`.
+- A new tool gets a `pin_<name>` function in `.github/scripts/bump-versions.sh`.
+  That function finds the newest release and reads its published checksums.
+  Run that script to write the tool's line in `versions.txt`.
+- Some projects publish only a signature, not a checksum (awscli).
+  For those, pin only the version.
+  Check the signature with `envsetup::gpg_verify` against the vendor's key.
+  Keep the key next to the script, and pin its fingerprint in the script.
+- A tool version bump is a PR.
+  The `bump-versions` workflow opens this PR every Monday.
+  It runs `.github/scripts/bump-versions.sh`, then `bump-pr.sh`.
+  It uses `RELEASE_TOKEN`, so CI runs on the PR.
+  It also starts the distros workflow on the PR's branch.
+  To get a bump PR now, run the workflow from the Actions tab.
+- Before you merge a bump PR, check the distros run and the list of changes.
+  The same version with new checksums means the project replaced a release's files.
+- A bump PR is a `fix(installers): ...`, so it makes a release.
+- `RELEASE_TOKEN` needs write access to Contents, Pull requests and Actions.
+- Download the build for the machine's architecture.
+  `envsetup::arch` returns `amd64` or `arm64`.
+- Run steps that need root through `envsetup::as_root`.
+  It uses sudo or doas, or runs the step directly when the user is already root.
+- Write a comment for any other assumption about the OS or architecture.
 
 ## Where new content goes
 
-- A shell alias/export/function everyone should get → `shell/shared/`.
-- One that only applies to one profile → `shell/profiles/<profile>/`.
-- Everything under `shell/` is sourced by both bash and zsh (opt-in on any profile). Code
-  that's bash-only (arrays, `mapfile`, bash prompt escapes) goes in a file that starts
-  with `[[ -n "${BASH_VERSION:-}" ]] || return 0`, like `shell/shared/ps1.sh`. An alias
-  or export that relies on an optional tool is defined only when that tool is installed
-  (`bat` in `shell/shared/aliases.sh`). Work lite installs nothing, and a `cat` alias
-  pointing at a missing binary breaks `cat` itself.
-- A tool installable by name from the distros' package managers → `packages/common.txt`
-  or `packages/<profile>.txt`, by its Debian/Ubuntu name. If another manager (`dnf`,
-  `zypper`, `pacman`, `apk`, `brew`, `nix`) calls it something else, or has it in the base
-  system, add a row to `packages/names.txt`.
-- Anything else — a vendor installer script, a manual binary download, an arbitrary
-  custom setup step → `installers/common/` or `installers/<profile>/`. A popular tool
-  that only some users want and that major distros (Ubuntu LTS, Fedora) don't package →
-  `installers/extras/`, opted into by name with `ENVSETUP_EXTRAS`; pinned and verified
-  like every installer (above).
-- A tool that needs a shell hook to work (direnv, zoxide) → `shell/shared/tools.sh`,
-  guarded on the tool being installed.
-- A shared, non-identity git setting or alias → `git/gitconfig` (merged with the user's
-  `ENVSETUP_GIT_CONFIG` into `~/.config/envsetup/gitconfig` by `lib/git.sh`). Identity
-  (`user.name`/`user.email`) is prompted for at runtime or set in the user's own
-  `config.sh` — never committed to this repo.
-- Anything specific to one *user* rather than to the repo's defaults never goes in a
-  tracked file: it belongs in their `~/.config/envsetup/config.sh` (template:
-  `config.example.sh`). Edits to tracked files don't survive an update: `install.sh`
-  deletes its download, and "Link shell config" replaces the copy of `shell/`.
-- Only `shell/` is copied for new shells, and the rest of the repo is gone once
-  `install.sh` ends. So nothing under `shell/` may read a file outside `shell/` (`lib/`,
-  `git/`, `installers/`), and anything else a shell needs is generated into
-  `$ENVSETUP_STATE` by a menu action (like `xdg.sh`).
-- The `ENVSETUP_*` variables read from `config.sh` are a user-facing API. A new
-  overridable setting gets its default in `envsetup::load_config` (`lib/config.sh`) and
-  is documented in both `config.example.sh` and the README's settings table. Renaming
-  one or changing its meaning breaks existing users' configs, so it's a `!` change.
-- `work`'s `lite` mode skips both `packages/work.txt` and `installers/work/` entirely
-  (no sudo assumed) — don't add something to either that `lite` actually needs; it
-  belongs in `shell/shared/` or `shell/profiles/work/` instead. `lib/git.sh` is not
-  gated by `lite`: it only ever writes to `$HOME/.gitconfig`, no sudo required.
+- A shell alias, export or function for every user goes in `shell/shared/`.
+- One for a single profile goes in `shell/profiles/<profile>/`.
+- Both bash and zsh source everything under `shell/`.
+  Any profile can opt in to zsh.
+- Some code works only in bash, such as arrays, `mapfile` and bash prompt escapes.
+  Put it in a file that starts with `[[ -n "${BASH_VERSION:-}" ]] || return 0`.
+  `shell/shared/ps1.sh` is an example.
+- An alias or export that needs an optional tool exists only when that tool is installed.
+  See `bat` in `shell/shared/aliases.sh`.
+  Work lite installs nothing.
+  A `cat` alias that points at a missing program breaks `cat` itself.
+- Some tools install by name from the distros' package managers.
+  List them in `packages/common.txt` or `packages/<profile>.txt`, by their Debian or Ubuntu name.
+  Another package manager may use a different name, or may include the tool in its base system.
+  The other managers are `dnf`, `zypper`, `pacman`, `apk`, `brew` and `nix`.
+  In those cases, add a row to `packages/names.txt`.
+- Everything else goes in `installers/common/` or `installers/<profile>/`.
+  Examples are a vendor's install script, a binary download and a custom setup step.
+- Some popular tools suit only some users, and major distros (Ubuntu LTS, Fedora) do not package them.
+  Those go in `installers/extras/`.
+  A user opts in to each one by name with `ENVSETUP_EXTRAS`.
+  Extras are pinned and checked like every installer (see above).
+- A tool that needs a shell hook goes in `shell/shared/tools.sh`.
+  direnv and zoxide are examples.
+  The hook runs only when the tool is installed.
+- A shared git setting or alias goes in `git/gitconfig`, unless it is about identity.
+  `lib/git.sh` merges this file with the user's `ENVSETUP_GIT_CONFIG` into `~/.config/envsetup/gitconfig`.
+- Identity means `user.name` and `user.email`.
+  envsetup asks for them at runtime, or the user sets them in their own `config.sh`.
+  Never commit them to this repo.
+- Settings for one *user* never go in a tracked file.
+  They belong in that user's `~/.config/envsetup/config.sh`.
+  `config.example.sh` is the template.
+- An update erases edits to tracked files.
+  `install.sh` deletes its download.
+  "Link shell config" replaces the copy of `shell/`.
+- New shells get a copy of `shell/` only.
+  The rest of the repo is gone when `install.sh` ends.
+  So nothing under `shell/` may read a file outside `shell/`, such as `lib/`, `git/` or `installers/`.
+  A menu action generates anything else a shell needs into `$ENVSETUP_STATE`.
+  `xdg.sh` is an example.
+- The `ENVSETUP_*` variables in `config.sh` are part of the interface that users rely on.
+  A new setting gets its default in `envsetup::load_config` (`lib/config.sh`).
+  Document it in `config.example.sh` and in the README's settings table.
+- A renamed setting, or a setting with a new meaning, breaks users' configs.
+  So that change is a `!` change.
+- `work`'s `lite` mode skips `packages/work.txt` and `installers/work/` completely.
+  Lite mode does not assume sudo.
+  So do not add something to either one that lite mode needs.
+  Put it in `shell/shared/` or `shell/profiles/work/` instead.
+- Lite mode still runs `lib/git.sh`.
+  That file writes only to `$HOME/.gitconfig`, so it needs no sudo.
 
 ## Testing
 
-CI (`.github/workflows/ci.yml`) runs two jobs on every push and PR, plus `release` (see
-Releases) on pushes to `main` once they pass; `.github/workflows/commits.yml` checks
-commit messages and the PR title on every PR:
+CI (`.github/workflows/ci.yml`) runs two jobs on every push and PR.
+On pushes to `main`, it also runs `release` after those jobs pass (see Releases).
+`.github/workflows/commits.yml` checks the commit messages and the PR title on every PR.
 
-- `shell-checks`: `shellcheck` and `shfmt` over every `*.sh` file, and
-  `tests/release.sh`: the release flow against a scratch origin, with the hash-locked
-  commitizen (run it locally with `cz` on PATH).
-- `smoke`: `tests/smoke.sh` in a bare `ubuntu:24.04` container — `install.sh` stopping
-  on macOS, then on a box with no git, picking and switching releases, then every
-  profile's "Run everything", then a real bash and zsh loading the result. Only gum's UI,
-  package installs and vendor downloads are stubbed, so it takes about 15s. CI runs it
-  offline, from cached copies of the few packages it installs with real apt (Ubuntu's
-  archive is often slow from CI); run it locally with
-  `docker run --rm -t -v "$PWD:/src:ro" ubuntu:24.04 bash /src/tests/smoke.sh`.
-  A new menu action, profile or mode needs a scenario there, and every check must be
-  able to fail: compare against a non-empty expected value, never two things that
-  could both come back empty.
+- `shell-checks` runs `shellcheck` and `shfmt` on every `*.sh` file.
+  It also runs `tests/release.sh`.
+  That script tests the release flow against a local test remote with the hash-locked commitizen.
+  To run it locally, put `cz` on your PATH.
+- `smoke` runs `tests/smoke.sh` in a bare `ubuntu:24.04` container.
+  It runs these scenarios in order:
+  - `install.sh` stops on macOS.
+  - `install.sh` stops on a machine without git.
+  - It picks a release, then switches to another one.
+  - It runs "Run everything" for every profile.
+  - A real bash and a real zsh load the result.
+- The smoke test replaces only gum's menus, package installs and vendor downloads with fakes.
+  So it takes about 15 seconds.
+- CI runs the smoke test offline.
+  It uses cached copies of the few packages that it installs with real apt.
+  Ubuntu's package servers are often slow from CI.
+- To run the smoke test locally, run `docker run --rm -t -v "$PWD:/src:ro" ubuntu:24.04 bash /src/tests/smoke.sh`.
+- A new menu action, profile or mode needs a scenario in the smoke test.
+- Every check must be able to fail.
+  Compare against an expected value that is not empty.
+  Never compare two values that could both be empty.
 
-The CI badge in `README.md` names `ci.yml` in both its image and link URLs. If you
-rename `ci.yml`, update both URLs.
+The CI badge in `README.md` names `ci.yml` in its image URL and in its link URL.
+If you rename `ci.yml`, update both URLs.
 
-`tests/distros/run.sh` (not on every push; see `CONTRIBUTING.md`) runs the real tool against a
-dozen distros with real installs. The `distros` workflow runs it weekly, opening an issue
-when that run fails, and on demand from the Actions tab. Run it after changing anything distro-specific: package
-lists, `envsetup::pkg_install`/`pkg_manager`, installers, `install.sh`.
+`tests/distros/run.sh` runs the real tool on a dozen distros with real installs.
+It does not run on every push (see `CONTRIBUTING.md`).
+The `distros` workflow runs it every week and opens an issue when the run fails.
+You can also start it from the Actions tab.
+Run it after you change anything that depends on the distro.
+Examples are the package lists, `envsetup::pkg_install`, `envsetup::pkg_manager`, the installers and `install.sh`.
 
-The smoke and distros tests share one scripted gum, `tests/gum.sh` (answers from
-`$SMOKE_CHOICES` / `$SMOKE_CONFIRMS`, calls logged to `$SMOKE_LOG`); extend it there
-rather than writing another.
+The smoke test and the distros test share one fake gum, `tests/gum.sh`.
+It reads its answers from `$SMOKE_CHOICES` and `$SMOKE_CONFIRMS`.
+It logs each call to `$SMOKE_LOG`.
+Extend this file instead of writing a new fake.
 
-The smoke test proves the flows run; it doesn't prove every branch. Behavior is still
-verified and described in the PR:
+The smoke test proves that the flows run.
+It does not prove every branch.
+So you still check the behavior yourself and describe it in the PR:
 
-- `bash -n` and `shellcheck` every changed/added script (CI re-checks this, but catch
-  it before pushing).
-- Exercise the actual functions (`source`'d, not just read) against mocked external
-  commands (`curl`, `sudo`, `gum`, `git`, package managers) in an isolated `$HOME` —
-  don't hit real networks, install real system packages, or change real shell/system
-  state as part of verifying a PR. Cover both the "already installed / already linked"
-  no-op path and the "needs to run" path for anything idempotent.
-- For anything touching `setup.sh` or the menu, also run `tests/smoke.sh` locally
-  (command above), which drives the real `./setup.sh` end to end from fresh `$HOME`s.
-  Function-level tests alone missed that `setup.sh` exited before the menu on every
-  first run.
-- Never make PR- or commit-related state changes (or GitHub API calls) as a *side
-  effect* of testing — testing is local and disposable.
+- Run `bash -n` and `shellcheck` on every script you change or add.
+  CI checks this again, but catch problems before you push.
+- Run the functions themselves (`source` them, do not just read them).
+  Use fake versions of external commands: `curl`, `sudo`, `gum`, `git` and package managers.
+  Use a separate `$HOME`.
+- Do not use real networks, install real system packages, or change the real shell or system during a test.
+- Some steps are safe to run more than once.
+  For each one, test the path where the work is already done.
+  Also test the path where the step has work to do.
+- If you change `setup.sh` or the menu, also run `tests/smoke.sh` locally (see the command above).
+  It drives the real `./setup.sh` from start to end, each time from a fresh `$HOME`.
+  Function tests alone once missed a bug: `setup.sh` exited before the menu on every first run.
+- Testing is local, and you throw it away afterwards.
+  So a test must never change a PR or a commit, and it must never call the GitHub API.

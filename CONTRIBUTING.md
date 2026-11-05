@@ -67,7 +67,7 @@ New work moves envsetup toward these goals.
 ## Layout
 
 ```
-install.sh           # the curl | bash script: downloads a release to a temp folder, runs setup.sh, deletes it
+install.sh           # the script that the curl command runs: downloads a release, runs setup.sh, deletes the download
 setup.sh             # the gum menu: profile and mode, linking, package installs
 lib/                 # the menu's actions; lib/config.sh loads the defaults, then the user's config.sh
 config.example.sh    # template for ~/.config/envsetup/config.sh

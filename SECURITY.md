@@ -1,9 +1,14 @@
 # Security
 
-envsetup runs with your user's rights and, for package installs, with sudo, so a bug in
-it can matter. If you find one that could be exploited (for example a download that
-isn't verified, or a way for a malicious repo or config to run code), please report it
-privately: **Security > Report a vulnerability** on this repo's GitHub page. Please don't
-open a public issue for it.
+envsetup runs with your user's rights.
+It also uses sudo to install packages.
+So a bug in envsetup can harm your machine.
 
-Only the newest release is supported; fixes ship as a new release.
+An attacker may be able to use a bug that you find.
+Examples are a download that envsetup does not check, or a repo or config that runs code it should not.
+Please report such a bug privately.
+On this repo's GitHub page, select **Security > Report a vulnerability**.
+Please do not open a public issue for it.
+
+Only the newest release gets security fixes.
+Each fix comes in a new release.

@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
-# Installs AWS CLI v2 (pinned in installers/versions.txt; Linux x86_64 or aarch64) if it
-# isn't already on PATH. AWS publishes a signature, not a checksum, so the download is
-# checked against AWS's signing key in awscli.asc before its installer runs as root.
+# This script installs AWS CLI v2 if it is not already on PATH.
+# installers/versions.txt pins the version, for Linux x86_64 or aarch64.
+# AWS publishes a signature, not a checksum.
+# So the script checks the download against AWS's signing key in awscli.asc.
+# The check comes before the AWS installer runs as root.
 set -euo pipefail
 
 source "$ENVSETUP_ROOT/lib/common.sh"
 
 envsetup::has_cmd aws && exit 0
 
-# AWS's build needs glibc; Alpine (musl) packages its own.
+# AWS's build needs glibc.
+# Alpine uses musl, so it packages its own build.
 if [[ "$OSTYPE" == linux-musl* ]]; then
 	envsetup::pkg_install apk aws-cli
 	exit 0
@@ -21,7 +24,7 @@ version=$(envsetup::pin awscli)
 url="https://awscli.amazonaws.com/awscli-exe-linux-${HOSTTYPE}-$version.zip"
 curl -fsSL -o "$tmp/awscliv2.zip" "$url"
 curl -fsSL -o "$tmp/awscliv2.zip.sig" "$url.sig"
-# The key and its fingerprint as AWS publishes them:
+# AWS publishes the key and its fingerprint here:
 # https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
 envsetup::gpg_verify "$tmp/awscliv2.zip" "$tmp/awscliv2.zip.sig" "$ENVSETUP_ROOT/installers/work/awscli.asc" \
 	FB5DB77FD5C118B80511ADA8A6310ACC4672475C

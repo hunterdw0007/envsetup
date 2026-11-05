@@ -1,27 +1,32 @@
 #!/usr/bin/env bash
-# "Set up SSH key": creates this machine's SSH key once, then offers to add it to GitHub
-# and to sign git commits with it. Never needs sudo, so work lite gets it too.
+# This file holds "Set up SSH key".
+# The action creates this machine's SSH key once.
+# It then offers to add the key to GitHub and to sign git commits with it.
+# The action needs no sudo, so work lite runs it too.
 
-# True if git already has a signing key or signs commits, e.g. with GPG. envsetup then
-# leaves signing alone, so it never replaces settings of yours.
+# git_signs returns 0 if git already has a signing key or already signs commits.
+# GPG signing is an example.
+# envsetup then leaves signing alone, so it never replaces your own settings.
 envsetup::git_signs() {
 	[[ -n "$(git config --global --includes user.signingkey)$(git config --global --includes commit.gpgsign)" ]]
 }
 
 envsetup::set_up_ssh_key() {
 	local key=$HOME/.ssh/id_ed25519 url=https://github.com/settings/keys comment use_gh=0
-	# GitHub advises one key per machine; the comment names the machine in a list of keys.
+	# GitHub advises one key per machine.
+	# The comment names the machine in a list of keys.
 	comment="$(id -un)@$HOSTNAME"
 	if [[ -e "$key" ]]; then
-		gum style --foreground 3 "Already have an SSH key: $key"
+		gum style --foreground 3 "An SSH key already exists: $key"
 		return 0
 	fi
 	if ! envsetup::has_cmd ssh-keygen; then
-		gum style --foreground 1 "ssh-keygen is not installed. Install openssh-client, then run Set up SSH key again."
+		gum style --foreground 1 "This machine has no ssh-keygen. Install openssh-client. Then run Set up SSH key again."
 		return 1
 	fi
 	if envsetup::dry_run; then
-		envsetup::would "create the SSH key $key ($comment) and ask for its passphrase"
+		envsetup::would "create the SSH key $key ($comment)"
+		envsetup::would "let ssh-keygen ask for a passphrase"
 		if envsetup::has_cmd gh; then
 			envsetup::would "ask to add it to your GitHub account with gh"
 		else
@@ -39,16 +44,18 @@ envsetup::set_up_ssh_key() {
 	fi
 
 	[[ -d "$HOME/.ssh" ]] || mkdir -m 700 "$HOME/.ssh"
-	# ssh-keygen asks for the passphrase itself, so it never shows up in a process list.
+	# ssh-keygen asks for the passphrase itself.
+	# So the passphrase never shows in a process list.
 	ssh-keygen -t ed25519 -C "$comment" -f "$key"
-	# Noted so uninstall offers to delete only a key envsetup created.
+	# The marker lets uninstall offer to delete only a key that envsetup created.
 	mkdir -p "${ENVSETUP_SSH_KEY_MARKER%/*}"
 	: >"$ENVSETUP_SSH_KEY_MARKER"
 	gum style --foreground 2 "Created the SSH key $key"
 
-	# A no here also means no signing key upload below.
+	# After a no here, the action also uploads no signing key below.
 	if envsetup::has_cmd gh && gum confirm "Add the key to your GitHub account with gh?"; then use_gh=1; fi
-	# gh fails when it isn't logged in or lacks the admin:public_key scope; the key then shows instead.
+	# gh fails when it has no login or no admin:public_key scope.
+	# The action then shows the key instead.
 	if ((use_gh)) && gh ssh-key add "$key.pub" --title "$comment"; then
 		gum style --foreground 2 "Added the key to your GitHub account"
 	else
@@ -62,9 +69,10 @@ envsetup::set_up_ssh_key() {
 		git config --global user.signingkey "$key.pub"
 		git config --global commit.gpgsign true
 		gum style --foreground 2 "git now signs your commits with $key"
-		# GitHub marks signed commits "Verified" only with the key there as a signing key.
-		# gh exits 0 when the key is already there. It fails without the
-		# admin:ssh_signing_key scope; the step then says where to add the key instead.
+		# GitHub marks a signed commit "Verified" only when it has the key as a signing key.
+		# gh exits 0 when GitHub already has the key.
+		# gh fails without the admin:ssh_signing_key scope.
+		# The action then says where to add the key instead.
 		if ((use_gh)) && gh ssh-key add "$key.pub" --type signing --title "$comment signing"; then
 			gum style --foreground 2 "Added the key to your GitHub account as a signing key"
 		else

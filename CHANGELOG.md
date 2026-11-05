@@ -4,6 +4,12 @@ Every release of envsetup, newest first, with what changed in it. CI writes each
 from the commits on `main` when it releases them (see "Releases" in AGENTS.md), so
 don't edit this file by hand.
 
+## v0.4.2 (2026-11-05)
+
+### Refactoring
+
+- apply the writing rules to comments, messages and docs (#114)
+
 ## v0.4.1 (2026-11-03)
 
 ### Fixes

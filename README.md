@@ -1,5 +1,7 @@
 # envsetup
 
+[![Release](https://img.shields.io/github/v/release/hunterdw0007/envsetup)](https://github.com/hunterdw0007/envsetup/releases/latest) [![CI](https://img.shields.io/github/actions/workflow/status/hunterdw0007/envsetup/ci.yml?branch=main&label=CI)](https://github.com/hunterdw0007/envsetup/actions/workflows/ci.yml) [![License](https://img.shields.io/github/license/hunterdw0007/envsetup)](LICENSE)
+
 envsetup sets up the shell on a new or wiped Linux machine.
 It adds aliases, environment variables, shell functions and common command-line tools.
 You choose what it does from a menu in the terminal.
@@ -18,13 +20,15 @@ The command does four things:
 1. It installs `git` if the machine does not have it.
 2. It downloads the newest release into a temporary folder.
 3. It opens the menu.
-4. When you quit the menu, it deletes the temporary folder, also after an error or Ctrl-C.
+4. When you quit the menu, it deletes the temporary folder.
+   It also deletes the folder after an error or Ctrl-C.
 
-**Link shell config** copies the shell config (`shell/`) to `~/.local/share/envsetup`,
-or to `$XDG_DATA_HOME/envsetup` if you set `XDG_DATA_HOME`.
+**Link shell config** copies the shell config (`shell/`) to `~/.local/share/envsetup`.
+If you set `XDG_DATA_HOME`, it copies the shell config to `$XDG_DATA_HOME/envsetup` instead.
 New shells load it from there.
 It also records the release there, in a file called `version`.
-So envsetup does not stay on the machine: only your shell config, `config.sh` and the files that envsetup made stay.
+So envsetup itself does not stay on the machine.
+Only your shell config, `config.sh` and the files that envsetup made stay.
 
 To update to the newest release, run the same command again.
 **Link shell config** (or **Run everything**) then replaces the copy.
@@ -56,11 +60,14 @@ curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.
 
 ### Update from a `~/envsetup` folder
 
-Before version 0.3.0, the command kept a copy of this repo in `~/envsetup` (or in `ENVSETUP_DIR`), and your startup files loaded the shell config from it.
+Before version 0.3.0, the command kept a copy of this repo in `~/envsetup`, or in `ENVSETUP_DIR`.
+Your startup files loaded the shell config from that copy.
 `ENVSETUP_DIR` no longer does anything.
 To update, run the curl command above, not `~/envsetup/install.sh`.
-**Link shell config** then rewrites envsetup's block in your startup files to load the copy, and asks "Keep ~/envsetup?".
-If you made changes in that folder, answer yes and move them to `config.sh` (see [Customize](#customize)).
+**Link shell config** then rewrites envsetup's block in your startup files to load the new copy.
+It also asks "Keep ~/envsetup?".
+If you made changes in that folder, answer yes.
+Then move your changes to `config.sh` (see [Customize](#customize)).
 
 envsetup is still at version 0.x.
 In 0.x, a release can change something you use every day.
@@ -70,7 +77,7 @@ The changelog lists these changes first, under "Breaking changes".
 
 ```sh
 ./setup.sh --dry-run
-# or with curl (it deletes its download afterwards, as usual)
+# or with curl, which deletes its download afterwards, as usual
 curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | bash -s -- --dry-run
 ```
 
@@ -97,7 +104,8 @@ This method uses the newest commit on `main`.
 To use a release, run `git checkout v0.2.0` first.
 `git tag` lists the releases.
 envsetup never deletes this folder.
-New shells load the copy of `shell/` that **Link shell config** makes, so run it again after you change `shell/`.
+New shells load the copy of `shell/` that **Link shell config** makes.
+So run **Link shell config** again after you change `shell/`.
 
 ## Use the menu
 
@@ -108,8 +116,10 @@ Run `./setup.sh --help` to see an overview without the menu.
 First, select a profile: `work` or `home`.
 For `work`, also select a mode:
 
-- `full` is for machines where you have sudo. It runs every action.
-- `lite` is for machines without sudo. It installs nothing.
+- `full` is for machines where you have sudo.
+  It runs every action.
+- `lite` is for machines without sudo.
+  It installs nothing.
 
 This README calls the `work` profile in `lite` mode "work lite".
 
@@ -134,11 +144,15 @@ Work lite skips **Install packages** and **Run installers**.
 The menu has these other actions:
 
 - **Select profile** changes the profile and mode.
-- **Edit config** opens your `config.sh`. See [Customize](#customize).
-- **Set up zsh + oh-my-zsh** installs zsh and [oh-my-zsh](https://ohmyz.sh). It can also make zsh your login shell.
-- **Move dotfiles to XDG dirs** moves dotfiles out of `$HOME`. See [docs/xdg.md](docs/xdg.md).
+- **Edit config** opens your `config.sh`.
+  See [Customize](#customize).
+- **Set up zsh + oh-my-zsh** installs zsh and [oh-my-zsh](https://ohmyz.sh).
+  It can also make zsh your login shell.
+- **Move dotfiles to XDG dirs** moves dotfiles out of `$HOME`.
+  See [docs/xdg.md](docs/xdg.md).
 - **Preview everything** shows what **Run everything** would do.
-- **Uninstall** removes what envsetup added. See [Uninstall](#uninstall).
+- **Uninstall** removes what envsetup added.
+  See [Uninstall](#uninstall).
 
 ### What your shell gets
 
@@ -159,6 +173,7 @@ Otherwise, `ssh-keygen` asks for a passphrase.
 You can leave the passphrase empty.
 The key comment is `<user>@<hostname>`, so you can find the key in a list of keys.
 If `gh` is installed, the action offers to add the key to your GitHub account.
+A scope is a permission that you give `gh` when you log in.
 `gh` needs the `admin:public_key` scope for this: `gh auth refresh -s admin:public_key`.
 If `gh` is missing, you say no, or the upload fails, the action shows the public key.
 Then add the public key at <https://github.com/settings/keys>.
@@ -213,13 +228,14 @@ envsetup runs root steps with `sudo`, or with `doas` if the machine has it.
 If you are already root, envsetup runs those steps directly.
 The menu itself does not need sudo.
 envsetup installs gum with Homebrew if the machine has it.
-Otherwise it downloads gum's pinned, checksum-verified release into `~/.local/bin`.
+Otherwise it downloads gum's pinned release into `~/.local/bin` and checks its checksum.
 If that fails and the machine has Go, it uses `go install`.
 Installers download the amd64 or arm64 build that matches the machine.
 
 `installers/versions.txt` sets the version and sha256 checksum of each download.
 So two machines on the same release get the same tool versions.
-A changed download from upstream fails the checksum, so envsetup does not install it.
+A project may change a download after its release.
+Then the download fails the checksum, and envsetup does not install it.
 To use a newer version of a tool, install the tool yourself.
 Installers skip any tool that is already on your `PATH`.
 
@@ -227,7 +243,8 @@ Installers skip any tool that is already on your `PATH`.
 
 The packages, installers, aliases and git settings in this repo are defaults.
 To change a default, edit `~/.config/envsetup/config.sh`.
-envsetup does not keep a copy of this repo on your machine, and an update replaces the copy of `shell/`.
+envsetup does not keep a copy of this repo on your machine.
+An update replaces the copy of `shell/`.
 `config.sh` is outside both, so updates do not change it.
 
 Select **Edit config** in the menu to create `config.sh` and open it in `$EDITOR`.
@@ -279,7 +296,8 @@ curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.
 curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | bash -s -- --dry-run --uninstall
 ```
 
-**Uninstall** in the menu does the same, and so does `./setup.sh --uninstall` in a clone.
+**Uninstall** in the menu does the same.
+`./setup.sh --uninstall` in a clone also does the same.
 
 Uninstall removes everything that envsetup added:
 

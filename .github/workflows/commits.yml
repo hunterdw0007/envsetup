@@ -1,8 +1,9 @@
 name: commits
 
-# Versions and release notes are worked out from commit messages (see "Releases" in
-# AGENTS.md), so every commit in a PR, and the PR title (the commit message when it's
-# squash-merged), has to be a Conventional Commit.
+# The release job picks versions and writes release notes from commit messages.
+# See "Releases" in AGENTS.md.
+# So every commit in a PR must be a Conventional Commit.
+# The PR title must be one too, because it becomes the commit message after a squash merge.
 on:
   pull_request:
     types: [opened, edited, reopened, synchronize]

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# What setup.sh acts on: the repo's defaults, then the user's config.sh on top
-# (documented in config.example.sh).
-# shellcheck disable=SC2034 # the ENVSETUP_* vars are read by setup.sh, lib/*.sh and the user's config
+# This file loads the settings that setup.sh acts on.
+# It loads the repo's defaults first, then the user's config.sh.
+# config.example.sh documents the settings.
+# shellcheck disable=SC2034 # setup.sh, lib/*.sh and the user's config read the ENVSETUP_* variables
 
 ENVSETUP_USER_CONFIG="$ENVSETUP_STATE/config.sh"
 
@@ -19,10 +20,13 @@ envsetup::load_config() {
 	ENVSETUP_XDG_NINJA=0
 
 	[[ -f "$ENVSETUP_USER_CONFIG" ]] || return 0
-	# Each interactive shell also sources config.sh, so it can fail under set -e or set -u.
-	# Thus it loads with -e and -u off. After it, the options of the caller come back,
-	# and a syntax error or a failed command gives one warning. The local names have a
-	# prefix, because config.sh can see (and change) the local variables of this function.
+	# Each interactive shell also sources config.sh.
+	# So config.sh may not work under set -e or set -u.
+	# This function loads config.sh with -e and -u off.
+	# Afterwards, it turns the caller's options back on.
+	# A syntax error or a failed command then gives one warning.
+	# config.sh can see and change this function's local variables.
+	# So the local names have a prefix.
 	local _envsetup_opts=$- _envsetup_err='' _envsetup_line='' _envsetup_trap
 	if ! _envsetup_err=$("$BASH" -n "$ENVSETUP_USER_CONFIG" 2>&1); then
 		_envsetup_err=${_envsetup_err%%$'\n'*}
@@ -31,11 +35,12 @@ envsetup::load_config() {
 		_envsetup_err=
 	fi
 	_envsetup_trap=$(trap -p ERR)
-	# Only a command in config.sh itself counts: when its last command is a false
-	# `[[ ... ]] && ...`, `source` below returns 1, and that is no error.
+	# Only a failed command in config.sh itself counts.
+	# config.sh may end with a false `[[ ... ]] && ...`.
+	# Then `source` below returns 1, but that is not an error.
 	trap 'if [[ ${BASH_SOURCE[0]} == "$ENVSETUP_USER_CONFIG" ]]; then _envsetup_line=${_envsetup_line:-$LINENO}; fi' ERR
 	set +eu
-	# shellcheck source=/dev/null # user-supplied file
+	# shellcheck source=/dev/null # the user's own file
 	source "$ENVSETUP_USER_CONFIG"
 	trap - ERR
 	eval "$_envsetup_trap"
@@ -48,8 +53,8 @@ envsetup::load_config() {
 	fi
 }
 
-# config_warning <text>: shows the text once, until the text changes (the menu loads
-# config.sh again each time that it shows).
+# config_warning <text> shows the text only once, until the text changes.
+# The menu loads config.sh again each time it shows, so the same warning would repeat.
 envsetup::config_warning() {
 	if [[ "$1" != "${ENVSETUP_CONFIG_WARNED:-}" ]]; then
 		ENVSETUP_CONFIG_WARNED=$1
@@ -57,16 +62,17 @@ envsetup::config_warning() {
 	fi
 }
 
-# work lite assumes no sudo: no packages, no installers.
+# work lite does not assume sudo, so it runs no packages and no installers.
 envsetup::lite() { [[ "$ENVSETUP_PROFILE" == work && "$ENVSETUP_MODE" == lite ]]; }
 
 envsetup::skipped() {
 	[[ " ${ENVSETUP_SKIP[*]:-} " == *" $1 "* ]]
 }
 
-# What "Install packages" would install: ENVSETUP_PACKAGES deduped, minus
-# ENVSETUP_SKIP. Anything that describes or previews packages uses this too, so
-# it can't drift from what actually runs.
+# resolved_packages prints what "Install packages" installs.
+# That is ENVSETUP_PACKAGES without duplicates and without ENVSETUP_SKIP.
+# Descriptions and previews of packages use this function too.
+# So they always match what runs.
 envsetup::resolved_packages() {
 	local pkg
 	local -A seen=()
@@ -77,9 +83,11 @@ envsetup::resolved_packages() {
 	done
 }
 
-# What "Run installers" would run, in order: every *.sh in ENVSETUP_INSTALLER_DIRS, then
-# the opt-in installers/extras/ named in ENVSETUP_EXTRAS, minus ENVSETUP_SKIP (installer
-# name = script name without .sh).
+# resolved_installers prints what "Run installers" runs, in order.
+# First come all *.sh files in ENVSETUP_INSTALLER_DIRS.
+# Then come the installers/extras/ scripts that ENVSETUP_EXTRAS names.
+# It leaves out ENVSETUP_SKIP.
+# An installer's name is its script name without .sh.
 envsetup::resolved_installers() {
 	local dir script name scripts=()
 	for dir in "${ENVSETUP_INSTALLER_DIRS[@]}"; do

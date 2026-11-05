@@ -8,8 +8,8 @@ on:
 permissions:
   contents: read
 
-# A newer push to a PR replaces its run still in progress. Pushes to main all finish,
-# since the release job runs there.
+# A newer push to a PR cancels the PR's run that is still in progress.
+# Every push to main runs to the end, because the release job runs there.
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -21,8 +21,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # Pinned and verified, so a new release (or the runner image's copy) can't change
-      # what passes. To bump: new version and sha256 here, and in AGENTS.md's commands.
+      # This step pins and checks both tools.
+      # So a new release, or the copy on the runner image, cannot change what passes.
+      # To update a tool, change its version and sha256 here and in AGENTS.md.
       - name: Install shellcheck and shfmt (pinned)
         run: |
           mkdir "$RUNNER_TEMP/lint" && cd "$RUNNER_TEMP/lint"
@@ -36,33 +37,38 @@ jobs:
           chmod +x shfmt
           echo "$PWD" >>"$GITHUB_PATH"
 
-      # Also fails on syntax errors, so no separate bash -n.
+      # shellcheck also fails on syntax errors, so CI does not run bash -n.
       - name: shellcheck
         run: find . -name '*.sh' -not -path './.git/*' -print0 | xargs -0 shellcheck
 
-      # -i 0: tabs, and an explicit flag also makes shfmt ignore any .editorconfig.
+      # -i 0 means tabs.
+      # Any explicit flag also makes shfmt ignore .editorconfig.
       - name: shfmt
         run: shfmt -d -i 0 .
 
-      # .github/scripts/release.sh, the only code that pushes to main, run the way the
-      # release job below runs it, against a scratch origin. See tests/release.sh.
+      # .github/scripts/release.sh is the only code that pushes to main.
+      # This step runs it the same way as the release job below, against a local test remote.
+      # See tests/release.sh.
       - uses: ./.github/actions/commitizen
 
       - name: tests/release.sh
         run: tests/release.sh
 
   smoke:
-    # Runs the real tool on a bare Ubuntu box (install.sh -> setup.sh -> real bash/zsh);
-    # only gum's UI, package installs and vendor downloads are stubbed. See tests/smoke.sh.
+    # This job runs the real tool on a bare Ubuntu container: install.sh, then setup.sh, then real bash and zsh.
+    # Only gum's menus, package installs and vendor downloads are fakes.
+    # See tests/smoke.sh.
     runs-on: ubuntu-24.04
     timeout-minutes: 20 # a cache miss fetches from Ubuntu's archive; a hit takes seconds
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # Ubuntu's archive is slow from CI often enough (minutes for a few packages, or a
-      # stall), so the smoke test runs offline. What it installs with real apt (git for
-      # install.sh, zsh and jq) and apt's lists are fetched once per ubuntu:24.04 image and
-      # cached; offline, install.sh's apt-get update fails and it installs git from them.
+      # Ubuntu's package servers are often slow from CI.
+      # A few packages can take minutes, or the download can stop.
+      # So the smoke test runs offline.
+      # The test installs git (for install.sh), zsh and jq with real apt.
+      # CI downloads those packages and apt's lists once for each ubuntu:24.04 image and caches them.
+      # Offline, apt-get update in install.sh fails, and install.sh installs git from the cache.
       - name: ubuntu:24.04's digest
         id: image
         run: |
@@ -90,10 +96,11 @@ jobs:
           -v "$RUNNER_TEMP/smoke-apt:/apt-cache:ro" -v "$PWD:/src:ro" ubuntu:24.04 bash /src/tests/smoke.sh
 
   release:
-    # Every push to main whose commits call for a version bump (feat, fix, "!", ...) is
-    # released once the checks above pass: a "bump:" commit on main adds its CHANGELOG.md
-    # entry and is tagged vX.Y.Z, and a GitHub release is published. See
-    # .github/scripts/release.sh.
+    # This job releases each push to main whose commits need a new version (feat, fix, "!", ...).
+    # It runs after the checks above pass.
+    # A "bump:" commit on main adds the CHANGELOG.md entry.
+    # A vX.Y.Z tag marks that commit, and the job publishes a GitHub release.
+    # See .github/scripts/release.sh.
     needs: [shell-checks, smoke]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
@@ -101,17 +108,19 @@ jobs:
     permissions:
       contents: write # push the bump commit and tag, create the release
     concurrency:
-      # One at a time, so two quick merges can't both claim a version. A run still waiting
-      # is replaced by a newer one, which releases both merges' commits.
+      # Only one release runs at a time, so two quick merges cannot both take a version.
+      # A newer run replaces a run that is still waiting.
+      # The newer run releases the commits of both merges.
       group: release
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # every commit and tag: the bump is worked out from the commits since the last tag
-          # No token left in .git/config: commitizen runs in the next steps, and only the
-          # publish step, which doesn't run it, gets a token. Defense in depth, not a
-          # boundary (steps share the runner); the control is commitizen's hash lock.
+          # .git/config keeps no token, because commitizen runs in the next steps.
+          # Only the publish step gets a token, and that step does not run commitizen.
+          # This adds a layer of protection, but the steps share the runner.
+          # The main protection is commitizen's hash lock.
           persist-credentials: false
 
       - uses: ./.github/actions/commitizen
@@ -121,8 +130,8 @@ jobs:
 
       - name: Push and release
         env:
-          # GITHUB_TOKEN can push while main has no branch protection; once it does, set
-          # a RELEASE_TOKEN secret that's allowed to bypass it.
+          # GITHUB_TOKEN can push while main has no branch protection.
+          # If main gets protection, set a RELEASE_TOKEN secret that can bypass it.
           PUSH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
           GH_TOKEN: ${{ github.token }}
         run: .github/scripts/release.sh publish

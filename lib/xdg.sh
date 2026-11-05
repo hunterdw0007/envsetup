@@ -1,26 +1,32 @@
 #!/usr/bin/env bash
-# Moves dotfiles out of $HOME into the XDG base directories, using xdg-ninja's
-# per-program notes (https://github.com/b3nj5m1n/xdg-ninja). Those notes are prose for
-# people, so only the two mechanical shapes are applied:
-#   - exactly one `export VAR="$XDG_*_HOME"/path` and nothing else to do: move + export
-#   - the program already reads the XDG path and the note names it: move only
-# Anything with a version caveat, extra steps, a clash, or a reference from your rc
-# files is left alone and listed. Every move is recorded so uninstall can put it back.
-# The notes are downloaded data: they're matched against strict patterns, never run.
+# This file moves dotfiles out of $HOME into the XDG base folders.
+# It uses xdg-ninja's notes on each program (https://github.com/b3nj5m1n/xdg-ninja).
+# Those notes are text for people, so envsetup applies only two simple kinds of note:
+#   - exactly one `export VAR="$XDG_*_HOME"/path` and nothing else: move and export
+#   - the program already reads the XDG path, and the note names it: move only
+# envsetup leaves a dotfile in place and lists it in these cases:
+#   - the note mentions a version or extra steps
+#   - the move clashes with something
+#   - your startup files mention the dotfile
+# envsetup records every move, so uninstall can move it back.
+# The notes are downloaded data.
+# envsetup only matches them against strict patterns and never runs them.
 
 ENVSETUP_XDG_NINJA_URL=${ENVSETUP_XDG_NINJA_URL:-https://github.com/b3nj5m1n/xdg-ninja}
 ENVSETUP_XDG_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/envsetup/xdg-ninja"
 ENVSETUP_XDG_MOVES="$ENVSETUP_STATE/xdg-moves"
 ENVSETUP_XDG_ENV="$ENVSETUP_STATE/xdg.sh"
 
-# Files a shell or envsetup itself reads before any exports load, and variables that
-# more than one program (or a running agent) depends on: never moved automatically.
+# envsetup never moves these files and variables by itself.
+# A shell or envsetup reads the files before any exports load.
+# More than one program, or a running agent, depends on the variables.
 _envsetup_xdg_keep_files=" .bashrc .bash_profile .bash_login .profile .zshrc .zshenv .zprofile .zlogin .gitconfig "
 _envsetup_xdg_keep_vars=" HISTFILE ZDOTDIR GNUPGHOME "
 
-# Prints "new path<TAB>VAR" for a note it can apply (VAR empty for move-only),
-# returns 1 for anything else. (VAR goes last: read with IFS=$'\t' would swallow an
-# empty first field.)
+# This function prints "new path<TAB>VAR" for a note that it can apply.
+# VAR is empty when the note asks only for a move.
+# It returns 1 for any other note.
+# VAR comes last, because read with IFS=$'\t' would drop an empty first field.
 envsetup::xdg_target() {
 	local help=$1 line code=() fenced=0 base sub var=""
 	local xdg='\$\{?XDG_(CONFIG|DATA|STATE|CACHE)_HOME\}?' path='((/[A-Za-z0-9._-]+)+)'
@@ -38,13 +44,14 @@ envsetup::xdg_target() {
 		var=${BASH_REMATCH[1]} base=${BASH_REMATCH[2]} sub=${BASH_REMATCH[3]}
 	elif ((${#code[@]} == 0)) && [[ "$help" =~ ${another}${xdg}${path}_ ]]; then
 		base=${BASH_REMATCH[2]} sub=${BASH_REMATCH[3]}
-		# A second "move ... to" means several targets: not mechanical.
+		# A second "move ... to" means more than one target, so the note is not simple.
 		[[ "${help#*"${BASH_REMATCH[0]}"}" =~ $another ]] && return 1
 	else
 		return 1
 	fi
-	# No path out of the XDG dir, and no variable that makes the shell or the program
-	# loader run the file. shortcut: known names only; the list you confirm shows each export.
+	# Reject a path that leads out of the XDG folder.
+	# Also reject a variable that makes the shell or the program loader run the file.
+	# shortcut: this checks only known names; the list that you confirm shows each export.
 	[[ "$sub/" == */../* || "$var" =~ ^(BASH_ENV|ENV|LD_.*|DYLD_.*|.*_COMMAND)$ ]] && return 1
 	case $base in
 	CONFIG) base=${XDG_CONFIG_HOME:-$HOME/.config} ;;
@@ -55,13 +62,14 @@ envsetup::xdg_target() {
 	printf '%s\t%s\n' "$base$sub" "$var"
 }
 
-# One line per dotfile found in $HOME:
+# This function prints one line for each dotfile in $HOME:
 #   move<TAB>program<TAB>old<TAB>new<TAB>VAR
 #   skip<TAB>program<TAB>old<TAB>reason
 envsetup::xdg_plan() {
-	local name path help old target var new rc rcs=() moves=() tilde='~' # as rc files spell it
+	local name path help old target var new rc rcs=() moves=() tilde='~' # the way startup files write it
 	local -A var_count=()
-	# Only existing files: grep exits 2, not 0, when a match comes with a missing file.
+	# Use only files that exist.
+	# grep exits 2, not 0, when it finds a match but a file is missing.
 	for rc in "$HOME"/.{bashrc,bash_profile,profile,zshrc,zprofile,zshenv}; do
 		[[ -f "$rc" ]] && rcs+=("$rc")
 	done
@@ -69,9 +77,9 @@ envsetup::xdg_plan() {
 		[[ "$path" =~ ^\$HOME/([A-Za-z0-9._-]+)$ ]] || continue
 		old="$HOME/${BASH_REMATCH[1]}"
 		[[ -e "$old" || -L "$old" ]] || continue
-		printf -v help '%b' "$help" # undo @tsv's escaping
+		printf -v help '%b' "$help" # undo the escapes that @tsv adds
 		if [[ -L "$old" ]]; then
-			printf 'skip\t%s\t%s\t%s\n' "$name" "$old" "it's a symlink (managed by something else?)"
+			printf 'skip\t%s\t%s\t%s\n' "$name" "$old" "it is a symlink, so something else may manage it"
 		elif [[ "$_envsetup_xdg_keep_files" == *" ${old##*/} "* ]]; then
 			printf 'skip\t%s\t%s\t%s\n' "$name" "$old" "a shell or envsetup reads it at startup"
 		elif ! target=$(envsetup::xdg_target "$help"); then
@@ -96,20 +104,20 @@ envsetup::xdg_plan() {
 	for target in "${moves[@]}"; do
 		IFS=$'\t' read -r name old new var <<<"$target"
 		if [[ -n "$var" ]] && ((var_count[$var] > 1)); then
-			printf 'skip\t%s\t%s\t%s\n' "$name" "$old" "\$$var is claimed by more than one program"
+			printf 'skip\t%s\t%s\t%s\n' "$name" "$old" "more than one program uses \$$var"
 		else
 			printf 'move\t%s\n' "$target"
 		fi
 	done
 }
 
-# Clones xdg-ninja's notes into the cache, or refreshes them. An offline refresh
-# falls back to the copy already there.
+# This function clones xdg-ninja's notes into the cache, or updates them.
+# Without a network, it uses the copy that is already there.
 envsetup::xdg_fetch() {
 	if [[ -d "$ENVSETUP_XDG_CACHE/.git" ]]; then
 		envsetup::dry_run && return 0
 		git -C "$ENVSETUP_XDG_CACHE" pull -q --ff-only ||
-			gum style --foreground 3 "Couldn't update xdg-ninja's notes; using the copy from last time."
+			gum style --foreground 3 "Couldn't update xdg-ninja's notes. Using the copy from last time."
 	elif envsetup::dry_run; then
 		envsetup::would "download xdg-ninja's notes into $ENVSETUP_XDG_CACHE, then look for dotfiles to move"
 		return 1
@@ -122,11 +130,12 @@ envsetup::xdg_fetch() {
 	fi
 }
 
-# Rewrites the exports every shell loads (shell/init.sh) from the list of moves.
+# This function writes the exports again from the list of moves.
+# Every shell loads the exports (shell/init.sh).
 envsetup::xdg_write_env() {
 	local old new var
 	{
-		echo "# Generated by envsetup from $ENVSETUP_XDG_MOVES; edits here are overwritten."
+		echo "# envsetup generates this file from $ENVSETUP_XDG_MOVES. It overwrites any edits."
 		while IFS=$'\t' read -r old new var; do
 			if [[ -n "$var" ]]; then printf 'export %s=%q\n' "$var" "$new"; fi
 		done <"$ENVSETUP_XDG_MOVES"
@@ -136,7 +145,7 @@ envsetup::xdg_write_env() {
 envsetup::xdg_tidy() {
 	local line name old new var reason moves=() skips=() failed=0
 	if ! envsetup::has_cmd jq || ! envsetup::has_cmd git; then
-		gum style --foreground 3 "Moving dotfiles needs jq and git (both in packages/common.txt); skipping."
+		gum style --foreground 3 "Moving dotfiles needs jq and git. packages/common.txt includes both. Skipping this step."
 		return 0
 	fi
 	envsetup::xdg_fetch || return 0
@@ -174,13 +183,15 @@ envsetup::xdg_tidy() {
 		fi
 	done
 	envsetup::xdg_write_env
-	gum style --foreground 2 "Moved. New shells pick up the exports; programs already running still use the old paths."
+	gum style --foreground 2 "Moved. New shells get the exports. Programs that are already running still use the old paths."
 	return "$failed"
 }
 
-# For uninstall: moves everything back (newest first), then drops the exports, the
-# list of moves and the cached notes. A move it can't undo stays in the list, with its
-# export, so a later uninstall can try again.
+# Uninstall uses this function.
+# It moves everything back, newest move first.
+# Then it deletes the exports, the list of moves and the saved notes.
+# A move that it cannot undo stays in the list, with its export.
+# So a later uninstall can try again.
 envsetup::xdg_restore() {
 	local lines=() kept=() i old new var reason failed=0 files=("$ENVSETUP_XDG_CACHE")
 	if [[ -f "$ENVSETUP_XDG_MOVES" ]]; then
@@ -194,7 +205,7 @@ envsetup::xdg_restore() {
 				envsetup::would "move $new back to $old"
 				continue
 			elif mv -n "$new" "$old" && [[ ! -e "$new" ]]; then
-				rmdir "${new%/*}" 2>/dev/null || true # the directory the move created, if now empty
+				rmdir "${new%/*}" 2>/dev/null || true # the folder that the move created, if it is empty now
 				continue
 			else
 				reason="couldn't move it"

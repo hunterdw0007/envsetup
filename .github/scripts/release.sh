@@ -1,20 +1,24 @@
 #!/usr/bin/env bash
-# Releases main's HEAD when the commits since the last release call for a new version
-# (see .cz.toml and "Releases" in AGENTS.md). Two steps, so the push token is never in
-# the checkout or in commitizen's process. That's defense in depth, not a boundary: later
-# steps of a job inherit what earlier ones leave ($GITHUB_PATH, $GITHUB_ENV, the
-# workspace). The control is commitizen's hash lock (.github/actions/commitizen).
+# This script releases the HEAD of main when the commits since the last release need a new version.
+# See .cz.toml and "Releases" in AGENTS.md.
+# It has two steps, so the push token is never in the checkout or in commitizen's process.
+# This adds a layer of protection, but it does not isolate the steps.
+# Later steps of a job get what earlier steps leave ($GITHUB_PATH, $GITHUB_ENV, the workspace).
+# The main protection is commitizen's hash lock (.github/actions/commitizen).
 #
-#   release.sh bump     cz bump: a "bump:" commit adding the version's CHANGELOG.md entry,
-#                       tagged vX.Y.Z, both only local. Needs commitizen, no token.
-#   release.sh publish  pushes them to main atomically, then publishes a GitHub release
-#                       with that entry as its notes. Needs PUSH_TOKEN (unless the remote
-#                       needs none) and gh with GH_TOKEN; never runs cz.
+#   release.sh bump     runs cz bump: a local "bump:" commit adds the version's
+#                       CHANGELOG.md entry, and a local vX.Y.Z tag marks it.
+#                       Needs commitizen and no token.
+#   release.sh publish  pushes the commit and the tag to main together. Then it
+#                       publishes a GitHub release with the entry as its notes.
+#                       Needs PUSH_TOKEN, unless the remote needs no token.
+#                       Needs gh with GH_TOKEN. Never runs cz.
 #
-# Run by CI (.github/workflows/ci.yml) once main's checks pass, from a checkout of the
-# pushed commit ($GITHUB_SHA) with full history and tags; tests/release.sh runs it the
-# same way. Safe to re-run: if that commit is already released, publish only creates
-# its GitHub release, if it's missing.
+# CI (.github/workflows/ci.yml) runs this script after the checks on main pass.
+# It runs from a checkout of the pushed commit ($GITHUB_SHA), with the full history and tags.
+# tests/release.sh runs it the same way.
+# You can run it again safely.
+# If the commit already has a release, publish only creates the missing GitHub release.
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)" # cz reads .cz.toml and the template from here
@@ -22,16 +26,18 @@ base=${GITHUB_SHA:?the commit CI checked out}
 repo=${GITHUB_REPOSITORY:?owner/repo, as GitHub Actions sets it}
 server=${GITHUB_SERVER_URL:-https://github.com}
 
-# The oldest release that includes HEAD: this run's bump, an earlier run's for the same
-# commit (the tag is on its bump commit, just after it), or a newer commit's.
+# This function prints the oldest release that includes HEAD.
+# That can be the bump of this run, or of an earlier run for the same commit.
+# In that case the tag is on the bump commit, right after HEAD.
+# It can also be the release of a newer commit.
 envsetup::release_tag() {
 	local tag=
 	read -r tag < <(git tag --contains HEAD --list 'v[0-9]*' --sort=v:refname) || true
 	echo "$tag"
 }
 
-# envsetup::notes <tag>: the tag's CHANGELOG.md entry, without its "## vX.Y.Z (date)"
-# heading or the blank lines around it.
+# envsetup::notes <tag> prints the tag's CHANGELOG.md entry.
+# It leaves out the "## vX.Y.Z (date)" heading and the blank lines around it.
 envsetup::notes() {
 	local line inside=0 notes=
 	while IFS= read -r line; do
@@ -59,7 +65,7 @@ envsetup::bump() {
 	export GIT_COMMITTER_EMAIL=$GIT_AUTHOR_EMAIL
 	cz bump --yes --git-output-to-stderr || rc=$?
 	if ((rc == 21)); then # commitizen's NO_INCREMENT
-		echo "No commits since the last release call for a new version; nothing to release."
+		echo "No commit since the last release needs a new version. Nothing to release."
 	elif ((rc != 0)); then
 		return "$rc"
 	fi
@@ -72,20 +78,21 @@ envsetup::publish() {
 		echo "Nothing to release."
 		return 0
 	fi
-	if [[ "$(git rev-parse HEAD)" != "$base" ]]; then # bump made a commit: push it
-		# Git config through the environment, so the token is in no file or argv. Hooks off,
-		# so one left in .git/hooks doesn't run with the token (defense in depth, as above).
+	if [[ "$(git rev-parse HEAD)" != "$base" ]]; then # bump made a commit, so push it
+		# The git config goes through the environment, so the token is in no file and no argument.
+		# Hooks are off, so a hook left in .git/hooks does not run with the token.
+		# This adds a layer of protection, as above.
 		export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/dev/null
 		if [[ -n "${PUSH_TOKEN:-}" ]]; then
 			export GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_1="http.$server/.extraheader"
 			GIT_CONFIG_VALUE_1="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 -w0)"
 			export GIT_CONFIG_VALUE_1
 		fi
-		# Atomic: main gets the bump commit and its tag together, or neither.
+		# The push is atomic: main gets the bump commit and its tag together, or gets neither.
 		if ! git push --atomic origin HEAD:refs/heads/main "refs/tags/$tag"; then
 			git fetch -q origin main
 			if [[ "$(git rev-parse FETCH_HEAD)" != "$base" ]]; then
-				echo "::warning::main moved on while this ran, so $tag wasn't pushed. The next commit on main to pass CI releases these commits too."
+				echo "::warning::main got a new commit while this ran, so $tag was not pushed. The next commit on main that passes CI also releases these commits."
 				return 0
 			fi
 			return 1
@@ -109,7 +116,7 @@ envsetup::publish() {
 curl -fsSL https://raw.githubusercontent.com/$repo/main/install.sh | ENVSETUP_VERSION=$tag bash
 \`\`\`
 
-The same line switches an existing checkout to $tag. Leave out \`ENVSETUP_VERSION\` for the newest release.
+This command also switches a machine with another release to $tag. Leave out \`ENVSETUP_VERSION\` to get the newest release.
 NOTES
 		if prev=$(git describe --tags --abbrev=0 --match 'v[0-9]*' "$tag^" 2>/dev/null); then
 			printf '\n**Full diff**: %s/%s/compare/%s...%s\n' "$server" "$repo" "$prev" "$tag"

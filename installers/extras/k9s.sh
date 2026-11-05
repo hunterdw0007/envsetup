@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Installs k9s, the Kubernetes TUI (pinned in installers/versions.txt; linux amd64 or arm64).
+# This script installs k9s, a terminal app for Kubernetes.
+# installers/versions.txt pins the version, for linux amd64 or arm64.
 set -euo pipefail
 
 source "$ENVSETUP_ROOT/lib/common.sh"

@@ -1,8 +1,10 @@
 name: bump-versions
 
-# Weekly: looks up the newest release of every tool in installers/versions.txt and
-# opens (or refreshes) one PR with the new versions and checksums. See "Installer
-# scripts" in AGENTS.md. Run it now from Actions > bump-versions > Run workflow.
+# This workflow runs every week.
+# It looks up the newest release of every tool in installers/versions.txt.
+# It opens one PR with the new versions and checksums, or updates that PR.
+# See "Installer scripts" in AGENTS.md.
+# To run it now, open Actions > bump-versions > Run workflow.
 on:
   schedule:
     - cron: "0 6 * * 1" # Mondays 06:00 UTC
@@ -23,7 +25,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
-          # No token in .git/config while the lookups run; only the last step gets one.
+          # .git/config holds no token while the lookups run.
+          # Only the last step gets a token.
           persist-credentials: false
 
       - name: Look up the newest versions
@@ -33,8 +36,9 @@ jobs:
 
       - name: Open or update the PR
         env:
-          # Not GITHUB_TOKEN: a push or PR made with it starts no workflows, so the PR
-          # would get no CI. Needs Contents, Pull requests and Actions: write.
+          # This step does not use GITHUB_TOKEN.
+          # A push or PR made with GITHUB_TOKEN starts no workflows, so the PR would get no CI.
+          # The token needs write access to Contents, Pull requests and Actions.
           PUSH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: .github/scripts/bump-pr.sh "$RUNNER_TEMP/changes.md"

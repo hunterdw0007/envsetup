@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Installs Terraform (pinned in installers/versions.txt; linux amd64 or arm64) if it
-# isn't already on PATH, checksum-verified.
+# This script installs Terraform if it is not already on PATH.
+# installers/versions.txt pins the version, for linux amd64 or arm64.
+# The script checks the checksum of the download.
 set -euo pipefail
 
 source "$ENVSETUP_ROOT/lib/common.sh"

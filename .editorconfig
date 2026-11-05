@@ -1,4 +1,4 @@
-# The repo's style (AGENTS.md), for editors that read https://editorconfig.org
+# This file sets the repo's style (AGENTS.md) for editors that read https://editorconfig.org
 root = true
 
 [*]
@@ -14,7 +14,7 @@ indent_style = tab
 indent_style = space
 indent_size = 2
 
-# Signed test data: any edit breaks the signature.
+# This is signed test data, so any edit breaks the signature.
 [tests/fixtures/**]
 charset = unset
 end_of_line = unset

@@ -1,81 +1,100 @@
 # shellcheck shell=bash
-# envsetup user config. Lives at ~/.config/envsetup/config.sh (or at
-# $XDG_CONFIG_HOME/envsetup/config.sh, if you set XDG_CONFIG_HOME), outside this repo,
-# so updating envsetup (re-running install.sh) never conflicts with it. install.sh no
-# longer keeps a copy of the repo (ENVSETUP_DIR is gone): new shells load the copy of
-# shell/ in ~/.local/share/envsetup, and this file is the place for your own changes.
-# "Edit config" in the menu copies this file there and opens it in $EDITOR.
+# This is your envsetup config.
+# It lives at ~/.config/envsetup/config.sh.
+# If you set XDG_CONFIG_HOME, it lives at $XDG_CONFIG_HOME/envsetup/config.sh.
+# This file is outside the repo, so an envsetup update never changes it.
+# New shells load the copy of shell/ in ~/.local/share/envsetup.
+# Put your own changes in this file, not in that copy.
+# "Edit config" in the menu copies this template to that path and opens it in $EDITOR.
 #
-# It's plain bash, sourced *after* the repo defaults in two places:
-#   - by setup.sh, which acts on the ENVSETUP_* variables below
-#   - by every new shell (via shell/init.sh), so aliases/exports/functions here load too
-# Everything is commented out, so this file as shipped changes nothing.
+# This file is a bash script.
+# envsetup sources it after the repo defaults, in two places:
+#   - setup.sh sources it and acts on the ENVSETUP_* settings below.
+#   - Every new shell sources it through shell/init.sh, so your aliases, exports and functions load too.
+# Every line is commented out, so this template changes nothing.
 #
-# Branch on $ENVSETUP_PROFILE (work | home) and $ENVSETUP_MODE (full | lite) for
-# per-machine tweaks. If you've set up zsh, this runs there too, so keep shell code
-# portable (or guard bash-only bits with [[ -n $BASH_VERSION ]]), and put
-# interactive-only things (prompt frameworks, completions) under [[ $- == *i* ]],
-# since setup.sh sources this file non-interactively too.
+# $ENVSETUP_PROFILE (work or home) and $ENVSETUP_MODE (full or lite) let you change settings for each machine.
+# If you set up zsh, zsh also runs this file.
+# So write code that works in bash and zsh.
+# Or wrap bash-only code in [[ -n $BASH_VERSION ]].
+# setup.sh also sources this file in a non-interactive shell.
+# So wrap code for interactive shells only in [[ $- == *i* ]].
+# Prompt frameworks and completions are examples.
 #
-# setup.sh sources this file in its own process. Thus `exit` here stops setup.sh, and
-# `cd` changes its directory. If this file has a syntax error, or a command in it fails,
-# setup.sh shows a warning and continues with the settings that loaded.
+# setup.sh sources this file in its own process.
+# So `exit` in this file stops setup.sh.
+# And `cd` in this file changes setup.sh's folder.
+# A syntax error or a failed command in this file makes setup.sh show a warning.
+# setup.sh then continues with the settings that loaded.
 
 # --- Packages ---------------------------------------------------------------------
-# Defaults: packages/common.txt + packages/$ENVSETUP_PROFILE.txt. Use Debian/Ubuntu's
-# names; packages/names.txt translates them for other distros (others pass through).
+# The defaults are packages/common.txt and packages/$ENVSETUP_PROFILE.txt.
+# Use the Debian or Ubuntu name.
+# packages/names.txt translates the name for other distros.
+# envsetup passes any other name to the package manager unchanged.
 # ENVSETUP_PACKAGES+=(neovim)          # add to the defaults
-# ENVSETUP_PACKAGES=(git tmux curl)    # or replace them entirely
+# ENVSETUP_PACKAGES=(git tmux curl)    # or replace the defaults
 # [[ $ENVSETUP_PROFILE == work ]] && ENVSETUP_PACKAGES+=(kubectx)
 
 # --- Extra tools --------------------------------------------------------------------
-# Popular tools that Ubuntu LTS or Fedora don't package, installed from their own
-# releases by "Run installers": starship lazygit k9s yq mise uv (installers/extras/).
+# Ubuntu LTS and Fedora do not package these popular tools.
+# "Run installers" installs them from each project's own releases.
+# The extras are starship, lazygit, k9s, yq, mise and uv (installers/extras/).
 # ENVSETUP_EXTRAS=(lazygit k9s)
 
 # --- Installer scripts ------------------------------------------------------------
-# Defaults: installers/common + installers/$ENVSETUP_PROFILE
+# The defaults are installers/common and installers/$ENVSETUP_PROFILE.
 # ENVSETUP_INSTALLER_DIRS+=("$HOME/dotfiles/envsetup-installers")   # your own scripts
 
 # --- Skip ---------------------------------------------------------------------------
-# Leave out any package or installer by name (installer = script name without .sh).
+# List any package or installer to skip, by name.
+# An installer's name is its script name without .sh.
 # ENVSETUP_SKIP=(docker terraform awscli)
 
-# --- Dotfiles in XDG directories -----------------------------------------------------
-# Default: 0. 1 makes "Run everything" also run "Move dotfiles to XDG dirs", which moves
-# dotfiles into ~/.config, ~/.local and ~/.cache where xdg-ninja says it's mechanical.
+# --- Dotfiles in XDG folders --------------------------------------------------------
+# The default is 0.
+# The value 1 adds "Move dotfiles to XDG dirs" to "Run everything".
+# That action moves dotfiles into ~/.config, ~/.local and ~/.cache.
+# It moves a dotfile only when xdg-ninja's note gives simple steps.
 # ENVSETUP_XDG_NINJA=1
 
 # --- Login shell --------------------------------------------------------------------
-# Default: bash. ~/.bashrc and your login shell's rc file are always linked. zsh also
-# installs zsh + oh-my-zsh and links ~/.zshrc as part of "Run everything", like the
-# menu's "Set up zsh + oh-my-zsh".
+# The default is bash.
+# envsetup always links ~/.bashrc and your login shell's startup file.
+# The value zsh adds "Set up zsh + oh-my-zsh" to "Run everything".
+# That action installs zsh and oh-my-zsh and links ~/.zshrc.
 # ENVSETUP_SHELL=zsh
 
 # --- Git ----------------------------------------------------------------------------
-# Defaults: git/gitconfig. key=value, same format as `git config --list`, so you can
-# paste straight from `git config --global --list` on an existing machine. Later
-# entries win, so these override the defaults. Re-run "Configure git" to apply.
+# The defaults come from git/gitconfig.
+# Each entry is key=value, the same format as `git config --list`.
+# So you can paste the output of `git config --global --list` from another machine.
+# Later entries win, so these entries replace the defaults.
+# Run "Configure git" again to apply a change.
 # ENVSETUP_GIT_CONFIG+=(
 # 	"user.name=Your Name"
 # 	"user.email=you@example.com"
 # 	"pull.rebase=false"
 # )
-# Multi-valued keys (credential.helper, ...) add to the defaults instead of replacing
-# them; an empty value clears the list first. E.g. to keep HTTPS credentials on disk
-# (plain text, in ~/.git-credentials) instead of in memory for an hour:
+# Some keys can hold more than one value, for example credential.helper.
+# A new value for such a key adds to the defaults and does not replace them.
+# An empty value clears the list first.
+# For example, this keeps HTTPS passwords on disk instead of in memory for one hour.
+# git stores them as plain text in ~/.git-credentials.
 # ENVSETUP_GIT_CONFIG+=("credential.helper=" "credential.helper=store")
-# Or on WSL, the Git Credential Manager of Windows:
+# On WSL, this uses the Git Credential Manager of Windows:
 # ENVSETUP_GIT_CONFIG+=("credential.helper=" "credential.helper=/mnt/c/Program\ Files/Git/mingw64/bin/git-credential-manager.exe")
-# Settings that only fit one machine go here too, e.g. on a work box:
+# Settings for one machine go here too, for example on a work machine:
 # [[ $ENVSETUP_PROFILE == work ]] && ENVSETUP_GIT_CONFIG+=(
 # 	"core.hooksPath=$HOME/.git-templates/hooks"
 # 	"http.sslCAInfo=$HOME/.config/corp-ca-bundle.crt"
 # )
 
 # --- Shell --------------------------------------------------------------------------
-# Anything else is ordinary shell config, loaded after the repo's shell/ defaults,
-# so it can add to or override them. Changes apply to new shells, no setup re-run.
+# Everything else is normal shell config.
+# It loads after the defaults in the repo's shell/ folder, so it can add to them or replace them.
+# A change takes effect in the next new shell.
+# You do not need to run setup again.
 # alias k=kubectl
 # unalias ll 2>/dev/null
 # export EDITOR=nvim

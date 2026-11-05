@@ -1,24 +1,25 @@
 #!/usr/bin/env bash
-# Smoke test: runs envsetup for real on a bare Ubuntu box. Only the slow or networked
-# edges are stubbed (gum's UI, package installs, vendor downloads); install.sh's git
-# bootstrap, the clone, setup.sh's menu flow, rc-file linking, and a real bash and zsh
-# loading the result are all real.
+# The smoke test runs envsetup for real on a bare Ubuntu container.
+# Only the slow parts and the network parts are fakes: gum's menus, package installs and vendor downloads.
+# These parts are real: install.sh's git install, the clone and the setup.sh menu flow.
+# The startup file links, and a real bash and zsh that load the result, are real too.
 #
 #   docker run --rm -t -v "$PWD:/src:ro" ubuntu:24.04 bash /src/tests/smoke.sh
 #
-# Needs a TTY (-t: install.sh hands off to setup.sh via /dev/tty) and a throwaway
-# container, since it installs git and zsh and writes to /root. SMOKE_APT_CACHE is a dir
-# of apt lists and .debs for git, zsh and jq (lists/, archives/), so it can run offline,
-# as CI does (see the smoke job in ci.yml): from CI, Ubuntu's archive often takes minutes.
-# shellcheck disable=SC2016 # single-quoted code is meant to expand in the stubs / test shells
+# The test needs a terminal (-t), because install.sh starts setup.sh through /dev/tty.
+# It needs a temporary container, because it installs git and zsh and writes to /root.
+# SMOKE_APT_CACHE is a folder of apt lists and .debs for git, zsh and jq (lists/, archives/).
+# With it, the test can run offline, as CI does (see the smoke job in ci.yml).
+# From CI, Ubuntu's package servers often take minutes.
+# shellcheck disable=SC2016 # code in single quotes expands later, in the fakes and test shells
 set -euo pipefail
 
 SRC=/src
 CLONE=/root/envsetup
 W=/tmp/smoke
-STUBS=$W/stubs     # gum + sudo: on PATH for every run
-OFFLINE=$W/offline # package manager, curl, chsh, "already installed" vendor tools
-HOOKS=$W/hooks     # direnv and zoxide stand-ins that print a marker function as their hook
+STUBS=$W/stubs     # fake gum and sudo, on PATH for every run
+OFFLINE=$W/offline # fake package manager, curl, chsh, and vendor tools that count as installed
+HOOKS=$W/hooks     # fake direnv and zoxide that print a marker function as their hook
 export SMOKE_LOG=$W/calls.log SMOKE_CHOICES=$W/choices SMOKE_CONFIRMS=$W/confirms
 failures=0
 
@@ -36,23 +37,25 @@ has() { command -v "$1" >/dev/null; }
 count() { grep -cF -- "$1" "$2" || true; }
 not_grep() { ! grep -q -- "$1" "$2"; }
 none_exist() { for f; do [ ! -e "$f" ] || return 1; done; }
-# none_exist_in <text> <file>...: none of the files contain the text.
+# none_exist_in <text> <file>... passes when none of the files contain the text.
 none_exist_in() {
 	local text=$1 f
 	shift
 	for f; do ! grep -qF -- "$text" "$f" || return 1; done
 }
 not() { ! "$@"; }
-same_list() { [ -n "$1" ] && [ "$1" = "$2" ]; } # an empty expected list is a broken test, not a pass
-# Both must resolve, so two failed lookups can't compare equal.
+same_list() { [ -n "$1" ] && [ "$1" = "$2" ]; } # an empty expected list means a broken test, not a pass
+# Both commits must exist, so two failed lookups cannot count as equal.
 same_commit() {
 	local a b
 	a=$(git -C "$1" rev-parse --verify -q HEAD) && b=$(git -C "$2" rev-parse --verify -q HEAD) && [ "$a" = "$b" ]
 }
 
-# The commit under test, for install.sh's ENVSETUP_VERSION (it would otherwise pick the
-# newest release): the branch /src has checked out, or the commit itself when that's
-# detached, as in CI. Read by hand, since there's no git until install.sh installs it.
+# Find the commit under test, for install.sh's ENVSETUP_VERSION.
+# Without it, install.sh would pick the newest release.
+# Use the branch that /src has checked out.
+# When HEAD is detached, as in CI, use the commit itself.
+# Read the files by hand, because git is missing until install.sh installs it.
 read -r UNDER_TEST <"$SRC/.git/HEAD"
 UNDER_TEST=${UNDER_TEST#ref: refs/heads/}
 
@@ -61,14 +64,16 @@ UNDER_TEST=${UNDER_TEST#ref: refs/heads/}
 	exit 2
 }
 if [[ -n "${SMOKE_APT_CACHE:-}" ]]; then
-	rm -f /etc/apt/apt.conf.d/docker-clean # it deletes the .debs once they're installed
+	rm -f /etc/apt/apt.conf.d/docker-clean # it deletes the .debs after apt installs them
 	cp -a "$SMOKE_APT_CACHE/lists/." /var/lib/apt/lists/
 	cp "$SMOKE_APT_CACHE"/archives/*.deb /var/cache/apt/archives/
-	# Offline, apt-get update would spend ~8s retrying; one failed try per source is enough.
+	# Offline, apt-get update would spend about 8 seconds on retries.
+	# One failed try for each source is enough.
 	echo 'Acquire::Retries "0";' >/etc/apt/apt.conf.d/99smoke
 fi
-# A throwaway container: dpkg needn't fsync every file it unpacks. No recommends (half
-# of git's ~50 packages): a barer box, and a faster one.
+# The container is temporary, so dpkg does not need to fsync every file it unpacks.
+# Skip recommended packages, which are half of git's 50 or so packages.
+# The container is then smaller and faster.
 echo force-unsafe-io >/etc/dpkg/dpkg.cfg.d/smoke
 echo 'APT::Install-Recommends "0";' >/etc/apt/apt.conf.d/98smoke
 
@@ -76,13 +81,14 @@ mkdir -p "$STUBS" "$OFFLINE"
 : >"$SMOKE_CONFIRMS"
 
 cp "$SRC/tests/gum.sh" "$STUBS/gum"
-# Root in the container; a real machine has sudo.
+# The test is root in the container, and a real machine has sudo.
 printf '#!/bin/sh\nexec "$@"\n' >"$STUBS/sudo"
 
-# apt-get refuses any batch with smoke-conflict in it, like a real package conflict.
+# The fake apt-get refuses any install that includes smoke-conflict, like a real package conflict.
 printf '#!/bin/sh\necho "apt-get $*" >>"$SMOKE_LOG"\ncase "$*" in *smoke-conflict*) exit 100 ;; esac\n' >"$OFFLINE/apt-get"
 printf '#!/bin/sh\necho "chsh $*" >>"$SMOKE_LOG"\n' >"$OFFLINE/chsh"
-# curl only serves a stand-in oh-my-zsh installer; any other download is a test bug.
+# The fake curl serves only a fake oh-my-zsh installer.
+# Any other download is a bug in the test.
 cat >"$OFFLINE/curl" <<'EOF'
 #!/bin/sh
 echo "curl $*" >>"$SMOKE_LOG"
@@ -96,16 +102,18 @@ esac
 EOF
 for tool in kubectl helm terraform aws docker lazygit; do printf '#!/bin/sh\n' >"$OFFLINE/$tool"; done
 printf '#!/bin/sh\necho "gh $*" >>"$SMOKE_LOG"\n' >"$OFFLINE/gh"
-# The box has no openssh-client, and a real ssh-keygen would wait for a passphrase.
+# The container has no openssh-client.
+# A real ssh-keygen would also wait for a passphrase.
 cp "$SRC/tests/ssh-keygen.sh" "$OFFLINE/ssh-keygen"
 mkdir -p "$HOOKS"
 printf '#!/bin/sh\necho "_direnv_hook() { :; }"\n' >"$HOOKS/direnv"
 printf '#!/bin/sh\necho "__zoxide_z() { :; }"\n' >"$HOOKS/zoxide"
 chmod +x "$STUBS"/* "$OFFLINE"/* "$HOOKS"/*
 
-# run_menu <home> <answers...>: runs the cloned setup.sh offline, answering the menu.
-# Options for setup.sh itself go in SETUP_ARGS, answers to gum confirm in CONFIRMS.
-# SETUP=curl_bash runs it through install.sh instead, as `curl ... | bash` does.
+# run_menu <home> <answers...> runs the cloned setup.sh offline and answers the menu.
+# Options for setup.sh go in SETUP_ARGS.
+# Answers to gum confirm go in CONFIRMS.
+# SETUP=curl_bash runs setup.sh through install.sh instead, as `curl ... | bash` does.
 SETUP_ARGS=() CONFIRMS=()
 run_menu() {
 	local home=$1
@@ -115,13 +123,15 @@ run_menu() {
 	: >"$SMOKE_LOG"
 	HOME=$home PATH="$OFFLINE:$STUBS:$PATH" "${SETUP:-$CLONE/setup.sh}" "${SETUP_ARGS[@]}" >"$home/setup.out" 2>&1 </dev/tty
 }
-# install.sh's download goes in TMP (mktemp -d), which must be empty once it ends.
+# install.sh downloads into TMP (mktemp -d).
+# TMP must be empty after install.sh ends.
 TMP=$W/tmp
 mkdir -p "$TMP"
 # shellcheck disable=SC2120 # run_menu passes it SETUP_ARGS
 curl_bash() { ENVSETUP_VERSION=$UNDER_TEST ENVSETUP_REPO_URL=$SRC TMPDIR=$TMP bash "$SRC/install.sh" "$@"; }
 left_nothing() { [ -z "$(ls -A "$TMP")" ]; }
-# Everything under a home (paths + file contents), minus the test's own output files.
+# This prints everything under a home: paths and file contents.
+# It leaves out the test's own output files.
 snapshot() {
 	(
 		cd "$1" || exit 1
@@ -144,9 +154,9 @@ n_installers() {
 	for s in "$CLONE/installers/$1"/*.sh; do [ -f "$s" ] && n=$((n + 1)); done
 	echo "$n"
 }
-# described <count> <text>: the count behind a label must be real, then the menu must show it.
+# described <count> <text> passes when the count behind a label is real and the menu shows the text.
 described() { [ "$1" -gt 0 ] && grep -qF -- "$2" "$SMOKE_LOG"; }
-# Both run with no gum anywhere on PATH, so they fail if they go anywhere near it.
+# Both checks run without gum on PATH, so they fail if they call gum.
 help_ok() { HOME=$1 PATH=/usr/bin:/bin "$CLONE/setup.sh" --help >"$1/help.out" 2>&1 && grep -q '^Usage: ' "$1/help.out"; }
 rejects_unknown() {
 	local rc=0
@@ -156,10 +166,11 @@ rejects_unknown() {
 includes() { git config --file "$1/.gitconfig" --get-all include.path || true; }
 # PS1 comes from shell/shared/ps1.sh, not the distro's .bashrc.
 has_prompt() { [[ "$(in_shell "$1" bash 'printf %s "$PROMPT_COMMAND $PS1"')" == *_envsetup_prompt*'${_envsetup_prompt_dir}'* ]]; }
-# prompt_var <home> <dir> <var>: what _envsetup_prompt (PROMPT_COMMAND) sets <var> to in <dir>.
+# prompt_var <home> <dir> <var> prints the value that _envsetup_prompt (PROMPT_COMMAND) gives <var> in <dir>.
 prompt_var() { in_shell "$1" bash "cd '$2' && _envsetup_prompt && printf %s \"\$_envsetup_prompt_$3\""; }
-# in_shell <home> <bash|zsh> <cmd>: runs cmd in a real interactive shell that loads
-# the linked rc file; stderr (minus no-TTY job-control notices) goes to <home>/shell.err.
+# in_shell <home> <bash|zsh> <cmd> runs cmd in a real interactive shell that loads the linked startup file.
+# stderr goes to <home>/shell.err.
+# The function drops the job control notices that a shell without a terminal prints.
 in_shell() {
 	local out
 	out=$(HOME=$1 setsid "$2" -i -c "$3" 2>"$1/shell.raw" </dev/null)
@@ -167,16 +178,19 @@ in_shell() {
 	echo "$out"
 }
 
-# not_interactive <home> <cmd>: cmd in a non-interactive bash that still runs envsetup's
-# rc block, as `ssh host cmd` does where ~/.bashrc doesn't return early (Fedora's).
-# Ubuntu's does, so the block is pulled out and run through BASH_ENV. stderr included.
+# not_interactive <home> <cmd> runs cmd in a non-interactive bash that still runs envsetup's block.
+# `ssh host cmd` does this where ~/.bashrc does not return early, as on Fedora.
+# Ubuntu's ~/.bashrc returns early.
+# So the function copies the block out and runs it through BASH_ENV.
+# The output includes stderr.
 not_interactive() {
 	sed -n '/^# >>> envsetup >>>$/,/^# <<< envsetup <<<$/p' "$1/.bashrc" >"$1/rc-block.sh"
 	HOME=$1 BASH_ENV=$1/rc-block.sh bash -c "$2" 2>&1 </dev/null
 }
 
 echo "== install.sh on macOS: stops before it changes anything (#103)"
-# bash keeps an OSTYPE from the environment. First, while the box still has no git.
+# bash keeps an OSTYPE from the environment.
+# This scenario runs first, while the container still has no git.
 mac() { OSTYPE=darwin24 curl_bash >$W/mac.out 2>&1; }
 check "exited non-zero" not mac
 check "  ...named the last release for macOS" grep -qF 'ENVSETUP_VERSION=v0.3.0 bash' $W/mac.out
@@ -197,7 +211,8 @@ check "git was installed" has git
 check "setup.sh reached the menu on a first run" grep -q '^gum choose Select profile (current: none)' "$SMOKE_LOG"
 check "  ...from a download in TMPDIR" grep -qF "to $TMP/" $W/install.out
 check "  ...which is gone" left_nothing
-# A contributor's checkout, which most scenarios below run setup.sh from.
+# This is a contributor's checkout.
+# Most scenarios below run setup.sh from it.
 git clone -q "$SRC" "$CLONE"
 git -C "$CLONE" checkout -q --detach "$(git -C "$SRC" rev-parse HEAD)"
 check "(the checkout is at the commit under test)" same_commit "$SRC" "$CLONE"
@@ -205,8 +220,8 @@ mac_setup() { OSTYPE=darwin24 "$CLONE/setup.sh" --help >$W/mac-setup.out 2>&1; }
 check "setup.sh in a clone on macOS: exited non-zero" not mac_setup
 check "  ...and named the last release for macOS" grep -qF 'git checkout v0.3.0 && ./setup.sh --uninstall' $W/mac-setup.out
 
-# Real zsh, so the home profile's shell config is checked in the shell it targets, and
-# real jq, which "Move dotfiles to XDG dirs" reads xdg-ninja's notes with.
+# Install a real zsh, so the test checks the shell config in a real zsh.
+# Install a real jq, because "Move dotfiles to XDG dirs" reads xdg-ninja's notes with it.
 DEBIAN_FRONTEND=noninteractive apt-get install -y -qq zsh jq >$W/zsh.out 2>&1 || {
 	show $W/zsh.out
 	exit 1
@@ -241,8 +256,8 @@ SETUP_ARGS=(--bogus)
 SETUP=curl_bash check "setup.sh failing fails install.sh" not run_menu "$h"
 SETUP_ARGS=()
 check "  ...which still deletes its download" left_nothing
-# Ctrl-C signals the terminal's foreground job: gum, setup.sh and install.sh. Job control
-# (set -m) gives install.sh a process group of its own, as a terminal would.
+# Ctrl-C sends a signal to the terminal's foreground job: gum, setup.sh and install.sh.
+# Job control (set -m) gives install.sh its own process group, as a terminal would.
 signalled() {
 	set -m
 	SETUP=curl_bash run_menu "$h" "$1"
@@ -254,7 +269,7 @@ check "Ctrl-C ends install.sh" signalled SIGINT
 check "  ...which still deletes its download" left_nothing
 check "so does a kill" signalled SIGTERM
 check "  ...which still deletes its download" left_nothing
-# Remove? yes; keep config.sh? no.
+# The answers: remove, yes; keep config.sh, no.
 SETUP_ARGS=(--uninstall) CONFIRMS=(yes no)
 SETUP=curl_bash check "curl | bash -s -- --uninstall: exited 0" run_menu "$h"
 SETUP_ARGS=() CONFIRMS=()
@@ -299,7 +314,8 @@ check "re-run didn't link twice" [ "$(count '# >>> envsetup >>>' "$h/.bashrc")" 
 ((failures)) && show "$h/setup.out"
 
 echo "== pruneBranches: deletes only what it lists, and keeps unmerged branches (#62)"
-# In the work/full home above. A repo with main, 7 merged branches and an older unmerged one.
+# This uses the work/full home above.
+# The repo has main, 7 merged branches and an older unmerged branch.
 r=$h/prune
 git init -q -b main "$r"
 pgit() { GIT_COMMITTER_DATE=$1 git -C "$r" -c user.name=smoke -c user.email=smoke@example.com "${@:2}"; }
@@ -310,7 +326,8 @@ pgit 2020-01-03T00:00:00 switch -q main
 pgit 2020-01-03T00:00:00 commit -q --allow-empty -m newer
 for b in 1 2 3 4 5 6 7; do git -C "$r" branch "merged-$b"; done
 branches() { git -C "$r" for-each-ref --format='%(refname:short)' refs/heads | wc -l; }
-# Only what is left counts here; an unknown option returns 2, which set -e would stop on.
+# Only the branches that are left count here.
+# An unknown option returns 2, and set -e would stop on it.
 prune() { in_shell "$h" bash "cd '$r' && pruneBranches $*" >/dev/null || true; }
 check "(before: 9 branches)" [ "$(branches)" = 9 ]
 prune --help
@@ -452,8 +469,9 @@ check "  ...warned once (the menu loads config.sh each time it shows)" [ "$(coun
 printf 'ENVSETUP_EXTRAS=(lazygit\n' >"$h/.config/envsetup/config.sh"
 check "a syntax error: exited 0" run_menu "$h" "Configure git" Quit
 check "  ...warned once, with the line" [ "$(count 'did not load completely (line 1: unexpected EOF' "$h/setup.out")" = 1 ]
-# The README's own example: on this work box the last line's test is false, so `source`
-# returns 1. That is no error.
+# This is the README's own example.
+# On this work machine, the test on the last line is false, so `source` returns 1.
+# That is not an error.
 printf 'ENVSETUP_EXTRAS=(lazygit)\n[[ $ENVSETUP_PROFILE == home ]] && ENVSETUP_EXTRAS+=(k9s)\n' >"$h/.config/envsetup/config.sh"
 check "a last line of [[ false ]] && ...: exited 0" run_menu "$h" "Configure git" Quit
 check "  ...and no warning" not_grep 'failed. envsetup continues' "$h/setup.out"
@@ -469,14 +487,15 @@ check "  ...and nothing in the other one" [ ! -e "$f" ]
 
 echo "== work/lite with XDG_CONFIG_HOME set, and odd paths: envsetup keeps its state and the shell copy there"
 h=$(new_home)
-# A space, ", $(...) and a backtick in both paths: the rc block must quote them (#46).
+# Both paths contain a space, ", $(...) and a backtick, and the block must quote them (#46).
 # If a shell ran $(exit 1) or `false`, ENVSETUP_ROOT would not be the path.
 x="$h/xdg config \"q\" \$(touch $h/ran) \`touch $h/ran\`"
 odd="$W/env setup \"q\" \$(exit 1) \`false\`"
 XDG_CONFIG_HOME=$x XDG_DATA_HOME=$odd check "exited 0" run_menu "$h" "Select profile" work lite "Run everything" Quit
 check "saved the profile in \$XDG_CONFIG_HOME/envsetup" [ "$(cat "$x/envsetup/profile" 2>/dev/null)" = work ]
 check "  ...and nothing in ~/.config/envsetup" [ ! -e "$h/.config/envsetup" ]
-# Lite mode loads no exports. Without its state, a shell would load full mode's EDITOR=vim.
+# Lite mode loads no exports.
+# Without the saved mode, a shell would load full mode's EDITOR=vim.
 check "a shell with the same XDG_CONFIG_HOME finds it (lite: no EDITOR)" [ "$(XDG_CONFIG_HOME=$x in_shell "$h" bash 'printf %s "${EDITOR:-none}"')" = none ]
 check "  ...and so does a shell without XDG_CONFIG_HOME (ssh, cron): the rc block keeps the dir" [ "$(in_shell "$h" bash 'printf %s "${EDITOR:-none}|$ENVSETUP_STATE"')" = "none|$x/envsetup" ]
 check "  ...and the copy of shell/ in \$XDG_DATA_HOME" [ "$(in_shell "$h" bash 'printf %s "$ENVSETUP_ROOT"')" = "$odd/envsetup" ]
@@ -574,7 +593,7 @@ check "  ...without writing anything" [ ! -e "$h/.config" ]
 run_menu "$h" Quit
 check "a first run shows a welcome" grep -qF 'Welcome to envsetup' "$SMOKE_LOG"
 w=$(n_expected work) wi=$(n_installers work) hm=$(n_expected home)
-# Answer with whole lines, the way gum returns a picked label.
+# Answer with whole lines, the way gum returns a selected label.
 run_menu "$h" "Select profile" "work  bash · (as gum returns it)" "lite  no sudo: (as gum returns it)" Quit
 check "work is described from its config" described "$w" "work  bash · $w packages · $wi installers ("
 check "home is described from its config" described "$hm" "home  bash · $hm packages · $(n_installers home) installer (docker)"
@@ -629,19 +648,20 @@ check "left ~/.bashrc as it was" cmp -s /etc/skel/.bashrc "$h/.bashrc"
 check "still saved the profile you picked" [ "$(cat "$h/.config/envsetup/profile" 2>/dev/null)" = work ]
 
 echo "== install.sh: the newest release by default, or the one asked for (and passes --version to setup.sh)"
-# An origin whose every commit is the code under test: releases come later.
+# Every commit on this origin is the code under test.
+# The releases come later.
 R=$W/releases
 git init -q -b main "$R"
 git -C "$CLONE" archive HEAD | tar -x -C "$R"
 rel() { git -C "$R" -c user.name=smoke -c user.email=smoke@example.com "$@"; }
-# release <message> [tag]: a commit on the origin's main, tagged as given.
+# release <message> [tag] adds a commit to the origin's main, with the given tag.
 release() {
 	rel add -A
 	rel commit -q --allow-empty -m "$1"
 	if [ -n "${2:-}" ]; then rel tag -a "$2" -m "$2"; fi
 }
-# install_version <ENVSETUP_VERSION>: install.sh from that origin, then setup.sh
-# --version. No gum on PATH: --version must work before it's installed.
+# install_version <ENVSETUP_VERSION> runs install.sh from that origin, then setup.sh --version.
+# gum is not on PATH, because --version must work before gum is installed.
 install_version() {
 	ENVSETUP_VERSION=$1 ENVSETUP_REPO_URL=$R TMPDIR=$TMP PATH=/usr/bin:/bin \
 		bash "$SRC/install.sh" --version >$W/version.out 2>&1
@@ -664,7 +684,7 @@ check "an unknown version fails" fails install_version 9.9.9
 check "  ...listing the releases" grep -qF '  v1.1.0' $W/version.out
 check "  ...and deletes its download" left_nothing
 ((failures)) && show $W/version.out
-# The copy of shell/ follows the release that last linked it.
+# The copy of shell/ matches the release that linked it last.
 from_releases() { ENVSETUP_REPO_URL=$R TMPDIR=$TMP bash "$SRC/install.sh" "$@"; }
 h=$(new_home)
 ENVSETUP_VERSION=1.1.0 SETUP=from_releases check "Link shell config from v1.1.0: exits 0" run_menu "$h" "Link shell config" Quit
@@ -678,7 +698,8 @@ check "  ...and deletes its download" left_nothing
 ((failures)) && show "$h/setup.out"
 
 echo "== an rc block from before #86, which loads shell/ from a checkout, is rewritten"
-# old_install <home>: ~/envsetup and the block that linked it, then a line of the user's.
+# old_install <home> creates ~/envsetup and the block that linked it.
+# Then it adds one line of the user's own.
 old_install() {
 	cp -a "$CLONE" "$1/envsetup"
 	printf '%s\n' '# >>> envsetup >>>' "export ENVSETUP_ROOT=$1/envsetup" \
@@ -758,7 +779,7 @@ CONFIRMS=(no no yes) # no to the SSH key's two questions, yes to make zsh the lo
 run_menu "$h" "Select profile" home "Run everything" "Set up zsh + oh-my-zsh" Quit
 check "(before: ~/.zshrc is linked)" grep -qF '# >>> envsetup >>>' "$h/.zshrc"
 check "(before: noted that it switched the login shell)" [ -f "$h/.config/envsetup/chsh" ]
-# Remove? yes; keep config.sh? no; keep the SSH key? no; keep zsh as login shell? no.
+# The answers: remove, yes; keep config.sh, no; keep the SSH key, no; keep zsh as the login shell, no.
 CONFIRMS=(yes no no no)
 SHELL=/usr/bin/zsh check "exited 0" run_menu "$h" Uninstall
 CONFIRMS=()
@@ -791,9 +812,11 @@ check "still ran the installers after it" grep -qF "Running kubectl.sh" "$SMOKE_
 ((failures)) && show "$h/setup.out"
 
 echo "== Move dotfiles to XDG dirs (ENVSETUP_XDG_NINJA=1, offline copy of xdg-ninja)"
-# Notes in xdg-ninja's real format: move + export, move only, one whose dotfile the
-# user's .bashrc references, and two unsafe ones (an export of BASH_ENV, which makes
-# every bash script run the file, and a path out of the XDG dir), all left alone.
+# These notes use xdg-ninja's real format.
+# The notes are a move with an export, a move only, and a dotfile that the user's .bashrc mentions.
+# Two more notes are unsafe, and envsetup must leave both alone.
+# One exports BASH_ENV, which makes every bash script run the file.
+# The other has a path that leads out of the XDG folder.
 mkdir -p $W/xdg-ninja/programs
 cat >$W/xdg-ninja/programs/docker.json <<'JSON'
 {"name": "docker", "files": [{"path": "$HOME/.docker", "movable": true,
@@ -842,7 +865,7 @@ check "left the dotfile a note exports as BASH_ENV" [ -f "$h/.envrc-unsafe" ]
 check "  ...and exported no BASH_ENV" [ "$(grep -c BASH_ENV "$h/.config/envsetup/xdg.sh")" = 0 ]
 check "left the dotfile a note moves out of the XDG dir" [ -f "$h/.outside" ]
 check "  ...and said both need manual steps" [ "$(grep -cE 'leaving ~/\.(envrc-unsafe|outside) \(unsafe\): needs manual steps' "$h/setup.out")" = 2 ]
-mkdir "$h/.docker" # made again by a program that didn't get DOCKER_CONFIG (cron, a launcher)
+mkdir "$h/.docker" # a program without DOCKER_CONFIG creates it again (cron, a launcher)
 SETUP_ARGS=(--uninstall) CONFIRMS=(yes yes)
 check "--uninstall with ~/.docker made again exits non-zero" not run_menu "$h"
 check "  ...moved ~/.htoprc back" cmp -s <(echo 'color_scheme=1') "$h/.htoprc"
@@ -858,9 +881,9 @@ unset ENVSETUP_XDG_NINJA_URL
 ((failures)) && show "$h/setup.out"
 
 echo "== download verification (lib/common.sh), offline"
-# install_release gets a file:// URL from a curl that only copies local files. gpg_verify
-# checks tests/fixtures/signed.txt against a throwaway key made for this test (its secret
-# half was never kept), with the real gpgv.
+# install_release gets a file:// URL from a fake curl that only copies local files.
+# gpg_verify checks tests/fixtures/signed.txt with the real gpgv.
+# It uses a temporary key made for this test, and nobody kept the secret half of that key.
 v=$W/verify
 mkdir -p "$v/bin"
 printf '#!/bin/sh\nfor a; do out=$url; url=$a; done\n[ "$out" != "${out#-}" ] && exit 2\ncp "${url#file://}" "$out"\n' >"$v/bin/curl"
@@ -873,7 +896,7 @@ check "install_release installs a download that matches its checksum" verify env
 check "  ...the binary it installed runs" [ "$(/usr/local/bin/smoke-good 2>&1)" = smoke-verified ]
 echo tampered >>"$v/smoke-bad"
 check "install_release refuses one that doesn't" not verify envsetup::install_release "file://$v/smoke-bad" "$good_sha" smoke-bad
-check "  ...says why" grep -qF "smoke-bad doesn't match its published checksum" "$v/out"
+check "  ...says why" grep -qF "smoke-bad does not match its published checksum" "$v/out"
 check "  ...and installs nothing" [ ! -e /usr/local/bin/smoke-bad ]
 check "  ...nor with an empty checksum (none was published)" not verify envsetup::install_release "file://$v/smoke-good" "" smoke-empty
 pins=$CLONE/installers/versions.txt
@@ -884,7 +907,8 @@ check "  ...and the sha256 for a platform" pins_sha
 check "  ...fails for a platform with none" not verify envsetup::pin kubectl linux-riscv64
 check "  ...saying which" grep -qF "no checksum of kubectl for linux-riscv64" "$v/out"
 check "  ...fails for a name it doesn't pin" not verify envsetup::pin no-such-tool
-# Every name the code pins is in the file, with an amd64 and an arm64 hash if it has any.
+# Every name that the code pins is in the file.
+# A name with hashes has an amd64 hash and an arm64 hash.
 pins_complete() {
 	local n names
 	names=$(grep -rhoE 'envsetup::pin [a-z0-9]+' "$CLONE/installers" "$CLONE/lib" | cut -d' ' -f2 | sort -u)
@@ -901,12 +925,12 @@ fpr=33BA29D63A94A1F8D01A594286EFD1F2522F6FD0
 check "gpg_verify passes a good signature by the pinned key" verify envsetup::gpg_verify "$fx/signed.txt" "$fx/signed.txt.sig" "$fx/smoke-key.asc" "$fpr"
 sed 's/smoke test/smoke tesT/' "$fx/signed.txt" >"$v/signed.txt"
 check "  ...fails a file with one byte changed" not verify envsetup::gpg_verify "$v/signed.txt" "$fx/signed.txt.sig" "$fx/smoke-key.asc" "$fpr"
-check "  ...says why" grep -qF "signed.txt isn't validly signed by $fpr" "$v/out"
+check "  ...says why" grep -qF "signed.txt has no valid signature by $fpr" "$v/out"
 check "  ...fails another key's fingerprint, even a prefix of the right one" not verify envsetup::gpg_verify "$fx/signed.txt" "$fx/signed.txt.sig" "$fx/smoke-key.asc" "${fpr%?}"
 mkdir -p "$v/nogpg"
 for t in mktemp base64 rm; do ln -sf "$(command -v "$t")" "$v/nogpg/$t"; done
 VPATH=$v/nogpg check "  ...fails closed with neither gpgv nor gpg" not verify envsetup::gpg_verify "$fx/signed.txt" "$fx/signed.txt.sig" "$fx/smoke-key.asc" "$fpr"
-check "  ...saying what to install" grep -qF "without gpgv or gpg (install gnupg)" "$v/out"
+check "  ...saying what to install" grep -qF "to check the signature of signed.txt. Install gnupg." "$v/out"
 
 echo "== cancelling"
 h=$(new_home)

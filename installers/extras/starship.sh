@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
-# Installs starship, the cross-shell prompt (pinned in installers/versions.txt; linux x86_64 or aarch64, static).
+# This script installs starship, a prompt for any shell.
+# installers/versions.txt pins the version, for linux x86_64 or aarch64.
+# The build is static.
 set -euo pipefail
 
 source "$ENVSETUP_ROOT/lib/common.sh"
 
 envsetup::has_cmd starship && exit 0
 
-# Installing doesn't switch your prompt: add `eval "$(starship init bash)"` (or zsh) to
-# config.sh, which loads after envsetup's own prompt.
+# The install does not change your prompt.
+# To use starship, add `eval "$(starship init bash)"` (or zsh) to config.sh.
+# config.sh loads after envsetup's own prompt.
 version=$(envsetup::pin starship)
 sha=$(envsetup::pin starship "linux-$(envsetup::arch)")
 envsetup::install_release \

@@ -4,6 +4,12 @@ Every release of envsetup, newest first, with what changed in it. CI writes each
 from the commits on `main` when it releases them (see "Releases" in AGENTS.md), so
 don't edit this file by hand.
 
+## v0.5.0 (2026-11-05)
+
+### Features
+
+- add a Set up SSH key action (#113)
+
 ## v0.4.2 (2026-11-05)
 
 ### Refactoring

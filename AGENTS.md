@@ -241,6 +241,9 @@ commit messages and the PR title on every PR:
   able to fail: compare against a non-empty expected value, never two things that
   could both come back empty.
 
+The CI badge in `README.md` names `ci.yml` in both its image and link URLs. If you
+rename `ci.yml`, update both URLs.
+
 `tests/distros/run.sh` (not on every push; see `CONTRIBUTING.md`) runs the real tool against a
 dozen distros with real installs. The `distros` workflow runs it weekly, opening an issue
 when that run fails, and on demand from the Actions tab. Run it after changing anything distro-specific: package

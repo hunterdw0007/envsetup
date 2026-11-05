@@ -131,7 +131,7 @@ for run in home work-full work-lite; do
 	case $run in
 	# zsh first, so "no" always lands on its chsh question (chsh would ask for a password);
 	# the next "no" declines SSH signing; "yes" then moves dotfiles, if there are any to move.
-	home) answers "$user" no no yes --"Select profile" home "Set up zsh + oh-my-zsh" "Run everything" Quit ;;
+	home) answers "$user" no no yes -- "Select profile" home "Set up zsh + oh-my-zsh" "Run everything" Quit ;;
 	work-full) answers "$user" -- "Select profile" work full "Run everything" Quit ;;
 	work-lite) answers "$user" -- "Select profile" work lite "Run everything" Quit ;;
 	esac

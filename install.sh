@@ -37,24 +37,37 @@ ENVSETUP_VERSION="${ENVSETUP_VERSION:-latest}"
 envsetup::require_git() {
 	command -v git &>/dev/null && return 0
 
-	local pm cmd sudo='sudo '
-	if ((EUID == 0)); then sudo=; fi
+	local pm cmd as='' how='To install git, run:'
 	for pm in brew apt-get dnf zypper pacman apk nix-env; do
 		if command -v "$pm" &>/dev/null; then break; fi
 		pm=
 	done
+	# The system's package managers need root.
+	# brew and nix-env do not.
+	if [[ -n "$pm" && "$pm" != brew && "$pm" != nix-env ]] && ((EUID != 0)); then
+		if command -v sudo &>/dev/null; then
+			as='sudo '
+		elif command -v doas &>/dev/null; then
+			as='doas '
+		else
+			how='As root, run:'
+		fi
+	fi
 	case $pm in
 	brew) cmd='brew install git' ;;
-	apt-get | dnf | zypper) cmd="$sudo$pm install git" ;;
-	# -y syncs the package lists first, and Arch needs -u with it.
-	pacman) cmd="${sudo}pacman -Syu git" ;;
-	apk) cmd="${sudo}apk add git" ;;
+	# A new machine may have no package lists yet.
+	apt-get) cmd="${as}apt-get update && ${as}apt-get install git" ;;
+	dnf | zypper) cmd="$as$pm install git" ;;
+	# -y syncs the package lists first.
+	# Arch needs -u together with -y.
+	pacman) cmd="${as}pacman -Syu git" ;;
+	apk) cmd="${as}apk add git" ;;
 	nix-env) cmd="nix-env -f '<nixpkgs>' -iA git" ;;
 	esac
 
 	echo "envsetup needs git, but this machine has no git." >&2
 	if [[ -n "$pm" ]]; then
-		printf 'This machine has %s. To install git, run:\n\n  %s\n\n' "$pm" "$cmd" >&2
+		printf 'This machine has %s. %s\n\n  %s\n\n' "$pm" "$how" "$cmd" >&2
 	else
 		echo "Download git from https://git-scm.com/downloads." >&2
 	fi

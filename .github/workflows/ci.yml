@@ -68,7 +68,8 @@ jobs:
       # So the smoke test runs offline.
       # The test installs git (for install.sh), zsh and jq with real apt.
       # CI downloads those packages and apt's lists once for each ubuntu:24.04 image and caches them.
-      # Offline, apt-get update in install.sh fails, and install.sh installs git from the cache.
+      # The test installs git with the command that install.sh shows.
+      # Offline, the cached lists stand in for that command's apt-get update.
       - name: ubuntu:24.04's digest
         id: image
         run: |

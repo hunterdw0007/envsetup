@@ -9,7 +9,7 @@ envsetup::git_signs() {
 }
 
 envsetup::set_up_ssh_key() {
-	local key=$HOME/.ssh/id_ed25519 url=https://github.com/settings/keys comment
+	local key=$HOME/.ssh/id_ed25519 url=https://github.com/settings/keys comment use_gh=0
 	# GitHub advises one key per machine; the comment names the machine in a list of keys.
 	comment="$(id -un)@$HOSTNAME"
 	if [[ -e "$key" ]]; then
@@ -30,9 +30,9 @@ envsetup::set_up_ssh_key() {
 		if ! envsetup::git_signs; then
 			envsetup::would "ask to sign your git commits with it"
 			if envsetup::has_cmd gh; then
-				envsetup::would "on yes, add it to your GitHub account as a signing key with gh"
+				envsetup::would "add it to your GitHub account as a signing key with gh, if you say yes to both questions"
 			else
-				envsetup::would "on yes, show where to add it as a signing key: $url"
+				envsetup::would "show where to add it as a signing key, if you say yes to signing: $url"
 			fi
 		fi
 		return 0
@@ -46,9 +46,10 @@ envsetup::set_up_ssh_key() {
 	: >"$ENVSETUP_SSH_KEY_MARKER"
 	gum style --foreground 2 "Created the SSH key $key"
 
+	# A no here also means no signing key upload below.
+	if envsetup::has_cmd gh && gum confirm "Add the key to your GitHub account with gh?"; then use_gh=1; fi
 	# gh fails when it isn't logged in or lacks the admin:public_key scope; the key then shows instead.
-	if envsetup::has_cmd gh && gum confirm "Add the key to your GitHub account with gh?" &&
-		gh ssh-key add "$key.pub" --title "$comment"; then
+	if ((use_gh)) && gh ssh-key add "$key.pub" --title "$comment"; then
 		gum style --foreground 2 "Added the key to your GitHub account"
 	else
 		gum style "Add this public key at $url:" "$(<"$key.pub")"
@@ -64,10 +65,10 @@ envsetup::set_up_ssh_key() {
 		# GitHub marks signed commits "Verified" only with the key there as a signing key.
 		# gh exits 0 when the key is already there. It fails without the
 		# admin:ssh_signing_key scope; the step then says where to add the key instead.
-		if envsetup::has_cmd gh && gh ssh-key add "$key.pub" --type signing --title "$comment signing"; then
+		if ((use_gh)) && gh ssh-key add "$key.pub" --type signing --title "$comment signing"; then
 			gum style --foreground 2 "Added the key to your GitHub account as a signing key"
 		else
-			gum style --foreground 3 "Add the public key as a Signing Key at $url"
+			gum style --foreground 3 "Add the public key as a signing key at $url (key type \"Signing Key\")"
 		fi
 	fi
 }

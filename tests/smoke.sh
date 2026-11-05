@@ -362,7 +362,7 @@ check "--dry-run: exited 0" run_menu "$h" "Select profile" work lite "Set up SSH
 SETUP_ARGS=()
 check "  ...said it would create the key" grep -qF "would create the SSH key $key ($(id -un)@$HOSTNAME)" "$SMOKE_LOG"
 check "  ...and offer it to gh" grep -qF 'would ask to add it to your GitHub account with gh' "$SMOKE_LOG"
-check "  ...and add it as a signing key on yes" grep -qF 'would on yes, add it to your GitHub account as a signing key with gh' "$SMOKE_LOG"
+check "  ...and add it as a signing key on yes" grep -qF 'would add it to your GitHub account as a signing key with gh, if you say yes to both questions' "$SMOKE_LOG"
 check "  ...ran no ssh-keygen or gh" not_grep '^\(ssh-keygen\|gh\) ' "$SMOKE_LOG"
 check "  ...and changed nothing" [ "$(snapshot "$h")" = "$before" ]
 CONFIRMS=(yes yes) # add it with gh; sign commits with it
@@ -382,6 +382,18 @@ SETUP_ARGS=() CONFIRMS=()
 check "  ...asked about the key" grep -qF 'gum confirm Keep ~/.ssh/id_ed25519?' "$SMOKE_LOG"
 check "  ...kept it, as answered" grep -qxF smoke-private-key "$key"
 check "  ...and removed the signing settings" [ "$(signing "$h")" = none ]
+((failures)) && show "$h/setup.out"
+
+echo "== Set up SSH key: no to gh, yes to signing"
+h=$(new_home)
+key=$h/.ssh/id_ed25519
+CONFIRMS=(no yes)
+check "exited 0" run_menu "$h" "Select profile" work lite "Set up SSH key" Quit
+CONFIRMS=()
+check "  ...set git to sign commits with the key" [ "$(git config --file "$h/.gitconfig" user.signingkey)" = "$key.pub" ]
+check "  ...added no signing key" not_grep '--type signing' "$SMOKE_LOG"
+check "  ...and called no gh at all" not_grep '^gh ' "$SMOKE_LOG"
+check "  ...and said where to add the signing key" grep -qF 'Add the public key as a signing key at https://github.com/settings/keys' "$SMOKE_LOG"
 ((failures)) && show "$h/setup.out"
 
 echo "== Set up SSH key: no gh, then uninstall deletes it when told to"

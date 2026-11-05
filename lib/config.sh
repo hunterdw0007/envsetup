@@ -112,29 +112,44 @@ envsetup::resolved_installers() {
 
 # sync_config_repo gets config.sh from the user's own git repo.
 # The first run clones ENVSETUP_CONFIG_REPO into ENVSETUP_CONFIG_CLONE.
-# Later runs pull that clone, and they do not need ENVSETUP_CONFIG_REPO.
+# Setting ENVSETUP_CONFIG_REPO is the user's choice to clone.
+# Later runs ask before they pull the clone.
+# They do not need ENVSETUP_CONFIG_REPO.
 # Then config.sh becomes a symlink to the config.sh in the clone.
 # The function asks before it replaces a config.sh of the user's own.
 # It asks only in the run that clones, so later runs do not ask again.
+# A failed clone or pull shows a warning.
+# The menu still opens.
 envsetup::sync_config_repo() {
-	local url=${ENVSETUP_CONFIG_REPO:-} repo=$ENVSETUP_CONFIG_CLONE link=$ENVSETUP_STATE/config.sh cloned=0
-	if [[ -d "$repo/.git" ]]; then
-		if envsetup::dry_run; then
-			envsetup::would "pull $repo"
-		elif ! git -C "$repo" pull -q --ff-only; then
-			gum style --foreground 3 "Couldn't pull $repo. envsetup uses the config.sh that it has."
-		fi
-	elif [[ -n "$url" ]]; then
+	local url=${ENVSETUP_CONFIG_REPO:-} repo=$ENVSETUP_CONFIG_CLONE link=$ENVSETUP_STATE/config.sh cloned=0 origin
+	if [[ -n "$url" ]]; then
 		# The short form "me" means github.com/me/envsetup-config.
 		if [[ "$url" != */* && "$url" != *:* ]]; then url=github.com/$url/envsetup-config; fi
 		# A URL without a scheme, such as github.com/me/dotfiles, uses https.
 		if [[ "$url" != *:* && "$url" != /* ]]; then url=https://$url; fi
+	fi
+	if [[ -d "$repo/.git" ]]; then
+		origin=$(git -C "$repo" remote get-url origin 2>/dev/null) || origin=
+		if [[ -n "$url" && "$url" != "$origin" ]]; then
+			gum style --foreground 3 "ENVSETUP_CONFIG_REPO is $url, but $repo comes from ${origin:-an unknown URL}. envsetup keeps using $repo."
+		fi
+		if envsetup::dry_run; then
+			envsetup::would "ask to pull $repo"
+		elif gum confirm "Pull your config repo ($repo) before the menu opens?"; then
+			if ! git -C "$repo" pull -q --ff-only; then
+				gum style --foreground 3 "Couldn't pull $repo. Commit and push your edits there, or undo them. envsetup uses the config.sh that it has."
+			fi
+		fi
+	elif [[ -n "$url" ]]; then
 		if envsetup::dry_run; then
 			envsetup::would "clone $url into $repo"
 			envsetup::would "link $link to $repo/config.sh"
 			return 0
 		fi
-		git clone -q "$url" "$repo"
+		if ! git clone -q "$url" "$repo"; then
+			gum style --foreground 3 "Couldn't clone $url. Check ENVSETUP_CONFIG_REPO, then run setup again. The menu opens without your repo."
+			return 0
+		fi
 		gum style --foreground 2 "Cloned $url into $repo"
 		cloned=1
 	else
@@ -162,6 +177,9 @@ envsetup::edit_config() {
 	if [[ ! -f "$ENVSETUP_USER_CONFIG" ]]; then
 		mkdir -p "${ENVSETUP_USER_CONFIG%/*}"
 		cp "$ENVSETUP_ROOT/config.example.sh" "$ENVSETUP_USER_CONFIG"
+	fi
+	if [[ -L "$ENVSETUP_USER_CONFIG" ]]; then
+		gum style --foreground 3 "This config.sh is in your config repo. Commit and push your edits there, or a later pull fails."
 	fi
 	local editor
 	read -ra editor <<<"${EDITOR:-vi}"

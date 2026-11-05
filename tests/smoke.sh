@@ -829,13 +829,34 @@ but_git() {
 	) | md5sum
 }
 before=$(but_git)
+CONFIRMS=(yes) # pull
 check "a second run, with nothing new in the repo: exited 0" run_menu "$h" Quit
+CONFIRMS=()
+check "  ...asked to pull first" grep -qF "gum confirm Pull your config repo ($st/repo)" "$SMOKE_LOG"
 check "  ...and changed nothing outside the clone's .git" [ "$(but_git)" = "$before" ]
 echo 'ENVSETUP_PACKAGES=(smoke-pulled)' >"$cfg/config.sh"
 cgit commit -q -am update
-check "a second run, after a new commit: exited 0" run_menu "$h" "Install packages" Quit
+check "a second run, after a new commit, no to the pull: exited 0" run_menu "$h" Quit
+check "  ...did not pull" not same_commit "$cfg" "$st/repo"
+CONFIRMS=(yes) # pull
+check "  ...yes to the pull: exited 0" run_menu "$h" "Install packages" Quit
+CONFIRMS=()
 check "  ...pulled the repo, without ENVSETUP_CONFIG_REPO" same_commit "$cfg" "$st/repo"
 check "  ...and used the new settings" same_list smoke-pulled "$(installed)"
+ENVSETUP_CONFIG_REPO=$W/other check "another ENVSETUP_CONFIG_REPO than the clone's: exited 0" run_menu "$h" Quit
+check "  ...warned" grep -qF "ENVSETUP_CONFIG_REPO is $W/other, but $st/repo comes from $cfg" "$SMOKE_LOG"
+# A dry-run edit must change the session's copy, not the clone behind the link.
+dirty() { [ -n "$(git -C "$st/repo" status --porcelain)" ]; }
+printf '#!/bin/sh\necho "# smoke edit" >>"$1"\n' >$W/edit-append
+chmod +x $W/edit-append
+echo '# sentinel' >>"$st/config.sh"
+check "(an edit through the link shows in git status)" dirty
+git -C "$st/repo" checkout -q -- config.sh
+check "(and the clone is clean again)" not dirty
+SETUP_ARGS=(--dry-run)
+EDITOR=$W/edit-append check "--dry-run Edit config with a linked config.sh: exited 0" run_menu "$h" "Edit config" Quit
+SETUP_ARGS=()
+check "  ...left the clone clean" not dirty
 SETUP_ARGS=(--uninstall) CONFIRMS=(yes yes no) # remove; keep the repo; keep config.sh, no
 check "--uninstall: exited 0" run_menu "$h"
 SETUP_ARGS=() CONFIRMS=()
@@ -866,10 +887,23 @@ echo 'alias mine=true' >"$st/config.sh"
 CONFIRMS=(no) # replace it
 ENVSETUP_CONFIG_REPO=$cfg check "replace it: exited 0" run_menu "$h" Quit
 check "  ...linked config.sh to the repo" [ "$(readlink "$st/config.sh")" = "$st/repo/config.sh" ]
+SETUP_ARGS=(--uninstall) CONFIRMS=(yes no yes) # remove; keep the repo, no; keep config.sh, yes
+check "--uninstall, delete the repo but keep config.sh: exited 0" run_menu "$h"
+SETUP_ARGS=() CONFIRMS=()
+check "  ...deleted the repo" [ ! -e "$st/repo" ]
+check "  ...and kept a copy of its config.sh" same_list "$(cat "$cfg/config.sh")" "$(cat "$st/config.sh" 2>/dev/null)"
+check "  ...as a file, not a link" not [ -L "$st/config.sh" ]
+h=$(new_home)
+st=$h/.config/envsetup
+ENVSETUP_CONFIG_REPO=$cfg run_menu "$h" Quit || true
 SETUP_ARGS=(--uninstall) CONFIRMS=(yes no no) # remove; keep the repo, no; keep config.sh, no
-check "--uninstall: exited 0" run_menu "$h"
+check "--uninstall, delete both: exited 0" run_menu "$h"
 SETUP_ARGS=() CONFIRMS=()
 check "  ...deleted the repo and config.sh, as answered" [ ! -e "$st" ]
+h=$(new_home)
+ENVSETUP_CONFIG_REPO=$W/no-such-repo check "a repo that can't be cloned: exited 0" run_menu "$h" Quit
+check "  ...warned" grep -qF "Couldn't clone $W/no-such-repo" "$SMOKE_LOG"
+check "  ...and still reached the menu" grep -q '^gum choose Select profile' "$SMOKE_LOG"
 ((failures)) && show "$h/setup.out"
 
 echo "== a package that can't be installed doesn't stop the rest"

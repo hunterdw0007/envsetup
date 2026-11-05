@@ -50,7 +50,7 @@ To get config.sh from your own git repo, set ENVSETUP_CONFIG_REPO.
 For example, ENVSETUP_CONFIG_REPO=github.com/me/dotfiles uses the config.sh in that repo.
 ENVSETUP_CONFIG_REPO=me is short for github.com/me/envsetup-config.
 envsetup clones the repo into ~/.config/envsetup/repo before the menu opens.
-Each later run pulls the repo again.
+Each later run asks to pull the repo again.
 
 To see the changes first, use --dry-run, or "Preview everything" in the menu.
 To remove what envsetup added, use --uninstall, or "Uninstall" in the menu.
@@ -126,7 +126,9 @@ if envsetup::dry_run; then
 	# So the menu works as usual, and ~/.config/envsetup does not change.
 	STATE_DIR=$ENVSETUP_TMP/state
 	mkdir "$STATE_DIR"
-	cp -r "$ENVSETUP_STATE/." "$STATE_DIR/" 2>/dev/null || true
+	# -L copies the file behind a linked config.sh.
+	# So a dry-run edit never reaches the config repo.
+	cp -rL "$ENVSETUP_STATE/." "$STATE_DIR/" 2>/dev/null || true
 	ENVSETUP_USER_CONFIG=$STATE_DIR/config.sh
 	if ! envsetup::has_cmd gum; then
 		reply=

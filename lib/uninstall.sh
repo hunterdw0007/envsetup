@@ -105,12 +105,20 @@ envsetup::uninstall() {
 		elif envsetup::dry_run; then
 			envsetup::would "delete $ENVSETUP_CONFIG_CLONE"
 		else
-			rm -rf "$ENVSETUP_CONFIG_CLONE"
+			# A config.sh that links into the clone becomes a copy, so the next question can keep it.
+			# set -e is off here, so a failed copy must stop the delete itself.
+			if [[ -L "$state/config.sh" && "$(readlink "$state/config.sh")" == "$ENVSETUP_CONFIG_CLONE/"* ]] &&
+				! cp --remove-destination "$(readlink "$state/config.sh")" "$state/config.sh"; then
+				gum style --foreground 1 "Couldn't copy $state/config.sh out of $ENVSETUP_CONFIG_CLONE, so uninstall keeps the clone"
+				failed=1
+			else
+				rm -rf "$ENVSETUP_CONFIG_CLONE"
+			fi
 		fi
 	fi
 	# -L also finds a link to a config.sh that is gone.
 	if [[ -f "$state/config.sh" || -L "$state/config.sh" ]]; then
-		if gum confirm "Keep your own config ($state/config.sh)? Only envsetup reads it."; then
+		if gum confirm "Keep your own config ($state/config.sh)?"; then
 			kept+=("your config: $state/config.sh")
 		elif envsetup::dry_run; then
 			envsetup::would "delete $state/config.sh"

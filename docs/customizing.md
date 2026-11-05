@@ -29,9 +29,15 @@ curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.
 - You may already have a `config.sh`.
   Then envsetup asks "Keep …?" first.
   The default answer keeps your file.
-- Each later run pulls the repo before the menu opens.
+- Each later run asks to pull the repo before the menu opens.
   Later runs do not need `ENVSETUP_CONFIG_REPO`.
+- Your `config.sh` then lives in the clone.
+  Commit and push your edits there.
+  Otherwise a later pull can fail.
+- A failed clone or pull shows a warning.
+  The menu still opens.
 - A dry run only describes the clone and the link.
+  A dry-run edit changes a copy of `config.sh`, not the clone.
 
 ## Popular packages
 

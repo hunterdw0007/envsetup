@@ -638,6 +638,61 @@ unset EDITOR
 check "the edit applied within the session" described "$hm" "home  zsh + oh-my-zsh · $hm packages"
 check "  ...and nothing was saved" [ "$(snapshot "$h")" = "$before" ]
 
+echo "== Paste config, Edit config and --config: check the text, then show the changes"
+h=$(new_home)
+c=$h/.config/envsetup/config.sh
+SMOKE_WRITE='ENVSETUP_EXTRAS+=(lazygit k9s)' check "Paste config: exited 0" run_menu "$h" "Paste config" Quit
+check "  ...added the text to the end of config.sh" [ "$(cat "$c" 2>/dev/null)" = 'ENVSETUP_EXTRAS+=(lazygit k9s)' ]
+check "  ...and showed the changed setting" grep -qxF 'gum style Extras: +lazygit +k9s' "$SMOKE_LOG"
+SMOKE_WRITE=$'ENVSETUP_SKIP+=(tig)\r' run_menu "$h" "Paste config" Quit || true
+want=$'ENVSETUP_EXTRAS+=(lazygit k9s)\nENVSETUP_SKIP+=(tig)'
+check "a paste from Windows loses its \\r" [ "$(cat "$c")" = "$want" ]
+SMOKE_WRITE=$'ENVSETUP_SHELL=zsh\nfi' run_menu "$h" "Paste config" Quit || true
+check "a paste with an error leaves config.sh as it was" [ "$(cat "$c")" = "$want" ]
+check "  ...and shows the line number" grep -qF 'line 2: syntax error' "$SMOKE_LOG"
+SMOKE_WRITE=$' \n\t' run_menu "$h" "Paste config" Quit || true
+check "an empty paste saves nothing" [ "$(cat "$c")" = "$want" ]
+check "  ...and says so" grep -qF 'The text is empty' "$SMOKE_LOG"
+SMOKE_WRITE='exit 0' run_menu "$h" "Paste config" Quit || true
+check "a paste that runs exit saves nothing" [ "$(cat "$c")" = "$want" ]
+check "  ...and says why" grep -qF 'would stop before its end' "$SMOKE_LOG"
+printf 'if true; then\n' >>"$c"
+SMOKE_WRITE='ENVSETUP_SHELL=zsh' run_menu "$h" "Paste config" Quit || true
+check "a paste onto a config.sh with an error saves nothing" [ "$(cat "$c")" = "$want"$'\nif true; then' ]
+check "  ...and names the line in config.sh" grep -qF 'config.sh already has an error, so envsetup saved nothing. Select Edit config to fix it: line 4: syntax error' "$SMOKE_LOG"
+printf '%s\n' "$want" >"$c"
+before=$(snapshot "$h")
+SETUP_ARGS=(--dry-run)
+SMOKE_WRITE='ENVSETUP_SKIP+=(btop)' run_menu "$h" "Paste config" Quit || true
+SETUP_ARGS=()
+check "a dry-run paste shows the changes" grep -qxF 'gum style Skip: +btop' "$SMOKE_LOG"
+check "  ...and saves nothing" [ "$(snapshot "$h")" = "$before" ]
+mkdir -p $W/nano
+printf '#!/bin/sh\necho "nano $*" >>"$SMOKE_LOG"\necho ENVSETUP_XDG_NINJA=1 >>"$1"\n' >$W/nano/nano
+chmod +x $W/nano/nano
+EDITOR='' PATH=$W/nano:$PATH run_menu "$h" "Edit config" Quit || true
+check "Edit config without \$EDITOR opens nano" grep -qxF "nano $c" "$SMOKE_LOG"
+check "  ...and shows the changed setting" grep -qxF 'gum style XDG ninja: +1 -0' "$SMOKE_LOG"
+printf '#!/bin/sh\necho fi >>"$1"\n' >$W/editor
+EDITOR=$W/editor run_menu "$h" "Edit config" Quit || true
+check "an edit with an error shows the line number" grep -qF "$c has an error. Select Edit config to fix it: line $(wc -l <"$c"): syntax error" "$SMOKE_LOG"
+h=$(new_home)
+c=$h/.config/envsetup/config.sh
+printf 'ENVSETUP_SHELL=zsh\nfi\n' >$W/bad.sh
+SETUP_ARGS=(--config "$W/bad.sh")
+check "--config with an error: exits non-zero" not run_menu "$h" Quit
+check "  ...adds nothing" none_exist "$c"
+check "  ...and shows the line number" grep -qF 'line 2: syntax error' "$SMOKE_LOG"
+SETUP_ARGS=(--config "$W/bad.sh" --uninstall)
+check "--config with --uninstall: exits non-zero" not run_menu "$h" Quit
+check "  ...and says why" grep -qF 'do not work together' "$h/setup.out"
+printf 'ENVSETUP_SHELL=zsh\n' >$W/mine.sh
+SETUP_ARGS=(--config "$W/mine.sh")
+check "--config: exited 0" run_menu "$h" Quit
+SETUP_ARGS=()
+check "  ...added the file's text to config.sh" [ "$(cat "$c" 2>/dev/null)" = ENVSETUP_SHELL=zsh ]
+check "  ...and showed the changed setting" grep -qxF 'gum style Shell: +zsh -bash' "$SMOKE_LOG"
+
 echo "== Preview everything (normal session): work/full"
 h=$(new_home)
 check "exited 0" run_menu "$h" "Select profile" work full "Preview everything" Quit
@@ -857,6 +912,14 @@ SETUP_ARGS=(--dry-run)
 EDITOR=$W/edit-append check "--dry-run Edit config with a linked config.sh: exited 0" run_menu "$h" "Edit config" Quit
 SETUP_ARGS=()
 check "  ...left the clone clean" not dirty
+SETUP_ARGS=(--dry-run)
+SMOKE_WRITE='# smoke paste' check "--dry-run Paste config with a linked config.sh: exited 0" run_menu "$h" "Paste config" Quit
+SETUP_ARGS=()
+check "  ...left the clone clean" not dirty
+SMOKE_WRITE='# smoke paste' check "Paste config with a linked config.sh: exited 0" run_menu "$h" "Paste config" Quit
+check "  ...added the text to the clone's config.sh" [ "$(tail -n 1 "$st/repo/config.sh")" = '# smoke paste' ]
+check "  ...and said to commit and push it" grep -qF 'Commit and push your edits there' "$SMOKE_LOG"
+git -C "$st/repo" checkout -q -- config.sh
 SETUP_ARGS=(--uninstall) CONFIRMS=(yes yes no) # remove; keep the repo; keep config.sh, no
 check "--uninstall: exited 0" run_menu "$h"
 SETUP_ARGS=() CONFIRMS=()

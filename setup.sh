@@ -44,7 +44,9 @@ Profiles (select one in the menu, and change it at any time):
 
 Put your own changes in ~/.config/envsetup/config.sh.
 If you set XDG_CONFIG_HOME, the file is $XDG_CONFIG_HOME/envsetup/config.sh.
-"Edit config" in the menu creates the file from config.example.sh.
+"Paste config" in the menu adds the text that you paste to the end of the file.
+"Edit config" in the menu creates the file from config.example.sh and opens it.
+Both check the file for syntax errors and show each setting that changed.
 The file is outside this repo, so updates never change it.
 To get config.sh from your own git repo, set ENVSETUP_CONFIG_REPO.
 For example, ENVSETUP_CONFIG_REPO=github.com/me/dotfiles uses the config.sh in that repo.
@@ -81,8 +83,12 @@ To add it to "Run everything", set ENVSETUP_XDG_NINJA=1 in config.sh.
 
 Options:
   -n, --dry-run    open the menu, but change nothing; each action says what it
-                   would do instead; profile choices and "Edit config" last
+                   would do instead; profile choices and config changes last
                    only until you quit
+      --config <file>
+                   add the file's text to the end of config.sh, like "Paste
+                   config", then open the menu; on an error, add nothing and
+                   exit 1
       --uninstall  remove what envsetup added: the startup file block, the copy
                    of the shell config, the git include, the saved choices and
                    the SSH signing settings; ask before removing anything that
@@ -95,6 +101,7 @@ EOF
 
 ENVSETUP_DRY_RUN=0
 UNINSTALL=0
+CONFIG_FILE=
 while (($#)); do
 	case $1 in
 	-h | --help)
@@ -107,6 +114,18 @@ while (($#)); do
 		;;
 	-n | --dry-run) ENVSETUP_DRY_RUN=1 ;;
 	--uninstall) UNINSTALL=1 ;;
+	--config)
+		if [[ -n "$CONFIG_FILE" ]]; then
+			printf 'setup.sh: use --config only once\n' >&2
+			exit 2
+		fi
+		if [[ ! -f "${2:-}" || ! -r "${2:-}" ]]; then
+			printf 'setup.sh: --config needs a file that you can read: %s\n' "${2:-}" >&2
+			exit 2
+		fi
+		CONFIG_FILE=$2
+		shift
+		;;
 	*)
 		printf 'setup.sh: unknown option: %s\n\n' "$1" >&2
 		envsetup::usage >&2
@@ -115,6 +134,10 @@ while (($#)); do
 	esac
 	shift
 done
+if ((UNINSTALL)) && [[ -n "$CONFIG_FILE" ]]; then
+	printf 'setup.sh: --config and --uninstall do not work together\n' >&2
+	exit 2
+fi
 
 # This run's temporary folder.
 # Installers run in their own processes and share it.
@@ -360,13 +383,13 @@ envsetup::main_menu() {
 		"1. Select profile tells envsetup what kind of machine this is. You can change it at any time." \
 		"2. Preview everything shows the changes. It does not make them." \
 		"3. Run everything, or run the steps one at a time." \
-		"Put your own changes in Edit config. For more, run ./setup.sh --help"
+		"Put your own changes in Paste config or Edit config. For more, run ./setup.sh --help"
 	while true; do
 		profile="$(envsetup::read_state profile)"
 		envsetup::load_config "$profile" "$(envsetup::read_state mode full)"
 		label="${profile:-none}"
 		[[ "$profile" == work ]] && label+=" ($ENVSETUP_MODE)"
-		choice="$(gum choose "Select profile (current: $label)" "Edit config" "Link shell config" \
+		choice="$(gum choose "Select profile (current: $label)" "Paste config" "Edit config" "Link shell config" \
 			"Set up zsh + oh-my-zsh" "Configure git" "Set up SSH key" "Install packages" "Run installers" \
 			"Move dotfiles to XDG dirs" "Preview everything" "Run everything" "Uninstall" \
 			"Quit")" || break # Esc or Ctrl-C
@@ -381,6 +404,10 @@ envsetup::main_menu() {
 		esac
 		case "$choice" in
 		"Select profile"*) envsetup::run_step envsetup::pick_profile ;;
+		"Paste config")
+			envsetup::dry_run && gum style --foreground 6 "Dry run: you are editing a copy of your config. Your changes last until you quit."
+			envsetup::run_step envsetup::paste_config
+			;;
 		"Edit config")
 			envsetup::dry_run && gum style --foreground 6 "Dry run: you are editing a copy of your config. Your changes last until you quit."
 			envsetup::run_step envsetup::edit_config
@@ -419,4 +446,9 @@ if ((UNINSTALL)); then
 fi
 # run_step keeps a failure here from stopping setup before the menu.
 envsetup::run_step envsetup::sync_config_repo
+# --config runs after the sync, so the text goes to the end of the repo's config.sh.
+if [[ -n "$CONFIG_FILE" ]]; then
+	envsetup::load_config "$(envsetup::read_state profile)" "$(envsetup::read_state mode full)"
+	envsetup::add_config "$CONFIG_FILE"
+fi
 envsetup::main_menu

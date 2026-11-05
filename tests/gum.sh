@@ -5,7 +5,7 @@
 # "ESC", or no answer left, cancels.
 # It answers `confirm` from $SMOKE_CONFIRMS.
 # Only "yes" accepts, and no answer left declines.
-# It fills in `input`, and it logs every call to $SMOKE_LOG.
+# It fills in `input` and `write`, and it logs every call to $SMOKE_LOG.
 
 echo "gum $*" >>"$SMOKE_LOG"
 # pop <file> prints the file's first line and removes it.
@@ -34,6 +34,12 @@ input)
 	else
 		echo "Smoke Test"
 	fi
+	;;
+# `write` prints $SMOKE_WRITE.
+# SMOKE_WRITE=ESC, or no SMOKE_WRITE, cancels, and gum exits 1.
+write)
+	if [[ ${SMOKE_WRITE-ESC} == ESC ]]; then exit 1; fi
+	printf '%s\n' "$SMOKE_WRITE"
 	;;
 style) echo "${*: -1}" ;;
 esac

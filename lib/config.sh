@@ -185,6 +185,16 @@ envsetup::sync_config_repo() {
 	gum style --foreground 2 "Linked $link to $repo/config.sh"
 }
 
+# warn_config_repo warns when config.sh links into the clone of the user's config repo.
+# A dry run edits a plain copy, so it gets no warning.
+envsetup::warn_config_repo() {
+	if [[ -L "$ENVSETUP_USER_CONFIG" ]]; then
+		gum style --foreground 3 "This config.sh is in your config repo. Commit and push your edits there, or a later pull fails."
+	fi
+}
+
+# edit_config opens config.sh in $EDITOR.
+# Without $EDITOR, it uses nano if the machine has it, and vi otherwise.
 envsetup::edit_config() {
 	# A link to a file that is gone would make cp below write into the clone.
 	if [[ -L "$ENVSETUP_USER_CONFIG" && ! -e "$ENVSETUP_USER_CONFIG" ]]; then
@@ -195,10 +205,125 @@ envsetup::edit_config() {
 		mkdir -p "${ENVSETUP_USER_CONFIG%/*}"
 		cp "$ENVSETUP_ROOT/config.example.sh" "$ENVSETUP_USER_CONFIG"
 	fi
-	if [[ -L "$ENVSETUP_USER_CONFIG" ]]; then
-		gum style --foreground 3 "This config.sh is in your config repo. Commit and push your edits there, or a later pull fails."
+	envsetup::warn_config_repo
+	local before editor=(vi)
+	before=$(envsetup::settings_of "$ENVSETUP_USER_CONFIG")
+	if [[ -n "${EDITOR:-}" ]]; then
+		read -ra editor <<<"$EDITOR"
+	elif envsetup::has_cmd nano; then
+		editor=(nano)
 	fi
-	local editor
-	read -ra editor <<<"${EDITOR:-vi}"
 	"${editor[@]}" "$ENVSETUP_USER_CONFIG"
+	envsetup::check_config "$ENVSETUP_USER_CONFIG" "$ENVSETUP_USER_CONFIG has an error. Select Edit config to fix it:"
+	envsetup::show_changes "$before" "$(envsetup::settings_of "$ENVSETUP_USER_CONFIG")"
+}
+
+# paste_config adds the text that you paste to the end of config.sh.
+envsetup::paste_config() {
+	local text
+	# gum shows its own keys to save and to cancel under the box.
+	# The keys differ between gum releases.
+	text=$(gum write --char-limit 0 --height 15 --show-line-numbers \
+		--header "Paste your settings or shell code.") || return 0
+	printf '%s\n' "$text" >"$ENVSETUP_TMP/paste.sh"
+	envsetup::add_config "$ENVSETUP_TMP/paste.sh"
+}
+
+# add_config <file> adds the file's text to the end of config.sh.
+# It saves nothing if the text is empty, or if bash -n finds an error in the text or in config.sh.
+# It also saves nothing if config.sh would stop before its end, for example at an exit.
+# Paste config and setup.sh --config use it.
+envsetup::add_config() {
+	local text before after new=$ENVSETUP_TMP/config.new
+	text=$(<"$1")
+	# A paste from Windows (WSL) has \r at the end of each line, and bash reads it as part of the command.
+	text=${text//$'\r'/}
+	if [[ -z "${text//[[:space:]]/}" ]]; then
+		gum style --foreground 3 "The text is empty, so envsetup saved nothing."
+		return 0
+	fi
+	printf '%s\n' "$text" >"$ENVSETUP_TMP/add.sh"
+	envsetup::check_config "$ENVSETUP_TMP/add.sh" "The text has an error, so envsetup saved nothing:"
+	if [[ -f "$ENVSETUP_USER_CONFIG" ]]; then
+		envsetup::check_config "$ENVSETUP_USER_CONFIG" "config.sh already has an error, so envsetup saved nothing. Select Edit config to fix it:"
+	fi
+	: >"$new"
+	if [[ -f "$ENVSETUP_USER_CONFIG" ]]; then cat "$ENVSETUP_USER_CONFIG" >"$new"; fi
+	# A last line without a newline would join the first new line.
+	if [[ -s "$new" && -n "$(tail -c 1 "$new")" ]]; then echo >>"$new"; fi
+	printf '%s\n' "$text" >>"$new"
+	envsetup::check_config "$new" "config.sh with the text at its end has an error, so envsetup saved nothing:"
+	before=$(envsetup::settings_of "$ENVSETUP_USER_CONFIG")
+	after=$(envsetup::settings_of "$new")
+	if [[ -z "$after" ]]; then
+		gum style --foreground 1 "config.sh with the text would stop before its end, for example at an exit." \
+			"A new shell would then close. So envsetup saved nothing."
+		return 1
+	fi
+	mkdir -p "${ENVSETUP_USER_CONFIG%/*}"
+	cat "$new" >"$ENVSETUP_USER_CONFIG"
+	if envsetup::dry_run; then
+		gum style --foreground 2 "Added the text to this session's copy of config.sh. The copy lasts until you quit."
+	else
+		gum style --foreground 2 "Added the text to the end of $ENVSETUP_USER_CONFIG"
+	fi
+	envsetup::show_changes "$before" "$after"
+	envsetup::warn_config_repo
+}
+
+# check_config <file> <message> checks the file with bash -n.
+# On a syntax error, it shows the message and the error with its line number.
+# Then it returns 1.
+envsetup::check_config() {
+	local err
+	if err=$("$BASH" -n "$1" 2>&1); then return 0; fi
+	gum style --foreground 1 "$2" "${err//"$1: "/}"
+	return 1
+}
+
+# show_changes reports these settings.
+# Each item is "<label>:<variable name without ENVSETUP_>".
+ENVSETUP_SETTINGS=(Packages:PACKAGES Extras:EXTRAS Skip:SKIP Shell:SHELL "XDG ninja:XDG_NINJA"
+	"Git config:GIT_CONFIG" "Installer dirs:INSTALLER_DIRS")
+
+# settings_of <file> loads the settings with that file as config.sh.
+# It prints one "<label>|<value>" line for each value.
+# It runs in a subshell, so the menu's own settings stay the same.
+# A config.sh that runs exit ends the subshell early, so settings_of then prints nothing.
+envsetup::settings_of() {
+	(
+		ENVSETUP_USER_CONFIG=$1
+		envsetup::load_config "${ENVSETUP_PROFILE:-}" "${ENVSETUP_MODE:-full}" >/dev/null 2>&1
+		for setting in "${ENVSETUP_SETTINGS[@]}"; do
+			var="ENVSETUP_${setting#*:}[@]"
+			for value in "${!var}"; do printf '%s|%s\n' "${setting%%:*}" "$value"; done
+		done
+	) || true # an exit 1 in config.sh must not end the caller under set -e
+}
+
+# show_changes <before> <after> compares two outputs of settings_of.
+# It shows each setting that changed, for example "Packages: +neovim +zoxide".
+envsetup::show_changes() {
+	local setting label line out any=0
+	local -A old=() new=()
+	if [[ -z "$2" ]]; then
+		gum style --foreground 3 "config.sh stops before its end, for example at an exit. So envsetup cannot show the changed settings."
+		return 0
+	fi
+	while IFS= read -r line; do if [[ -n "$line" ]]; then old[$line]=1; fi; done <<<"$1"
+	while IFS= read -r line; do if [[ -n "$line" ]]; then new[$line]=1; fi; done <<<"$2"
+	for setting in "${ENVSETUP_SETTINGS[@]}"; do
+		label=${setting%%:*} out=
+		while IFS= read -r line; do
+			if [[ "$line" == "$label|"* && -z "${old[$line]:-}" ]]; then out+=" +${line#*|}"; fi
+		done <<<"$2"
+		while IFS= read -r line; do
+			if [[ "$line" == "$label|"* && -z "${new[$line]:-}" ]]; then out+=" -${line#*|}"; fi
+		done <<<"$1"
+		if [[ -n "$out" ]]; then
+			gum style "$label:$out"
+			any=1
+		fi
+	done
+	if ((any == 0)); then gum style "No ENVSETUP_* setting changed."; fi
 }

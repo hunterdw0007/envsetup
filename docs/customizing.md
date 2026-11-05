@@ -14,9 +14,34 @@ So every shell uses the same folder, even a shell without `XDG_CONFIG_HOME`.
 
 ## Use config.sh on other machines
 
-Keep `config.sh` in your own dotfiles repo.
-On a new machine, create a symlink to it at the path above.
-Then run the curl command from the [README](../README.md#install).
+Keep `config.sh` at the top of your own git repo.
+On a new machine, set `ENVSETUP_CONFIG_REPO` in the curl command from the [README](../README.md#install):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | ENVSETUP_CONFIG_REPO=github.com/me/dotfiles bash
+```
+
+- `ENVSETUP_CONFIG_REPO=me` is short for `github.com/me/envsetup-config`.
+- `ENVSETUP_CONFIG_REPO=me/dotfiles` is short for `github.com/me/dotfiles`.
+- A local repo needs an absolute path, such as `/srv/dotfiles`.
+- A URL without a scheme uses https.
+  An SSH URL such as `git@github.com:me/dotfiles.git` works too.
+- envsetup clones the repo into `~/.config/envsetup/repo` before the menu opens.
+- Then `config.sh` becomes a symlink to the `config.sh` in the repo.
+- You may already have a `config.sh`.
+  Then envsetup asks "Keep …?" first.
+  The default answer keeps your file.
+  If you answer no, envsetup moves your file to `config.sh.bak`.
+  If you keep your file, later runs do not ask to pull.
+- Each later run asks to pull the repo before the menu opens.
+  Later runs do not need `ENVSETUP_CONFIG_REPO`.
+- Your `config.sh` then lives in the clone.
+  Commit and push your edits there.
+  Otherwise a later pull can fail.
+- A failed clone or pull shows a warning.
+  The menu still opens.
+- A dry run only describes the clone and the link.
+  A dry-run edit changes a copy of `config.sh`, not the clone.
 
 ## Popular packages
 

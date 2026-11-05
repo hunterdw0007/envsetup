@@ -95,7 +95,7 @@ fi
 # deleted <log> passes when the download that install.sh names in its log is gone.
 deleted() {
 	local dl
-	dl=$(sed -n 's/^Downloaded envsetup .* to \(.*\), which .*/\1/p' "$1")
+	dl=$(sed -n 's/^Downloaded envsetup .* to \(.*\)\. envsetup deletes .*/\1/p' "$1")
 	[[ -n "$dl" && ! -e "$dl" ]]
 }
 if as beta "$install --help" >"$out/bootstrap.log" 2>&1 &&

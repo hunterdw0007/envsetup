@@ -27,7 +27,14 @@ envsetup::set_up_ssh_key() {
 		else
 			envsetup::would "show the public key, to add at $url"
 		fi
-		if ! envsetup::git_signs; then envsetup::would "ask to sign your git commits with it"; fi
+		if ! envsetup::git_signs; then
+			envsetup::would "ask to sign your git commits with it"
+			if envsetup::has_cmd gh; then
+				envsetup::would "on yes, add it to your GitHub account as a signing key with gh"
+			else
+				envsetup::would "on yes, show where to add it as a signing key: $url"
+			fi
+		fi
 		return 0
 	fi
 
@@ -54,5 +61,13 @@ envsetup::set_up_ssh_key() {
 		git config --global user.signingkey "$key.pub"
 		git config --global commit.gpgsign true
 		gum style --foreground 2 "git now signs your commits with $key"
+		# GitHub marks signed commits "Verified" only with the key there as a signing key.
+		# gh exits 0 when the key is already there. It fails without the
+		# admin:ssh_signing_key scope; the step then says where to add the key instead.
+		if envsetup::has_cmd gh && gh ssh-key add "$key.pub" --type signing --title "$comment signing"; then
+			gum style --foreground 2 "Added the key to your GitHub account as a signing key"
+		else
+			gum style --foreground 3 "Add the public key as a Signing Key at $url"
+		fi
 	fi
 }

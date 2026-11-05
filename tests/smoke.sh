@@ -273,6 +273,8 @@ for s in "$CLONE"/installers/work/*.sh; do
 	check "ran installer ${s##*/}" grep -qF "Running ${s##*/}" "$SMOKE_LOG"
 done
 check "no downloads (vendor tools already installed)" not_grep '^curl ' "$SMOKE_LOG"
+check "asked to sign commits with the new SSH key" grep -qF 'gum confirm Sign your git commits' "$SMOKE_LOG"
+check "  ...and, on no, added no signing key with gh" not_grep '--type signing' "$SMOKE_LOG"
 check "bash loads the aliases" [ "$(in_shell "$h" bash 'alias ll')" = "alias ll='ls -alh'" ]
 check "bash gets the prompt" has_prompt "$h"
 check "  ...which collapses the path" [ "$(prompt_var "$h" /usr/share/doc dir)" = /u/s/doc ]
@@ -360,13 +362,15 @@ check "--dry-run: exited 0" run_menu "$h" "Select profile" work lite "Set up SSH
 SETUP_ARGS=()
 check "  ...said it would create the key" grep -qF "would create the SSH key $key ($(id -un)@$HOSTNAME)" "$SMOKE_LOG"
 check "  ...and offer it to gh" grep -qF 'would ask to add it to your GitHub account with gh' "$SMOKE_LOG"
-check "  ...ran no ssh-keygen" not_grep '^ssh-keygen ' "$SMOKE_LOG"
+check "  ...and add it as a signing key on yes" grep -qF 'would on yes, add it to your GitHub account as a signing key with gh' "$SMOKE_LOG"
+check "  ...ran no ssh-keygen or gh" not_grep '^\(ssh-keygen\|gh\) ' "$SMOKE_LOG"
 check "  ...and changed nothing" [ "$(snapshot "$h")" = "$before" ]
 CONFIRMS=(yes yes) # add it with gh; sign commits with it
 check "exited 0" run_menu "$h" "Select profile" work lite "Set up SSH key" Quit
 CONFIRMS=()
 check "created the key, named for this machine" grep -qxF "ssh-ed25519 AAAAsmoke $(id -un)@$HOSTNAME" "$key.pub"
 check "added it with gh" grep -qxF "gh ssh-key add $key.pub --title $(id -un)@$HOSTNAME" "$SMOKE_LOG"
+check "  ...and as a signing key, once you said yes to signing" grep -qxF "gh ssh-key add $key.pub --type signing --title $(id -un)@$HOSTNAME signing" "$SMOKE_LOG"
 check "set git to sign commits with it" [ "$(signing "$h" | tr '\n' ' ')" = "gpg.format ssh user.signingkey $key.pub commit.gpgsign true " ]
 before=$(snapshot "$h")
 check "a second run exited 0" run_menu "$h" "Set up SSH key" Quit
@@ -404,6 +408,7 @@ mine="user.signingkey SMOKEGPGKEY commit.gpgsign true "
 check "exited 0" run_menu "$h" "Select profile" work lite "Set up SSH key" Quit
 check "  ...created the key" [ -f "$h/.ssh/id_ed25519" ]
 check "  ...didn't offer to sign with it" not_grep 'gum confirm Sign your git commits' "$SMOKE_LOG"
+check "  ...or add it to GitHub as a signing key" not_grep '--type signing' "$SMOKE_LOG"
 check "  ...and said why" grep -qF 'git already has signing settings' "$SMOKE_LOG"
 check "  ...and kept your settings" [ "$(signing "$h" | tr '\n' ' ')" = "$mine" ]
 SETUP_ARGS=(--uninstall) CONFIRMS=(yes yes)

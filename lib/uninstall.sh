@@ -153,6 +153,8 @@ envsetup::uninstall() {
 		fi
 	fi
 
+	# The old config.sh that sync_config_repo moved aside is the user's file.
+	[[ -e "$state/config.sh.bak" ]] && kept+=("your old config: $state/config.sh.bak")
 	[[ -d "$HOME/.oh-my-zsh" ]] && kept+=("oh-my-zsh: remove it with uninstall_oh_my_zsh")
 	gum style "Left in place:" \
 		"- the packages and tools that envsetup installed. They may be older than envsetup, so remove them yourself." \

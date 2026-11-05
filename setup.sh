@@ -49,6 +49,7 @@ The file is outside this repo, so updates never change it.
 To get config.sh from your own git repo, set ENVSETUP_CONFIG_REPO.
 For example, ENVSETUP_CONFIG_REPO=github.com/me/dotfiles uses the config.sh in that repo.
 ENVSETUP_CONFIG_REPO=me is short for github.com/me/envsetup-config.
+ENVSETUP_CONFIG_REPO=me/dotfiles is short for github.com/me/dotfiles.
 envsetup clones the repo into ~/.config/envsetup/repo before the menu opens.
 Each later run asks to pull the repo again.
 
@@ -416,5 +417,6 @@ if ((UNINSTALL)); then
 	envsetup::uninstall || (($? == 2)) # a cancelled uninstall is not an error
 	exit 0
 fi
-envsetup::sync_config_repo
+# run_step keeps a failure here from stopping setup before the menu.
+envsetup::run_step envsetup::sync_config_repo
 envsetup::main_menu

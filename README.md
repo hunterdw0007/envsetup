@@ -319,6 +319,7 @@ Uninstall asks before it removes your `config.sh`.
 If you set `ENVSETUP_CONFIG_REPO`, uninstall asks "Keep ~/.config/envsetup/repo?".
 The default answer keeps it.
 If you delete the repo but keep `config.sh`, uninstall keeps a copy of the repo's `config.sh`.
+Uninstall keeps `config.sh.bak`, your old `config.sh`, and lists it at the end.
 If envsetup created `~/.ssh/id_ed25519`, uninstall asks "Keep ~/.ssh/id_ed25519?".
 The default answer keeps it.
 If envsetup changed your login shell to zsh, uninstall asks to change it back to bash.

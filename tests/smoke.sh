@@ -879,6 +879,7 @@ kept_mine() { [ ! -L "$st/config.sh" ] && grep -qxF "alias mine=true" "$st/confi
 check "  ...and kept config.sh" kept_mine
 check "a second run: exited 0" run_menu "$h" Quit
 check "  ...did not ask again" [ "$(count 'Keep your own' "$SMOKE_LOG")" = 0 ]
+check "  ...nor ask to pull" [ "$(count 'Pull your config repo' "$SMOKE_LOG")" = 0 ]
 check "  ...and kept config.sh" kept_mine
 h=$(new_home)
 st=$h/.config/envsetup
@@ -887,12 +888,16 @@ echo 'alias mine=true' >"$st/config.sh"
 CONFIRMS=(no) # replace it
 ENVSETUP_CONFIG_REPO=$cfg check "replace it: exited 0" run_menu "$h" Quit
 check "  ...linked config.sh to the repo" [ "$(readlink "$st/config.sh")" = "$st/repo/config.sh" ]
+check "  ...and moved the old text to config.sh.bak" grep -qxF 'alias mine=true' "$st/config.sh.bak"
+check "  ...and said so" grep -qF "Moved your old config.sh to $st/config.sh.bak" "$SMOKE_LOG"
 SETUP_ARGS=(--uninstall) CONFIRMS=(yes no yes) # remove; keep the repo, no; keep config.sh, yes
 check "--uninstall, delete the repo but keep config.sh: exited 0" run_menu "$h"
 SETUP_ARGS=() CONFIRMS=()
 check "  ...deleted the repo" [ ! -e "$st/repo" ]
 check "  ...and kept a copy of its config.sh" same_list "$(cat "$cfg/config.sh")" "$(cat "$st/config.sh" 2>/dev/null)"
 check "  ...as a file, not a link" not [ -L "$st/config.sh" ]
+check "  ...kept config.sh.bak" grep -qxF 'alias mine=true' "$st/config.sh.bak"
+check "  ...and listed it" grep -qF "your old config: $st/config.sh.bak" "$SMOKE_LOG"
 h=$(new_home)
 st=$h/.config/envsetup
 ENVSETUP_CONFIG_REPO=$cfg run_menu "$h" Quit || true

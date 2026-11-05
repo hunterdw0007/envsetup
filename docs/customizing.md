@@ -22,6 +22,8 @@ curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.
 ```
 
 - `ENVSETUP_CONFIG_REPO=me` is short for `github.com/me/envsetup-config`.
+- `ENVSETUP_CONFIG_REPO=me/dotfiles` is short for `github.com/me/dotfiles`.
+- A local repo needs an absolute path, such as `/srv/dotfiles`.
 - A URL without a scheme uses https.
   An SSH URL such as `git@github.com:me/dotfiles.git` works too.
 - envsetup clones the repo into `~/.config/envsetup/repo` before the menu opens.
@@ -29,6 +31,8 @@ curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.
 - You may already have a `config.sh`.
   Then envsetup asks "Keep …?" first.
   The default answer keeps your file.
+  If you answer no, envsetup moves your file to `config.sh.bak`.
+  If you keep your file, later runs do not ask to pull.
 - Each later run asks to pull the repo before the menu opens.
   Later runs do not need `ENVSETUP_CONFIG_REPO`.
 - Your `config.sh` then lives in the clone.

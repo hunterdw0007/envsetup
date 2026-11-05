@@ -86,6 +86,8 @@ else
 	# yes answers the package manager's question.
 	as beta "$install" >"$out/no-git.log" 2>&1
 	hint=$(sed -n 's/^  \(.*git\)$/\1/p' "$out/no-git.log")
+	# zypper ignores answers from a pipe, so it gets its flag for no questions.
+	if [[ "$pm" == zypper ]]; then hint=${hint/zypper/zypper -n}; fi
 	if [[ "$hint" == "sudo "* ]] && as beta "yes | $hint" >>"$out/no-git.log" 2>&1 && command -v git >/dev/null; then
 		result bootstrap PASS "install.sh showed '$hint', and that command installed git"
 	else

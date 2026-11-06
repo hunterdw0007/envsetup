@@ -60,7 +60,8 @@ envsetup::load_config() {
 envsetup::config_warning() {
 	if [[ "$1" != "${ENVSETUP_CONFIG_WARNED:-}" ]]; then
 		ENVSETUP_CONFIG_WARNED=$1
-		gum style --foreground 3 "$1" >&2
+		# setup.sh --status runs without gum.
+		if envsetup::has_cmd gum; then gum style --foreground 3 "$1" >&2; else printf '%s\n' "$1" >&2; fi
 	fi
 }
 

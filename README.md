@@ -158,6 +158,11 @@ The menu has these other actions:
 - **Move dotfiles to XDG dirs** moves dotfiles out of `$HOME`.
   See [docs/xdg.md](docs/xdg.md).
 - **Preview everything** shows what **Run everything** would do.
+- **Check status** checks what envsetup set up on this machine.
+  It changes nothing.
+  `./setup.sh --status` runs the same check without the menu or gum.
+  Each line starts with "ok" or "missing".
+  `--status` exits 1 if any line is "missing".
 - **Uninstall** removes what envsetup added.
   See [Uninstall](#uninstall).
 

@@ -344,6 +344,21 @@ On pushes to `main`, it also runs `release` after those jobs pass (see Releases)
 The CI badge in `README.md` names `ci.yml` in its image URL and in its link URL.
 If you rename `ci.yml`, update both URLs.
 
+The README shows `docs/tapes/demo.gif`.
+VHS records it from `docs/tapes/demo.tape`, a script of keystrokes.
+Record it again after a change to the menu.
+Run this command from the repo root:
+
+```sh
+docker run --rm -v "$PWD:/vhs" -v "$(command -v gum):/usr/local/bin/gum:ro" ghcr.io/charmbracelet/vhs:v0.10.0 docs/tapes/demo.tape
+```
+
+The command needs a gum binary that runs on Linux without other files.
+The release binary that envsetup installs works.
+The tape runs a dry run in the container, so it changes nothing on your machine.
+In a git worktree, also mount the main repo's `.git` folder at its own path.
+Otherwise the header shows "unknown" instead of the release.
+
 `tests/distros/run.sh` runs the real tool on a dozen distros with real installs.
 It does not run on every push (see `CONTRIBUTING.md`).
 The `distros` workflow runs it every week and opens an issue when the run fails.

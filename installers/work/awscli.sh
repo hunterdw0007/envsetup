@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# This script installs AWS CLI v2 if it is not already on PATH.
+# This script installs or updates AWS CLI v2 (see envsetup::up_to_date).
 # installers/versions.txt pins the version, for Linux x86_64 or aarch64.
 # AWS publishes a signature, not a checksum.
 # So the script checks the download against AWS's signing key in awscli.asc.
@@ -8,7 +8,7 @@ set -euo pipefail
 
 source "$ENVSETUP_ROOT/lib/common.sh"
 
-envsetup::has_cmd aws && exit 0
+envsetup::up_to_date awscli aws && exit 0
 
 # AWS's build needs glibc.
 # Alpine uses musl, so it packages its own build.
@@ -29,4 +29,6 @@ curl -fsSL -o "$tmp/awscliv2.zip.sig" "$url.sig"
 envsetup::gpg_verify "$tmp/awscliv2.zip" "$tmp/awscliv2.zip.sig" "$ENVSETUP_ROOT/installers/work/awscli.asc" \
 	FB5DB77FD5C118B80511ADA8A6310ACC4672475C
 unzip -q "$tmp/awscliv2.zip" -d "$tmp"
-envsetup::as_root "$tmp/aws/install"
+# --update replaces an older AWS CLI. A first install accepts it too.
+envsetup::as_root "$tmp/aws/install" --update
+envsetup::record_installed awscli

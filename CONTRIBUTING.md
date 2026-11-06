@@ -113,6 +113,10 @@ Installers go in `installers/`:
    It must check whether the tool is already present.
    If so, it must exit before it does anything else.
    `installers/work/kubectl.sh` is an example.
+   A pinned tool uses `envsetup::up_to_date` for this check.
+   After the install, the script runs `envsetup::record_installed`.
+   Then a later release can update the tool to its new pin.
+   `AGENTS.md` describes this record.
 3. The script runs in its own `bash` process.
    To use helpers like `envsetup::has_cmd`, source `$ENVSETUP_ROOT/lib/common.sh` in the script.
 4. Check every download before you install or run it:

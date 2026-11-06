@@ -20,6 +20,7 @@ source "$ENVSETUP_ROOT/lib/zsh.sh"
 source "$ENVSETUP_ROOT/lib/installers.sh"
 source "$ENVSETUP_ROOT/lib/git.sh"
 source "$ENVSETUP_ROOT/lib/ssh.sh"
+source "$ENVSETUP_ROOT/lib/status.sh"
 source "$ENVSETUP_ROOT/lib/uninstall.sh"
 source "$ENVSETUP_ROOT/lib/xdg.sh"
 
@@ -95,6 +96,9 @@ Options:
                    the SSH signing settings; ask before removing anything that
                    may be yours, such as your SSH key; keep packages and tools;
                    add --dry-run to see the changes first
+      --status     check what envsetup set up on this machine; print one "ok"
+                   or "missing" line for each part, and change nothing; exit 1
+                   if any part is missing
       --version    show the release and exit
   -h, --help       show this help and exit
 EOF
@@ -112,6 +116,10 @@ while (($#)); do
 	--version)
 		envsetup::version
 		exit 0
+		;;
+	--status)
+		envsetup::status
+		exit $((ENVSETUP_STATUS_MISSING > 0))
 		;;
 	-n | --dry-run) ENVSETUP_DRY_RUN=1 ;;
 	--uninstall) UNINSTALL=1 ;;
@@ -258,8 +266,17 @@ envsetup::drop_checkout() {
 # It also links your login shell's startup file, so new terminals get the config.
 # It sets up zsh + oh-my-zsh only if you opt in.
 # To opt in, set ENVSETUP_SHELL=zsh or use the menu action.
+# It also creates shell.d for your own shell files.
 envsetup::link_shell_config() {
 	envsetup::copy_shell
+	if [[ ! -d "$ENVSETUP_SHELL_D" ]]; then
+		if envsetup::dry_run; then
+			envsetup::would "create $ENVSETUP_SHELL_D for your own shell files"
+		else
+			mkdir -p "$ENVSETUP_SHELL_D"
+			gum style --foreground 2 "Created $ENVSETUP_SHELL_D. New shells load your own shell files from it."
+		fi
+	fi
 	envsetup::link_rc "$HOME/.bashrc"
 	if [[ "${SHELL##*/}" == zsh ]]; then envsetup::link_rc "$HOME/.zshrc"; fi
 	if [[ "$ENVSETUP_SHELL" == zsh ]]; then
@@ -392,7 +409,7 @@ envsetup::main_menu() {
 		[[ "$profile" == work ]] && label+=" ($ENVSETUP_MODE)"
 		choice="$(gum choose "Select profile (current: $label)" "Paste config" "Edit config" "Link shell config" \
 			"Set up zsh + oh-my-zsh" "Configure git" "Set up SSH key" "Install packages" "Run installers" \
-			"Move dotfiles to XDG dirs" "Preview everything" "Run everything" "Uninstall" \
+			"Move dotfiles to XDG dirs" "Preview everything" "Run everything" "Check status" "Uninstall" \
 			"Quit")" || break # Esc or Ctrl-C
 
 		case "$choice" in
@@ -428,6 +445,7 @@ envsetup::main_menu() {
 			envsetup::dry_run && gum style --bold "Dry run: what Run everything would do for $label:"
 			envsetup::run_everything
 			;;
+		"Check status") envsetup::run_step envsetup::status ;;
 		"Uninstall")
 			# After a real uninstall, the menu has nothing left to work on.
 			if envsetup::uninstall && ! envsetup::dry_run; then break; fi

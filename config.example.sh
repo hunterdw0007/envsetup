@@ -28,6 +28,11 @@
 # So wrap code for interactive shells only in [[ $- == *i* ]].
 # Prompt frameworks and completions are examples.
 #
+# You can also keep shell code in separate files in the folder shell.d next to this file.
+# Each new interactive shell loads them after this file, in name order.
+# Files that end in .sh load in bash and zsh, .bash only in bash, and .zsh only in zsh.
+# docs/shell.md explains the folder.
+#
 # setup.sh sources this file in its own process.
 # So `exit` in this file stops setup.sh.
 # And `cd` in this file changes setup.sh's folder.

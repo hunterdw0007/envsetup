@@ -87,7 +87,10 @@ printf '#!/bin/sh\nexec "$@"\n' >"$STUBS/sudo"
 # The fake apt-get refuses any install that includes smoke-conflict, like a real package conflict.
 printf '#!/bin/sh\necho "apt-get $*" >>"$SMOKE_LOG"\ncase "$*" in *smoke-conflict*) exit 100 ;; esac\n' >"$OFFLINE/apt-get"
 printf '#!/bin/sh\necho "chsh $*" >>"$SMOKE_LOG"\n' >"$OFFLINE/chsh"
-# The fake curl serves a fake oh-my-zsh installer, and install.sh for the envsetup command.
+# --status asks dpkg-query about each package, and the fake apt-get installs none.
+# So the fake dpkg-query reports every package as installed.
+printf '#!/bin/sh\necho "install ok installed"\n' >"$OFFLINE/dpkg-query"
+# The fake curl serves a fake oh-my-zsh installer, a fake kubectl, and install.sh for the envsetup command.
 # Any other download is a bug in the test.
 # SMOKE_CURL_FAIL=1 makes every download fail, as offline.
 cat >"$OFFLINE/curl" <<'EOF'
@@ -99,6 +102,10 @@ case "$*" in
 mkdir -p "$HOME/.oh-my-zsh"
 [ -f "$HOME/.zshrc" ] || echo 'PROMPT="%n@%m %# "  # stand-in for the oh-my-zsh theme' >"$HOME/.zshrc"
 OMZ
+	*dl.k8s.io*)
+		while [ "$1" != -o ]; do shift; done
+		printf '#!/bin/sh\necho smoke-kubectl\n' >"$2"
+		;;
 	*/hunterdw0007/envsetup/main/install.sh) cat /src/install.sh ;;
 	*) echo "smoke: unexpected download: curl $*" >&2; exit 1 ;;
 esac
@@ -136,10 +143,11 @@ left_nothing() { [ -z "$(ls -A "$TMP")" ]; }
 # envsetup_in <bash|zsh> <args> runs the envsetup command in a real interactive shell.
 # Unlike in_shell, the shell keeps the terminal, because install.sh reads from /dev/tty.
 # config.sh sets ENVSETUP_REPO_URL, so the test does not set it here.
+# An empty ENVSETUP_VERSION stays empty, so envsetup picks the release itself.
 envsetup_in() {
 	local sh=$1
 	shift
-	ENVSETUP_VERSION=$UNDER_TEST TMPDIR=$TMP "$sh" -ic 'envsetup "$@"' envsetup "$@"
+	ENVSETUP_VERSION=${ENVSETUP_VERSION-$UNDER_TEST} TMPDIR=$TMP "$sh" -ic 'envsetup "$@"' envsetup "$@"
 }
 envsetup_bash() { envsetup_in bash "$@"; }
 envsetup_zsh() { envsetup_in zsh "$@"; }
@@ -332,6 +340,18 @@ for sh in bash zsh; do
 	check "  ...changed nothing" [ "$(snapshot "$h")" = "$before" ]
 	check "  ...and deleted its download" left_nothing
 done
+# Without ENVSETUP_VERSION, envsetup status checks the release in the version file.
+SETUP_ARGS=(status)
+ENVSETUP_VERSION='' SETUP=envsetup_bash check "envsetup status in a new shell: exited 0" run_menu "$h"
+check "  ...downloaded the release that the shells use" grep -qF "Downloaded envsetup $(cat "$data/version" 2>/dev/null) " "$h/setup.out"
+check "  ...and ran setup.sh --status" grep -q '^ok .*has the envsetup block' "$h/setup.out"
+mv "$OFFLINE/docker" $W/docker
+ENVSETUP_VERSION='' SETUP=envsetup_bash check "  ...without docker: exited 1, as setup.sh --status does" not run_menu "$h"
+mv $W/docker "$OFFLINE/docker"
+SETUP_ARGS=()
+check "  ...and named docker" grep -qF 'missing  docker is not on PATH' "$h/setup.out"
+check "  ...changed nothing" [ "$(snapshot "$h")" = "$before" ]
+check "  ...and deleted its download" left_nothing
 SETUP=curl_bash check "the same release again: exited 0" run_menu "$h" "Run everything" Quit
 check "  ...and changed nothing" [ "$(snapshot "$h")" = "$before" ]
 SETUP_ARGS=(--dry-run)
@@ -397,6 +417,17 @@ check "  ...and prints nothing of its own (scp needs a silent shell)" [ "$(not_i
 check "values set before envsetup's block stay" [ "$(EDITOR=nano XDG_CONFIG_HOME=$h/mine MANPAGER=most in_shell "$h" bash 'printf %s "$EDITOR|$XDG_CONFIG_HOME|$MANPAGER"')" = "nano|$h/mine|most" ]
 check "  ...and with no envsetup dir in that XDG_CONFIG_HOME, ~/.config/envsetup stays in use" [ "$(XDG_CONFIG_HOME=$h/mine in_shell "$h" bash 'alias kc')" = "alias kc='kubectl'" ]
 check "git gets the shipped defaults" same_list "$(git config --file "$CLONE/git/gitconfig" alias.l)" "$(HOME=$h git config --global --includes alias.l)"
+# status runs setup.sh --status (#97).
+# PATH has no gum, and the repo for the newest release is out of reach, as offline.
+status() { HOME=$h ENVSETUP_REPO_URL=$W/no-repo PATH="$OFFLINE:/usr/bin:/bin" "$CLONE/setup.sh" --status >$W/status.out 2>&1; }
+all_ok() { [ "$(grep -c '^ok ' $W/status.out)" = 7 ] && [ "$(wc -l <$W/status.out)" = 7 ]; }
+check "--status exited 0" status
+check "  ...printed 7 lines, each one ok" all_ok
+((failures)) && show $W/status.out
+mv "$OFFLINE/aws" $W/aws
+check "--status without aws: exited 1" not status
+mv $W/aws "$OFFLINE/aws"
+check "  ...and named aws, which awscli.sh checks" grep -qx 'missing  aws is not on PATH. Select Run installers' $W/status.out
 check "re-run exited 0" run_menu "$h" "Run everything" Quit
 check "re-run didn't link twice" [ "$(count '# >>> envsetup >>>' "$h/.bashrc")" = 1 ]
 ((failures)) && show "$h/setup.out"
@@ -610,6 +641,20 @@ check "left zsh alone" none_exist "$h/.oh-my-zsh" "$h/.zshrc"
 check "didn't ask about the login shell" not_grep '^gum confirm Set zsh' "$SMOKE_LOG"
 check "installed them all at once" [ "$(grep -c '^apt-get install -y ' "$SMOKE_LOG")" = 1 ]
 
+echo "== --status and Check status: ok after Run everything, then a removed block (#97)"
+before=$(snapshot "$h")
+check "--status exited 0 without gum" status
+check "  ...printed 7 lines, each one ok" all_ok
+check "  ...said the newest release is unknown" grep -qF 'newest release: unknown' $W/status.out
+check "  ...and changed nothing in \$HOME" [ "$(snapshot "$h")" = "$before" ]
+((failures)) && show $W/status.out
+sed -i '/^# >>> envsetup >>>$/,/^# <<< envsetup <<<$/d' "$h/.bashrc"
+check "without the ~/.bashrc block: exited 1" not status
+check "  ...and said the block is missing" grep -qx "missing  $h/.bashrc has no envsetup block. Select Link shell config" $W/status.out
+check "  ...on the only missing line" [ "$(grep -c '^missing ' $W/status.out)" = 1 ]
+check "Check status in the menu: exited 0" run_menu "$h" "Check status" Quit
+check "  ...and said the block is missing" grep -qF "missing  $h/.bashrc has no envsetup block" "$h/setup.out"
+
 echo "== home: Run everything, docker missing: its installer reuses the session's package lists"
 h=$(new_home)
 mv "$OFFLINE/docker" $W/docker
@@ -672,6 +717,46 @@ SHELL=/usr/bin/zsh check "--uninstall exits 0" run_menu "$h"
 SETUP_ARGS=() CONFIRMS=()
 check "  ...unlinked both" none_exist_in '# >>> envsetup >>>' "$h/.bashrc" "$h/.zshrc"
 check "  ...and didn't offer to change a login shell it didn't set" not_grep 'Keep zsh as your login shell' "$SMOKE_LOG"
+((failures)) && show "$h/setup.out"
+
+echo "== shell.d: your own shell files (#105)"
+h=$(new_home)
+d=$h/.config/envsetup/shell.d
+SETUP_ARGS=(--dry-run)
+check "--dry-run Link shell config: exited 0" run_menu "$h" "Select profile" work lite "Link shell config" Quit
+SETUP_ARGS=()
+check "  ...said it would create shell.d" grep -qF "would create $d" "$SMOKE_LOG"
+check "  ...and didn't" [ ! -e "$d" ]
+# A zsh login shell gets ~/.zshrc linked too, so a real zsh loads shell.d.
+SHELL=/usr/bin/zsh check "Link shell config: exited 0" run_menu "$h" "Select profile" work lite "Link shell config" Quit
+check "  ...created shell.d" [ -d "$d" ]
+check "bash starts with the empty folder" [ "$(in_shell "$h" bash 'echo started')" = started ]
+check "  ...without errors" [ ! -s "$h/shell.err" ]
+check "zsh starts with the empty folder" [ "$(in_shell "$h" zsh 'echo started')" = started ]
+check "  ...without errors" [ ! -s "$h/shell.err" ]
+echo 'mine=cfg' >"$h/.config/envsetup/config.sh"
+for f in 10-a.sh 20-b.bash 30-z.zsh 50-c.sh README 50-c.sh~; do echo "mine+=${f:3:1}" >"$d/$f"; done
+echo 'if (' >"$d/40-broken.sh"
+check "bash loads .sh and .bash files in name order, after config.sh" [ "$(in_shell "$h" bash 'printf %s "$mine"')" = cfgabc ]
+check "  ...and names the broken file" grep -qF 40-broken.sh "$h/shell.err"
+check "zsh loads .sh and .zsh files in name order, after config.sh" [ "$(in_shell "$h" zsh 'printf %s "$mine"')" = cfgazc ]
+check "  ...and names the broken file" grep -qF 40-broken.sh "$h/shell.err"
+check "a non-interactive bash loads no file from shell.d" [ "$(not_interactive "$h" 'printf %s "$mine"')" = cfg ]
+before=$(snapshot "$d")
+SHELL=/usr/bin/zsh check "Link shell config again: exited 0" run_menu "$h" "Link shell config" Quit
+check "  ...and left shell.d unchanged" [ "$(snapshot "$d")" = "$before" ]
+# The answers: remove, yes; keep config.sh, yes; keep shell.d, yes.
+SETUP_ARGS=(--uninstall) CONFIRMS=(yes yes yes)
+check "--uninstall exits 0" run_menu "$h"
+check "  ...asked to keep shell.d" grep -qF "gum confirm Keep $d?" "$SMOKE_LOG"
+check "  ...kept it when told to" [ "$(snapshot "$d")" = "$before" ]
+check "  ...and listed it" grep -qF "your shell files: $d" "$SMOKE_LOG"
+# The answers: remove, yes; keep config.sh, no; keep shell.d, no.
+CONFIRMS=(yes no no)
+check "--uninstall again exits 0" run_menu "$h"
+SETUP_ARGS=() CONFIRMS=()
+check "  ...deleted shell.d when told to" [ ! -e "$d" ]
+check "  ...and the state folder" [ ! -e "$h/.config/envsetup" ]
 ((failures)) && show "$h/setup.out"
 
 echo "== explaining itself"
@@ -1143,6 +1228,51 @@ check "  ...moved ~/.docker back" [ -f "$h/.docker/config.json" ]
 check "  ...and removed the exports and the notes" none_exist "$h/.config/envsetup/xdg.sh" "$h/.cache/envsetup"
 unset ENVSETUP_XDG_NINJA_URL
 ((failures)) && show "$h/setup.out"
+
+echo "== work/full: Run installers updates only the tools that envsetup installed (#96)"
+# A copy of the clone pins kubectl to the fake curl's kubectl.
+# The record says that envsetup installed kubectl 1.0.0 and the pinned helm.
+# envsetup did not install terraform, which the fakes put on PATH.
+c=$W/clone-96
+cp -a "$CLONE" "$c"
+pins=$c/installers/versions.txt
+k_pin=$(awk '$1 == "kubectl" { print $2 }' "$pins")
+helm_pin=$(awk '$1 == "helm" { print $2 }' "$pins")
+k_sha=$(printf '#!/bin/sh\necho smoke-kubectl\n' | sha256sum | cut -d' ' -f1)
+sed -i "s/^kubectl .*/kubectl $k_pin linux-amd64=$k_sha linux-arm64=$k_sha/" "$pins"
+h=$(new_home)
+rec=$h/.local/state/envsetup/installed
+mkdir -p "${rec%/*}"
+printf 'kubectl 1.0.0\nhelm %s\n' "$helm_pin" >"$rec"
+SETUP=$c/setup.sh check "Preview everything: exited 0" run_menu "$h" "Select profile" work full "Preview everything" Quit
+check "  ...listed the update" grep -qF "would update kubectl 1.0.0 → $k_pin" "$SMOKE_LOG"
+check "  ...and only that one" [ "$(count 'would update ' "$SMOKE_LOG")" = 1 ]
+check "  ...downloaded nothing" not_grep '^curl ' "$SMOKE_LOG"
+check "  ...and left the record as it was" [ "$(cat "$rec")" = "$(printf 'kubectl 1.0.0\nhelm %s' "$helm_pin")" ]
+SETUP=$c/setup.sh check "Run installers: exited 0" run_menu "$h" "Run installers" Quit
+# line_of <text> prints the number of the first log line with the text.
+line_of() { grep -nF -- "$1" "$SMOKE_LOG" | head -n 1 | cut -d: -f1; }
+listed_first() {
+	local u r
+	u=$(line_of "kubectl 1.0.0 → $k_pin") r=$(line_of 'Running ')
+	[ -n "$u" ] && [ -n "$r" ] && [ "$u" -lt "$r" ]
+}
+only_kubectl() { [ "$(grep -c '^curl ' "$SMOKE_LOG")" = 1 ] && grep -q '^curl .*dl\.k8s\.io/release/v'"$k_pin"'/' "$SMOKE_LOG"; }
+check "  ...listed the update before the first installer ran" listed_first
+check "  ...downloaded only the pinned kubectl" only_kubectl
+check "  ...installed the pinned kubectl" [ "$(/usr/local/bin/kubectl)" = smoke-kubectl ]
+check "  ...recorded its version" grep -qxF "kubectl $k_pin" "$rec"
+check "  ...kept helm's line" grep -qxF "helm $helm_pin" "$rec"
+check "  ...and recorded no terraform, which you installed" not_grep '^terraform ' "$rec"
+SETUP=$c/setup.sh check "Run installers again: exited 0" run_menu "$h" "Run installers" Quit
+check "  ...listed no update and downloaded nothing" not_grep '→\|^curl ' "$SMOKE_LOG"
+SETUP_ARGS=(--uninstall) CONFIRMS=(yes no)
+SETUP=$c/setup.sh check "--uninstall: exited 0" run_menu "$h"
+SETUP_ARGS=() CONFIRMS=()
+check "  ...deleted the record" none_exist "$rec" "${rec%/*}"
+check "  ...and kept the tool" [ -x /usr/local/bin/kubectl ]
+((failures)) && show "$h/setup.out"
+rm -rf /usr/local/bin/kubectl "$c"
 
 echo "== download verification (lib/common.sh), offline"
 # install_release gets a file:// URL from a fake curl that only copies local files.

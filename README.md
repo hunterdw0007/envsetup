@@ -160,6 +160,11 @@ The menu has these other actions:
 - **Move dotfiles to XDG dirs** moves dotfiles out of `$HOME`.
   See [docs/xdg.md](docs/xdg.md).
 - **Preview everything** shows what **Run everything** would do.
+- **Check status** checks what envsetup set up on this machine.
+  It changes nothing.
+  `./setup.sh --status` runs the same check without the menu or gum.
+  Each line starts with "ok" or "missing".
+  `--status` exits 1 if any line is "missing".
 - **Uninstall** removes what envsetup added.
   See [Uninstall](#uninstall).
 
@@ -245,8 +250,15 @@ Installers download the amd64 or arm64 build that matches the machine.
 So two machines on the same release get the same tool versions.
 A project may change a download after its release.
 Then the download fails the checksum, and envsetup does not install it.
-To use a newer version of a tool, install the tool yourself.
-Installers skip any tool that is already on your `PATH`.
+envsetup records each tool that it installs in `~/.local/state/envsetup/installed`.
+If you set `XDG_STATE_HOME`, the file is `$XDG_STATE_HOME/envsetup/installed`.
+A new release may pin a newer version of such a tool.
+Then **Run installers** updates the tool and lists each update first.
+Older releases kept no record.
+So envsetup does not update a tool that an older release installed.
+It treats that tool as one that you installed.
+To use another version of a tool, install the tool yourself.
+Installers skip any tool on your `PATH` that envsetup did not install.
 
 ## Customize
 
@@ -310,6 +322,7 @@ alias k=kubectl                                    # any other shell config work
 | `ENVSETUP_XDG_NINJA` | `0`. The value `1` adds **Move dotfiles to XDG dirs** to **Run everything**. | Run everything |
 | `ENVSETUP_REPO_URL` | `https://github.com/hunterdw0007/envsetup.git` | The `envsetup` command in your shell |
 | aliases, environment variables, functions, `PS1` | `shell/` | Every new shell, after the defaults |
+| your own shell files in `~/.config/envsetup/shell.d` | Empty. See [Your own shell files](docs/shell.md#your-own-shell-files). | Every new interactive shell, after `config.sh` |
 
 A change to shell config takes effect in the next new shell.
 A change to an `ENVSETUP_*` setting takes effect the next time you run its action.
@@ -349,6 +362,9 @@ If you set `ENVSETUP_CONFIG_REPO`, uninstall asks "Keep ~/.config/envsetup/repo?
 The default answer keeps it.
 If you delete the repo but keep `config.sh`, uninstall keeps a copy of the repo's `config.sh`.
 Uninstall keeps `config.sh.bak`, your old `config.sh`, and lists it at the end.
+Uninstall removes an empty `shell.d` folder.
+If `shell.d` has files, uninstall asks "Keep ~/.config/envsetup/shell.d?".
+The default answer keeps it.
 If envsetup created `~/.ssh/id_ed25519`, uninstall asks "Keep ~/.ssh/id_ed25519?".
 The default answer keeps it.
 If envsetup changed your login shell to zsh, uninstall asks to change it back to bash.

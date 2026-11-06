@@ -26,9 +26,9 @@ ENVSETUP_PROFILE="" ENVSETUP_MODE=full
 # The rest is only for interactive shells.
 # Some distros' ~/.bashrc does not return early for non-interactive shells (Fedora's).
 # work lite does not assume sudo.
-# So it gets only the prompt, the aliases and the hooks for tools that are installed.
+# So it gets only the prompt, the aliases, the envsetup command and the hooks for tools that are installed.
 if [[ $- == *i* ]]; then
-	_envsetup_files=(ps1 aliases tools)
+	_envsetup_files=(ps1 aliases tools envsetup)
 	[[ "$ENVSETUP_MODE" == lite ]] || _envsetup_files+=(functions)
 	for _envsetup_f in "${_envsetup_files[@]}"; do
 		# shellcheck disable=SC1090 # the path is known only at runtime

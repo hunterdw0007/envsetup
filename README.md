@@ -34,6 +34,8 @@ So envsetup itself does not stay on the machine.
 Only your shell config, `config.sh` and the files that envsetup made stay.
 
 To update to the newest release, run the same command again.
+Or run `envsetup` in a new shell, which runs the same command for you.
+[docs/shell.md](docs/shell.md#the-envsetup-command) lists its other commands.
 **Link shell config** (or **Run everything**) then replaces the copy.
 Running the same release again changes nothing.
 
@@ -322,7 +324,8 @@ curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.
 curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | bash -s -- --dry-run --uninstall
 ```
 
-**Uninstall** in the menu does the same.
+`envsetup uninstall` in a new shell does the same.
+**Uninstall** in the menu also does the same.
 `./setup.sh --uninstall` in a clone also does the same.
 
 Uninstall removes everything that envsetup added:

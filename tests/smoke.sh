@@ -87,7 +87,7 @@ printf '#!/bin/sh\nexec "$@"\n' >"$STUBS/sudo"
 # The fake apt-get refuses any install that includes smoke-conflict, like a real package conflict.
 printf '#!/bin/sh\necho "apt-get $*" >>"$SMOKE_LOG"\ncase "$*" in *smoke-conflict*) exit 100 ;; esac\n' >"$OFFLINE/apt-get"
 printf '#!/bin/sh\necho "chsh $*" >>"$SMOKE_LOG"\n' >"$OFFLINE/chsh"
-# The fake curl serves only a fake oh-my-zsh installer.
+# The fake curl serves a fake oh-my-zsh installer, and install.sh for the envsetup command.
 # Any other download is a bug in the test.
 cat >"$OFFLINE/curl" <<'EOF'
 #!/bin/sh
@@ -97,6 +97,7 @@ case "$*" in
 mkdir -p "$HOME/.oh-my-zsh"
 [ -f "$HOME/.zshrc" ] || echo 'PROMPT="%n@%m %# "  # stand-in for the oh-my-zsh theme' >"$HOME/.zshrc"
 OMZ
+	*/hunterdw0007/envsetup/main/install.sh) cat /src/install.sh ;;
 	*) echo "smoke: unexpected download: curl $*" >&2; exit 1 ;;
 esac
 EOF
@@ -130,6 +131,16 @@ mkdir -p "$TMP"
 # shellcheck disable=SC2120 # run_menu passes it SETUP_ARGS
 curl_bash() { ENVSETUP_VERSION=$UNDER_TEST ENVSETUP_REPO_URL=$SRC TMPDIR=$TMP bash "$SRC/install.sh" "$@"; }
 left_nothing() { [ -z "$(ls -A "$TMP")" ]; }
+# envsetup_in <bash|zsh> <args> runs the envsetup command in a real interactive shell.
+# Unlike in_shell, the shell keeps the terminal, because install.sh reads from /dev/tty.
+# config.sh sets ENVSETUP_REPO_URL, so the test does not set it here.
+envsetup_in() {
+	local sh=$1
+	shift
+	ENVSETUP_VERSION=$UNDER_TEST TMPDIR=$TMP "$sh" -ic 'envsetup "$@"' envsetup "$@"
+}
+envsetup_bash() { envsetup_in bash "$@"; }
+envsetup_zsh() { envsetup_in zsh "$@"; }
 # This prints everything under a home: paths and file contents.
 # It leaves out the test's own output files.
 snapshot() {
@@ -299,7 +310,24 @@ check "  ...from the copy" [ "$(in_shell "$h" bash 'printf %s "$ENVSETUP_ROOT"')
 check "  ...without errors" [ ! -s "$h/shell.err" ]
 check "zsh loads the aliases" [ "$(in_shell "$h" zsh 'alias ll')" = "ll='ls -alh'" ]
 check "  ...without errors" [ ! -s "$h/shell.err" ]
+for sh in bash zsh; do
+	check "$sh: envsetup version shows the recorded release" same_list "$(cat "$data/version" 2>/dev/null)" "$(in_shell "$h" $sh 'envsetup version')"
+	check "  ...envsetup --help lists the commands" grep -q '^  uninstall ' <(in_shell "$h" $sh 'envsetup --help')
+	check "  ...envsetup config opens config.sh in \$EDITOR" [ "$(in_shell "$h" $sh 'EDITOR=echo envsetup config')" = "$h/.config/envsetup/config.sh" ]
+	check "  ...an unknown command fails" [ "$(in_shell "$h" $sh 'envsetup bogus; echo $?')" = 2 ]
+done
+# config.sh sets ENVSETUP_REPO_URL without export, as a user would.
+echo "ENVSETUP_REPO_URL=$SRC" >>"$h/.config/envsetup/config.sh"
 before=$(snapshot "$h")
+for sh in bash zsh; do
+	SETUP_ARGS=(--dry-run)
+	SETUP=envsetup_$sh check "$sh: envsetup --dry-run in a new shell: exited 0" run_menu "$h" "Run everything" Quit
+	SETUP_ARGS=()
+	check "  ...ran install.sh from the README's URL" grep -qF 'curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh' "$SMOKE_LOG"
+	check "  ...said it would copy shell/" grep -qF "would copy shell/" "$SMOKE_LOG"
+	check "  ...changed nothing" [ "$(snapshot "$h")" = "$before" ]
+	check "  ...and deleted its download" left_nothing
+done
 SETUP=curl_bash check "the same release again: exited 0" run_menu "$h" "Run everything" Quit
 check "  ...and changed nothing" [ "$(snapshot "$h")" = "$before" ]
 SETUP_ARGS=(--dry-run)
@@ -326,8 +354,8 @@ check "  ...which still deletes its download" left_nothing
 check "so does a kill" signalled SIGTERM
 check "  ...which still deletes its download" left_nothing
 # The answers: remove, yes; keep config.sh, no.
-SETUP_ARGS=(--uninstall) CONFIRMS=(yes no)
-SETUP=curl_bash check "curl | bash -s -- --uninstall: exited 0" run_menu "$h"
+SETUP_ARGS=(uninstall) CONFIRMS=(yes no)
+SETUP=envsetup_bash check "envsetup uninstall (curl | bash -s -- --uninstall): exited 0" run_menu "$h"
 SETUP_ARGS=() CONFIRMS=()
 check "  ...removed the copy of shell/" [ ! -e "$data" ]
 check "  ...the rc blocks" none_exist_in '# >>> envsetup >>>' "$h/.bashrc" "$h/.zshrc"
@@ -410,6 +438,7 @@ check "no installers run" [ "$(count 'Running ' "$SMOKE_LOG")" = 0 ]
 check "bash loads the aliases" [ "$(in_shell "$h" bash 'alias ll')" = "alias ll='ls -alh'" ]
 check "bash skips exports" [ -z "$(in_shell "$h" bash 'printf %s "${EDITOR:-}"')" ]
 check "bash skips functions" [ -z "$(in_shell "$h" bash 'type -t fetchAll')" ]
+check "bash still gets the envsetup command" [ "$(in_shell "$h" bash 'type -t envsetup')" = function ]
 check "bash still gets the prompt" has_prompt "$h"
 
 echo "== Configure git: an empty or cancelled answer saves no identity (#49)"

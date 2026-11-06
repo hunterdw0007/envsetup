@@ -76,8 +76,8 @@ docs/                # user docs that the README links to
 tests/               # smoke.sh and release.sh (CI), distros/ (manual)
 shell/
   shared/            # prompt, aliases, tool hooks, environment variables and functions
-                     # for every machine (work lite loads only the prompt, aliases and
-                     # tool hooks), plus colors.sh
+                     # for every machine (work lite loads only the prompt, aliases,
+                     # envsetup command and tool hooks), plus colors.sh
   profiles/
     work/            # config for the work profile only
     home/            # config for the home profile only

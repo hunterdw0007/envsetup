@@ -21,7 +21,7 @@ To include this action in **Link shell config** and **Run everything**, set `ENV
 ## Which shells get what
 
 Interactive shells get the most.
-Every profile gets the prompt, the aliases and the tool hooks.
+Every profile gets the prompt, the aliases, the `envsetup` command and the tool hooks.
 Every profile except work lite also gets the environment variables and the functions.
 
 A non-interactive shell gets less.
@@ -62,6 +62,26 @@ So the prompt runs only one program: one `git` command inside a repo.
 - `..`, `...` and `....` go up one, two or three folders.
 - `cat` and `less` use `bat` if you have `bat`.
 - The `work` profile also adds kubectl aliases, for example `kc` and `kcaMem`.
+
+## The envsetup command
+
+Every profile gets an `envsetup` command, in bash and zsh.
+It runs the curl command from the README for you.
+
+| Command | What it does |
+| --- | --- |
+| `envsetup` | Downloads the newest release and opens the menu. |
+| `envsetup update` | Does the same as `envsetup`. |
+| `envsetup status` | Runs `setup.sh --status`, which shows what envsetup set up. |
+| `envsetup config` | Opens `config.sh` in `$EDITOR`. |
+| `envsetup uninstall` | Runs `setup.sh --uninstall`. |
+| `envsetup version` | Shows the release that your shells use. |
+| `envsetup --help` | Lists these commands. |
+
+`envsetup` passes other options to `setup.sh`.
+For example, `envsetup --dry-run` opens the menu but changes nothing.
+`ENVSETUP_REPO_URL` and `ENVSETUP_VERSION` work as they do in the curl command.
+You can set `ENVSETUP_REPO_URL` in `config.sh`.
 
 ## Tool hooks
 

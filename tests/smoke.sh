@@ -417,6 +417,39 @@ check "  ...and prints nothing of its own (scp needs a silent shell)" [ "$(not_i
 check "values set before envsetup's block stay" [ "$(EDITOR=nano XDG_CONFIG_HOME=$h/mine MANPAGER=most in_shell "$h" bash 'printf %s "$EDITOR|$XDG_CONFIG_HOME|$MANPAGER"')" = "nano|$h/mine|most" ]
 check "  ...and with no envsetup dir in that XDG_CONFIG_HOME, ~/.config/envsetup stays in use" [ "$(XDG_CONFIG_HOME=$h/mine in_shell "$h" bash 'alias kc')" = "alias kc='kubectl'" ]
 check "git gets the shipped defaults" same_list "$(git config --file "$CLONE/git/gitconfig" alias.l)" "$(HOME=$h git config --global --includes alias.l)"
+# CONTRIBUTING.md sets a requirement: the shell config adds less than 50 ms to each new shell (#126).
+# work full loads the most files, so this scenario times it.
+# Two copies of the home differ only in the envsetup block in their startup files.
+# The copies keep the saved profile, so the shells load the same files as in $h.
+# CI runners vary in speed.
+# So the test starts each shell 31 times, takes turns between the homes, and compares the medians.
+linked=$(mktemp -d) bare=$(mktemp -d)
+cp -a "$h/." "$linked"
+cp -a "$h/." "$bare"
+sed '/^# >>> envsetup >>>$/,/^# <<< envsetup <<<$/!d' "$h/.bashrc" >"$linked/.zshrc"
+sed -i '/^# >>> envsetup >>>$/,/^# <<< envsetup <<<$/d' "$bare/.bashrc"
+# An empty ~/.zshrc stops zsh from starting its new-user setup.
+: >"$bare/.zshrc"
+# startup_ms <home> <bash|zsh> prints how long a new interactive shell takes to start and exit, in ms.
+startup_ms() {
+	local t0=$EPOCHREALTIME
+	HOME=$1 setsid -w "$2" -i -c exit </dev/null >/dev/null 2>&1
+	echo $(((${EPOCHREALTIME/./} - ${t0/./}) / 1000))
+}
+median() { sort -n | sed -n 16p; }
+# Both medians must exist, so two failed runs cannot pass.
+under_50ms() { [ -n "$1" ] && [ -n "$2" ] && [ $(($1 - $2)) -lt 50 ]; }
+for sh in bash zsh; do
+	with=() without=()
+	for _ in {1..31}; do
+		with+=("$(startup_ms "$linked" $sh)")
+		without+=("$(startup_ms "$bare" $sh)")
+	done
+	a=$(printf '%s\n' "${with[@]}" | median) b=$(printf '%s\n' "${without[@]}" | median)
+	check "$sh: the timed home loads the shell config" [ "$(in_shell "$linked" $sh 'printf %s "$ENVSETUP_PROFILE"')" = work ]
+	check "  ...which adds less than 50 ms ($a ms with it, $b ms without)" under_50ms "$a" "$b"
+	check "  ...(the other home does not load it)" [ "$(in_shell "$bare" $sh 'printf %s "${ENVSETUP_PROFILE:-none}"')" = none ]
+done
 # status runs setup.sh --status (#97).
 # PATH has no gum, and the repo for the newest release is out of reach, as offline.
 status() { HOME=$h ENVSETUP_REPO_URL=$W/no-repo PATH="$OFFLINE:/usr/bin:/bin" "$CLONE/setup.sh" --status >$W/status.out 2>&1; }

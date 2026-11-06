@@ -87,6 +87,9 @@ printf '#!/bin/sh\nexec "$@"\n' >"$STUBS/sudo"
 # The fake apt-get refuses any install that includes smoke-conflict, like a real package conflict.
 printf '#!/bin/sh\necho "apt-get $*" >>"$SMOKE_LOG"\ncase "$*" in *smoke-conflict*) exit 100 ;; esac\n' >"$OFFLINE/apt-get"
 printf '#!/bin/sh\necho "chsh $*" >>"$SMOKE_LOG"\n' >"$OFFLINE/chsh"
+# --status asks dpkg-query about each package, and the fake apt-get installs none.
+# So the fake dpkg-query reports every package as installed.
+printf '#!/bin/sh\necho "install ok installed"\n' >"$OFFLINE/dpkg-query"
 # The fake curl serves only a fake oh-my-zsh installer and a fake kubectl.
 # Any other download is a bug in the test.
 cat >"$OFFLINE/curl" <<'EOF'
@@ -369,6 +372,17 @@ check "  ...and prints nothing of its own (scp needs a silent shell)" [ "$(not_i
 check "values set before envsetup's block stay" [ "$(EDITOR=nano XDG_CONFIG_HOME=$h/mine MANPAGER=most in_shell "$h" bash 'printf %s "$EDITOR|$XDG_CONFIG_HOME|$MANPAGER"')" = "nano|$h/mine|most" ]
 check "  ...and with no envsetup dir in that XDG_CONFIG_HOME, ~/.config/envsetup stays in use" [ "$(XDG_CONFIG_HOME=$h/mine in_shell "$h" bash 'alias kc')" = "alias kc='kubectl'" ]
 check "git gets the shipped defaults" same_list "$(git config --file "$CLONE/git/gitconfig" alias.l)" "$(HOME=$h git config --global --includes alias.l)"
+# status runs setup.sh --status (#97).
+# PATH has no gum, and the repo for the newest release is out of reach, as offline.
+status() { HOME=$h ENVSETUP_REPO_URL=$W/no-repo PATH="$OFFLINE:/usr/bin:/bin" "$CLONE/setup.sh" --status >$W/status.out 2>&1; }
+all_ok() { [ "$(grep -c '^ok ' $W/status.out)" = 7 ] && [ "$(wc -l <$W/status.out)" = 7 ]; }
+check "--status exited 0" status
+check "  ...printed 7 lines, each one ok" all_ok
+((failures)) && show $W/status.out
+mv "$OFFLINE/aws" $W/aws
+check "--status without aws: exited 1" not status
+mv $W/aws "$OFFLINE/aws"
+check "  ...and named aws, which awscli.sh checks" grep -qx 'missing  aws is not on PATH. Select Run installers' $W/status.out
 check "re-run exited 0" run_menu "$h" "Run everything" Quit
 check "re-run didn't link twice" [ "$(count '# >>> envsetup >>>' "$h/.bashrc")" = 1 ]
 ((failures)) && show "$h/setup.out"
@@ -580,6 +594,20 @@ check "bash starts without errors" [ ! -s "$h/shell.err" ]
 check "left zsh alone" none_exist "$h/.oh-my-zsh" "$h/.zshrc"
 check "didn't ask about the login shell" not_grep '^gum confirm Set zsh' "$SMOKE_LOG"
 check "installed them all at once" [ "$(grep -c '^apt-get install -y ' "$SMOKE_LOG")" = 1 ]
+
+echo "== --status and Check status: ok after Run everything, then a removed block (#97)"
+before=$(snapshot "$h")
+check "--status exited 0 without gum" status
+check "  ...printed 7 lines, each one ok" all_ok
+check "  ...said the newest release is unknown" grep -qF 'newest release: unknown' $W/status.out
+check "  ...and changed nothing in \$HOME" [ "$(snapshot "$h")" = "$before" ]
+((failures)) && show $W/status.out
+sed -i '/^# >>> envsetup >>>$/,/^# <<< envsetup <<<$/d' "$h/.bashrc"
+check "without the ~/.bashrc block: exited 1" not status
+check "  ...and said the block is missing" grep -qx "missing  $h/.bashrc has no envsetup block. Select Link shell config" $W/status.out
+check "  ...on the only missing line" [ "$(grep -c '^missing ' $W/status.out)" = 1 ]
+check "Check status in the menu: exited 0" run_menu "$h" "Check status" Quit
+check "  ...and said the block is missing" grep -qF "missing  $h/.bashrc has no envsetup block" "$h/setup.out"
 
 echo "== home: Run everything, docker missing: its installer reuses the session's package lists"
 h=$(new_home)

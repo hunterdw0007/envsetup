@@ -5,8 +5,9 @@ set -euo pipefail
 
 source "$ENVSETUP_ROOT/lib/common.sh"
 
-envsetup::has_cmd k9s && exit 0
+envsetup::up_to_date k9s k9s && exit 0
 
 version=$(envsetup::pin k9s)
 sha=$(envsetup::pin k9s "linux-$(envsetup::arch)")
 envsetup::install_release "https://github.com/derailed/k9s/releases/download/v$version/k9s_Linux_$(envsetup::arch).tar.gz" "$sha" k9s
+envsetup::record_installed k9s

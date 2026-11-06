@@ -215,6 +215,14 @@ The file `version` next to the copy records the release.
   It first checks whether the tool is already installed.
   If the tool is installed, it runs `exit 0` before it uses the network.
   `installers/work/kubectl.sh` shows how.
+- A pinned installer checks with `envsetup::up_to_date <name> <command>`, not `envsetup::has_cmd`.
+  Then it updates a tool that envsetup installed at an older pin.
+  It still skips a tool that the user installed.
+- After a pinned installer installs its tool, it runs `envsetup::record_installed <name>`.
+  That function writes `<name> <version>` to `$XDG_STATE_HOME/envsetup/installed` (by default `~/.local/state/envsetup/installed`).
+  `<name>` is the installer's name and its name in `versions.txt`.
+  **Run installers** lists an update when this record differs from the pin.
+  Uninstall deletes the record and keeps the tools.
 - Each installer runs in its own `bash` process and is not sourced.
   To use the helpers in `lib/common.sh`, run `source "$ENVSETUP_ROOT/lib/common.sh"` in the script.
 - One failed installer must not stop the others.

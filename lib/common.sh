@@ -105,6 +105,50 @@ envsetup::pin() {
 	return 1
 }
 
+# The installers record each tool that they install, one "<name> <version>" line per tool.
+# The name is the installer's name, which is also its name in installers/versions.txt.
+# The XDG specification tells programs to ignore a relative XDG_STATE_HOME, so this file ignores it.
+ENVSETUP_INSTALLED=$HOME/.local/state/envsetup/installed
+if [[ "${XDG_STATE_HOME:-}" == /* ]]; then ENVSETUP_INSTALLED=$XDG_STATE_HOME/envsetup/installed; fi
+
+# installed_version <name> prints the version of <name> that envsetup installed.
+# It prints nothing if envsetup did not install <name>.
+envsetup::installed_version() {
+	local name version
+	[[ -r "$ENVSETUP_INSTALLED" ]] || return 0
+	while read -r name version; do
+		if [[ "$name" == "$1" ]]; then
+			echo "$version"
+			return 0
+		fi
+	done <"$ENVSETUP_INSTALLED"
+}
+
+# up_to_date <name> <command> succeeds when the installer of <name> has nothing to do.
+# That is the case when <command> is on PATH and envsetup did not install it.
+# The user installed that tool, so envsetup leaves it alone.
+# It is also the case when envsetup installed the pinned version.
+envsetup::up_to_date() {
+	local had
+	envsetup::has_cmd "$2" || return 1
+	had=$(envsetup::installed_version "$1")
+	[[ -z "$had" || "$had" == "$(envsetup::pin "$1")" ]]
+}
+
+# record_installed <name> records the pinned version of <name> in ENVSETUP_INSTALLED.
+# It replaces the line of an older version.
+envsetup::record_installed() {
+	local name version lines=()
+	if [[ -f "$ENVSETUP_INSTALLED" ]]; then
+		while read -r name version; do
+			if [[ "$name" != "$1" ]]; then lines+=("$name $version"); fi
+		done <"$ENVSETUP_INSTALLED"
+	fi
+	version=$(envsetup::pin "$1")
+	mkdir -p "${ENVSETUP_INSTALLED%/*}"
+	printf '%s\n' "${lines[@]}" "$1 $version" >"$ENVSETUP_INSTALLED"
+}
+
 # release_sha256 <checksums url> <file> prints the hash of <file> from a project's sha256 list.
 # The list can have "<hash>  <file>" lines, the format of sha256sum.
 # It also accepts "*file" and "./file".

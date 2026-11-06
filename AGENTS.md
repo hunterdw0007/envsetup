@@ -219,7 +219,7 @@ The file `version` next to the copy records the release.
   Then it updates a tool that envsetup installed at an older pin.
   It still skips a tool that the user installed.
 - After a pinned installer installs its tool, it runs `envsetup::record_installed <name>`.
-  That function writes `<name> <version>` to `${XDG_STATE_HOME:-$HOME/.local/state}/envsetup/installed`.
+  That function writes `<name> <version>` to `$XDG_STATE_HOME/envsetup/installed` (by default `~/.local/state/envsetup/installed`).
   `<name>` is the installer's name and its name in `versions.txt`.
   **Run installers** lists an update when this record differs from the pin.
   Uninstall deletes the record and keeps the tools.

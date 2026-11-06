@@ -244,8 +244,12 @@ So two machines on the same release get the same tool versions.
 A project may change a download after its release.
 Then the download fails the checksum, and envsetup does not install it.
 envsetup records each tool that it installs in `~/.local/state/envsetup/installed`.
+If you set `XDG_STATE_HOME`, the file is `$XDG_STATE_HOME/envsetup/installed`.
 A new release may pin a newer version of such a tool.
 Then **Run installers** updates the tool and lists each update first.
+Older releases kept no record.
+So envsetup does not update a tool that an older release installed.
+It treats that tool as one that you installed.
 To use another version of a tool, install the tool yourself.
 Installers skip any tool on your `PATH` that envsetup did not install.
 

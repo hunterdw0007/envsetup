@@ -106,7 +106,9 @@ envsetup::pin() {
 
 # The installers record each tool that they install, one "<name> <version>" line per tool.
 # The name is the installer's name, which is also its name in installers/versions.txt.
-ENVSETUP_INSTALLED=${XDG_STATE_HOME:-$HOME/.local/state}/envsetup/installed
+# The XDG specification tells programs to ignore a relative XDG_STATE_HOME, so this file ignores it.
+ENVSETUP_INSTALLED=$HOME/.local/state/envsetup/installed
+if [[ "${XDG_STATE_HOME:-}" == /* ]]; then ENVSETUP_INSTALLED=$XDG_STATE_HOME/envsetup/installed; fi
 
 # installed_version <name> prints the version of <name> that envsetup installed.
 # It prints nothing if envsetup did not install <name>.

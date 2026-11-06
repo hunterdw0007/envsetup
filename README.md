@@ -382,6 +382,7 @@ At the end, uninstall lists what it kept.
 - [docs/shell.md](docs/shell.md): the prompt, aliases, functions and git settings.
 - [docs/customizing.md](docs/customizing.md): popular tools and the location of `config.sh`.
 - [docs/xdg.md](docs/xdg.md): how envsetup moves dotfiles to XDG folders.
+- [docs/interface.md](docs/interface.md): the parts of envsetup that only a new major version may break.
 - [CONTRIBUTING.md](CONTRIBUTING.md): the repo layout, new installers, releases and tests.
 
 ## License

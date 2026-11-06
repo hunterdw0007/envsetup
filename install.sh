@@ -75,13 +75,20 @@ envsetup::require_git() {
 	exit 1
 }
 
+# git_local runs git in the download without the user's global config.
+# An older envsetup wrote zdiff3 there, and git 2.34 then fails on checkout.
+# clone keeps the global config, because it can hold a proxy or a URL rewrite.
+envsetup::git_local() {
+	GIT_CONFIG_GLOBAL=/dev/null git -C "$download" "$@"
+}
+
 # releases prints the release tags (vX.Y.Z), newest first.
 # It leaves out test releases such as v1.2.0-rc.1.
 envsetup::releases() {
 	local tag
 	while read -r tag; do
 		if [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "$tag"; fi
-	done < <(git -C "$download" tag --list 'v*' --sort=-v:refname)
+	done < <(envsetup::git_local tag --list 'v*' --sort=-v:refname)
 }
 
 # use_version <version> checks out a version, detached from any branch.
@@ -90,11 +97,10 @@ envsetup::releases() {
 # Before the first release, "latest" means the default branch.
 envsetup::use_version() {
 	local ref=$1 releases target
-	local git=(git -C "$download")
 	if [[ "$ref" == latest ]]; then
 		read -r ref < <(envsetup::releases) || true
 		if [[ -z "$ref" ]]; then
-			ref=$("${git[@]}" symbolic-ref -q --short refs/remotes/origin/HEAD || true)
+			ref=$(envsetup::git_local symbolic-ref -q --short refs/remotes/origin/HEAD || true)
 			ref=${ref#origin/}
 		fi
 		if [[ -z "$ref" ]]; then
@@ -104,11 +110,11 @@ envsetup::use_version() {
 	fi
 	if [[ "$ref" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then ref=v$ref; fi
 
-	if "${git[@]}" show-ref -q --verify "refs/tags/$ref"; then
+	if envsetup::git_local show-ref -q --verify "refs/tags/$ref"; then
 		target=refs/tags/$ref
-	elif "${git[@]}" show-ref -q --verify "refs/remotes/origin/$ref"; then
+	elif envsetup::git_local show-ref -q --verify "refs/remotes/origin/$ref"; then
 		target=origin/$ref
-	elif "${git[@]}" rev-parse -q --verify "$ref^{commit}" >/dev/null; then
+	elif envsetup::git_local rev-parse -q --verify "$ref^{commit}" >/dev/null; then
 		target=$ref
 	else
 		echo "envsetup has no release, branch or commit called \"$1\"." >&2
@@ -118,7 +124,7 @@ envsetup::use_version() {
 		fi
 		exit 1
 	fi
-	"${git[@]}" checkout -q --detach "$target"
+	envsetup::git_local checkout -q --detach "$target"
 }
 
 envsetup::require_git
@@ -129,7 +135,7 @@ trap 'rm -rf "$download"' EXIT
 trap 'exit 130' INT TERM HUP
 git clone -q "$REPO_URL" "$download"
 envsetup::use_version "$ENVSETUP_VERSION"
-echo "Downloaded envsetup $(git -C "$download" describe --tags --always) to $download. envsetup deletes this folder when setup ends."
+echo "Downloaded envsetup $(envsetup::git_local describe --tags --always) to $download. envsetup deletes this folder when setup ends."
 
 # setup.sh reads from the terminal.
 # Under `curl ... | bash`, stdin is the pipe from curl.

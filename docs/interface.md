@@ -1,7 +1,7 @@
-# Public interface
+# API
 
-This page lists the parts of envsetup that users rely on.
-Together, these parts are envsetup's API.
+This page lists envsetup's API.
+The API is the set of parts that users rely on.
 
 ## The rule
 
@@ -66,7 +66,7 @@ The command passes its options to `setup.sh`, for example `bash -s -- --dry-run`
 
 New shells get an `envsetup` command.
 Its commands are part of the API:
-`envsetup`, `update`, `status`, `config`, `uninstall`, `version` and `--help`.
+`envsetup`, `update`, `status`, `config`, `uninstall`, `version`, `help` and `--help`.
 It also passes other options to `setup.sh`.
 [docs/shell.md](shell.md#the-envsetup-command) explains each command.
 

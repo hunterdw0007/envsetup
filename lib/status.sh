@@ -4,11 +4,6 @@
 # So it needs no dry-run checks, and it works without gum.
 # Each line starts with "ok" or "missing".
 
-# A record of installed tool versions, one "<name> <version>" line per tool.
-# #131 defines the same value in lib/common.sh. Whichever PR merges second drops this copy.
-ENVSETUP_INSTALLED=$HOME/.local/state/envsetup/installed
-if [[ "${XDG_STATE_HOME:-}" == /* ]]; then ENVSETUP_INSTALLED=$XDG_STATE_HOME/envsetup/installed; fi
-
 # status_line <ok|missing> <text> prints one line and counts each missing line.
 envsetup::status_line() {
 	printf '%-8s %s\n' "$1" "$2"
@@ -42,7 +37,6 @@ envsetup::pkg_installed() {
 envsetup::status() {
 	local state=${STATE_DIR:-$ENVSETUP_STATE} profile="" mode=full newest rc script cmd name pin record
 	local manager pkg line before scripts=() pkgs=()
-	local -A recorded=()
 	ENVSETUP_STATUS_MISSING=0
 
 	newest=$(envsetup::newest_release) || newest=
@@ -97,11 +91,6 @@ envsetup::status() {
 		fi
 		if ((before == ENVSETUP_STATUS_MISSING)); then envsetup::status_line ok "all ${#pkgs[@]} packages are installed"; fi
 
-		if [[ -f "$ENVSETUP_INSTALLED" ]]; then
-			while read -r name record; do
-				if [[ -n "$name" ]]; then recorded[$name]=$record; fi
-			done <"$ENVSETUP_INSTALLED"
-		fi
 		readarray -t scripts < <(envsetup::resolved_installers 2>/dev/null)
 		before=$ENVSETUP_STATUS_MISSING
 		for script in "${scripts[@]}"; do
@@ -115,7 +104,7 @@ envsetup::status() {
 				if [[ "$line" =~ ^envsetup::(has_cmd|up_to_date\ [^ ]+)\ ([^ ]+)\ \&\&\ exit\ 0 ]]; then cmd=${BASH_REMATCH[2]}; fi
 			done <"$script"
 			[[ -n "$cmd" ]] || continue
-			record=${recorded[$name]:-}
+			record=$(envsetup::installed_version "$name")
 			pin=$(envsetup::pin "$name" 2>/dev/null) || pin=
 			if ! envsetup::has_cmd "$cmd"; then
 				envsetup::status_line missing "$cmd is not on PATH. Select Run installers"

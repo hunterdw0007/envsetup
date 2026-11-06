@@ -93,7 +93,7 @@ envsetup::uninstall() {
 
 	# The last two files are the prompt's saved Kubernetes context (shell/shared/ps1.sh).
 	# And the log of fetchAll --quiet (shell/shared/functions.sh).
-	for f in "$gitconfig" "$gitconfig.tmp" "$state/profile" "$state/mode" "$ENVSETUP_CHSH_MARKER" "$ENVSETUP_SSH_KEY_MARKER" "$ENVSETUP_DATA" \
+	for f in "$gitconfig" "$gitconfig.tmp" "$state/profile" "$state/mode" "$ENVSETUP_INSTALLED" "$ENVSETUP_CHSH_MARKER" "$ENVSETUP_SSH_KEY_MARKER" "$ENVSETUP_DATA" \
 		"${XDG_CACHE_HOME:-$HOME/.cache}/envsetup/kube-context" "${XDG_CACHE_HOME:-$HOME/.cache}/envsetup/fetchAll.log"; do
 		[[ -e "$f" ]] || continue
 		if envsetup::dry_run; then envsetup::would "delete $f"; else rm -rf "$f"; fi
@@ -126,6 +126,27 @@ envsetup::uninstall() {
 			rm -f "$state/config.sh"
 		fi
 	fi
+	# The files in shell.d are your own.
+	# So uninstall removes the folder only when it is empty, and asks otherwise.
+	if [[ -d "$ENVSETUP_SHELL_D" ]]; then
+		if (
+			shopt -s nullglob dotglob
+			f=("$ENVSETUP_SHELL_D"/*)
+			((${#f[@]}))
+		); then
+			if gum confirm "Keep $ENVSETUP_SHELL_D? It holds your own shell files."; then
+				kept+=("your shell files: $ENVSETUP_SHELL_D")
+			elif envsetup::dry_run; then
+				envsetup::would "delete $ENVSETUP_SHELL_D"
+			else
+				rm -rf "$ENVSETUP_SHELL_D"
+			fi
+		elif envsetup::dry_run; then
+			envsetup::would "delete the empty $ENVSETUP_SHELL_D"
+		else
+			rmdir "$ENVSETUP_SHELL_D"
+		fi
+	fi
 	# Uninstall asks only about a key that envsetup created.
 	# The key stays unless you say no.
 	if ((key_by_us)) && [[ -e "$key" ]]; then
@@ -138,7 +159,7 @@ envsetup::uninstall() {
 			rmdir "$HOME/.ssh" 2>/dev/null || true # rmdir works only if ~/.ssh is now empty
 		fi
 	fi
-	envsetup::dry_run || rmdir "$state" "${XDG_CACHE_HOME:-$HOME/.cache}/envsetup" 2>/dev/null || true
+	envsetup::dry_run || rmdir "$state" "${ENVSETUP_INSTALLED%/*}" "${XDG_CACHE_HOME:-$HOME/.cache}/envsetup" 2>/dev/null || true
 
 	# Uninstall asks only if envsetup changed your login shell to zsh.
 	# It leaves a zsh that you chose yourself alone.

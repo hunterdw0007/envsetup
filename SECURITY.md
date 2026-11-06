@@ -4,11 +4,12 @@ envsetup runs with your user's rights.
 It also uses sudo to install packages.
 So a bug in envsetup can harm your machine.
 
-## Supported versions
+## Supported releases
 
 Only the newest release gets security fixes.
 Each fix comes in a new release.
-To get the fix, run `install.sh` again.
+To get the fix, run `envsetup update` or the install command from the README again.
+If you set `ENVSETUP_VERSION`, set it to the fixed release.
 
 ## Report a problem
 
@@ -28,8 +29,8 @@ Name the release and the Linux system that you used.
 
 1. The maintainer replies in the report.
 2. The maintainer checks the bug and may ask you questions.
-3. The maintainer fixes the bug in a new release.
-4. The maintainer then publishes the report as a security advisory.
+3. If the maintainer confirms the bug, a new release fixes it.
+4. The maintainer may then publish the report as a security advisory.
 
 An advisory is a public notice of the bug and its fix.
 The advisory names you, unless you ask the maintainer not to.

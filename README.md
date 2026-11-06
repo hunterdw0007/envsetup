@@ -243,8 +243,11 @@ Installers download the amd64 or arm64 build that matches the machine.
 So two machines on the same release get the same tool versions.
 A project may change a download after its release.
 Then the download fails the checksum, and envsetup does not install it.
-To use a newer version of a tool, install the tool yourself.
-Installers skip any tool that is already on your `PATH`.
+envsetup records each tool that it installs in `~/.local/state/envsetup/installed`.
+A new release may pin a newer version of such a tool.
+Then **Run installers** updates the tool and lists each update first.
+To use another version of a tool, install the tool yourself.
+Installers skip any tool on your `PATH` that envsetup did not install.
 
 ## Customize
 

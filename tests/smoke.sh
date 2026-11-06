@@ -87,7 +87,7 @@ printf '#!/bin/sh\nexec "$@"\n' >"$STUBS/sudo"
 # The fake apt-get refuses any install that includes smoke-conflict, like a real package conflict.
 printf '#!/bin/sh\necho "apt-get $*" >>"$SMOKE_LOG"\ncase "$*" in *smoke-conflict*) exit 100 ;; esac\n' >"$OFFLINE/apt-get"
 printf '#!/bin/sh\necho "chsh $*" >>"$SMOKE_LOG"\n' >"$OFFLINE/chsh"
-# The fake curl serves only a fake oh-my-zsh installer.
+# The fake curl serves only a fake oh-my-zsh installer and a fake kubectl.
 # Any other download is a bug in the test.
 cat >"$OFFLINE/curl" <<'EOF'
 #!/bin/sh
@@ -97,6 +97,10 @@ case "$*" in
 mkdir -p "$HOME/.oh-my-zsh"
 [ -f "$HOME/.zshrc" ] || echo 'PROMPT="%n@%m %# "  # stand-in for the oh-my-zsh theme' >"$HOME/.zshrc"
 OMZ
+	*dl.k8s.io*)
+		while [ "$1" != -o ]; do shift; done
+		printf '#!/bin/sh\necho smoke-kubectl\n' >"$2"
+		;;
 	*) echo "smoke: unexpected download: curl $*" >&2; exit 1 ;;
 esac
 EOF
@@ -1110,6 +1114,51 @@ check "  ...moved ~/.docker back" [ -f "$h/.docker/config.json" ]
 check "  ...and removed the exports and the notes" none_exist "$h/.config/envsetup/xdg.sh" "$h/.cache/envsetup"
 unset ENVSETUP_XDG_NINJA_URL
 ((failures)) && show "$h/setup.out"
+
+echo "== work/full: Run installers updates only the tools that envsetup installed (#96)"
+# A copy of the clone pins kubectl to the fake curl's kubectl.
+# The record says that envsetup installed kubectl 1.0.0 and the pinned helm.
+# envsetup did not install terraform, which the fakes put on PATH.
+c=$W/clone-96
+cp -a "$CLONE" "$c"
+pins=$c/installers/versions.txt
+k_pin=$(awk '$1 == "kubectl" { print $2 }' "$pins")
+helm_pin=$(awk '$1 == "helm" { print $2 }' "$pins")
+k_sha=$(printf '#!/bin/sh\necho smoke-kubectl\n' | sha256sum | cut -d' ' -f1)
+sed -i "s/^kubectl .*/kubectl $k_pin linux-amd64=$k_sha linux-arm64=$k_sha/" "$pins"
+h=$(new_home)
+rec=$h/.local/state/envsetup/installed
+mkdir -p "${rec%/*}"
+printf 'kubectl 1.0.0\nhelm %s\n' "$helm_pin" >"$rec"
+SETUP=$c/setup.sh check "Preview everything: exited 0" run_menu "$h" "Select profile" work full "Preview everything" Quit
+check "  ...listed the update" grep -qF "would update kubectl 1.0.0 → $k_pin" "$SMOKE_LOG"
+check "  ...and only that one" [ "$(count 'would update ' "$SMOKE_LOG")" = 1 ]
+check "  ...downloaded nothing" not_grep '^curl ' "$SMOKE_LOG"
+check "  ...and left the record as it was" [ "$(cat "$rec")" = "$(printf 'kubectl 1.0.0\nhelm %s' "$helm_pin")" ]
+SETUP=$c/setup.sh check "Run installers: exited 0" run_menu "$h" "Run installers" Quit
+# line_of <text> prints the number of the first log line with the text.
+line_of() { grep -nF -- "$1" "$SMOKE_LOG" | head -n 1 | cut -d: -f1; }
+listed_first() {
+	local u r
+	u=$(line_of "kubectl 1.0.0 → $k_pin") r=$(line_of 'Running ')
+	[ -n "$u" ] && [ -n "$r" ] && [ "$u" -lt "$r" ]
+}
+only_kubectl() { [ "$(grep -c '^curl ' "$SMOKE_LOG")" = 1 ] && grep -q '^curl .*dl\.k8s\.io/release/v'"$k_pin"'/' "$SMOKE_LOG"; }
+check "  ...listed the update before the first installer ran" listed_first
+check "  ...downloaded only the pinned kubectl" only_kubectl
+check "  ...installed the pinned kubectl" [ "$(/usr/local/bin/kubectl)" = smoke-kubectl ]
+check "  ...recorded its version" grep -qxF "kubectl $k_pin" "$rec"
+check "  ...kept helm's line" grep -qxF "helm $helm_pin" "$rec"
+check "  ...and recorded no terraform, which you installed" not_grep '^terraform ' "$rec"
+SETUP=$c/setup.sh check "Run installers again: exited 0" run_menu "$h" "Run installers" Quit
+check "  ...listed no update and downloaded nothing" not_grep '→\|^curl ' "$SMOKE_LOG"
+SETUP_ARGS=(--uninstall) CONFIRMS=(yes no)
+SETUP=$c/setup.sh check "--uninstall: exited 0" run_menu "$h"
+SETUP_ARGS=() CONFIRMS=()
+check "  ...deleted the record" none_exist "$rec" "${rec%/*}"
+check "  ...and kept the tool" [ -x /usr/local/bin/kubectl ]
+((failures)) && show "$h/setup.out"
+rm -rf /usr/local/bin/kubectl "$c"
 
 echo "== download verification (lib/common.sh), offline"
 # install_release gets a file:// URL from a fake curl that only copies local files.

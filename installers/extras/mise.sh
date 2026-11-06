@@ -6,7 +6,7 @@ set -euo pipefail
 
 source "$ENVSETUP_ROOT/lib/common.sh"
 
-envsetup::has_cmd mise && exit 0
+envsetup::up_to_date mise mise && exit 0
 
 # shell/shared/tools.sh turns it on in new shells.
 version=$(envsetup::pin mise)
@@ -15,3 +15,4 @@ arch=x64
 [[ "$(envsetup::arch)" == arm64 ]] && arch=arm64
 asset="mise-v${version}-linux-${arch}-musl.tar.gz"
 envsetup::install_release "https://github.com/jdx/mise/releases/download/v$version/$asset" "$sha" mise/bin/mise
+envsetup::record_installed mise

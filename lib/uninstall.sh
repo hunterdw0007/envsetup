@@ -93,7 +93,7 @@ envsetup::uninstall() {
 
 	# The last two files are the prompt's saved Kubernetes context (shell/shared/ps1.sh).
 	# And the log of fetchAll --quiet (shell/shared/functions.sh).
-	for f in "$gitconfig" "$gitconfig.tmp" "$state/profile" "$state/mode" "$ENVSETUP_CHSH_MARKER" "$ENVSETUP_SSH_KEY_MARKER" "$ENVSETUP_DATA" \
+	for f in "$gitconfig" "$gitconfig.tmp" "$state/profile" "$state/mode" "$ENVSETUP_INSTALLED" "$ENVSETUP_CHSH_MARKER" "$ENVSETUP_SSH_KEY_MARKER" "$ENVSETUP_DATA" \
 		"${XDG_CACHE_HOME:-$HOME/.cache}/envsetup/kube-context" "${XDG_CACHE_HOME:-$HOME/.cache}/envsetup/fetchAll.log"; do
 		[[ -e "$f" ]] || continue
 		if envsetup::dry_run; then envsetup::would "delete $f"; else rm -rf "$f"; fi
@@ -138,7 +138,7 @@ envsetup::uninstall() {
 			rmdir "$HOME/.ssh" 2>/dev/null || true # rmdir works only if ~/.ssh is now empty
 		fi
 	fi
-	envsetup::dry_run || rmdir "$state" "${XDG_CACHE_HOME:-$HOME/.cache}/envsetup" 2>/dev/null || true
+	envsetup::dry_run || rmdir "$state" "${ENVSETUP_INSTALLED%/*}" "${XDG_CACHE_HOME:-$HOME/.cache}/envsetup" 2>/dev/null || true
 
 	# Uninstall asks only if envsetup changed your login shell to zsh.
 	# It leaves a zsh that you chose yourself alone.

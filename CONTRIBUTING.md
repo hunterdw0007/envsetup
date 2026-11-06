@@ -141,6 +141,36 @@ The commit types decide the next release number:
 - From 1.0.0 on, a breaking change adds a major release.
 - `docs`, `ci`, `test` and `chore` do not add a release.
 
+### Breaking changes
+
+envsetup's API is everything that a user directly uses while using envsetup.
+A change to the API that is not backwards compatible is a breaking change.
+A breaking change needs a new major version.
+
+The API includes these parts:
+
+- The `ENVSETUP_*` settings in `config.sh`, and their default values.
+- The packages and installers in each profile.
+- The `install.sh` command, its URL and `ENVSETUP_VERSION`.
+- The options of `setup.sh`.
+- The menu choices.
+- The aliases and functions in `shell/`.
+- The paths of the user's files and envsetup's files, such as `~/.config/envsetup`.
+
+Some examples of breaking changes:
+
+- A setting gets a new name or a new meaning.
+- A default value changes.
+- A package or installer leaves a profile.
+- An option, menu choice, alias or function gets a new name or goes away.
+
+These changes are not breaking:
+
+- A new feature, setting, option, menu choice or alias.
+- A pinned tool moves to a new major version.
+  The tool belongs to its vendor, not to envsetup's API.
+- A distro release reaches the end of its vendor's standard support.
+
 CI makes the release after the checks on `main` pass.
 CI adds the release to `CHANGELOG.md`, tags it and publishes it on GitHub.
 [commitizen](https://commitizen-tools.github.io/commitizen/) does this work, with the settings in `.cz.toml`.

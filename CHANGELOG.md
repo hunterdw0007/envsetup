@@ -4,6 +4,12 @@ Every release of envsetup, newest first, with what changed in it. CI writes each
 from the commits on `main` when it releases them (see "Releases" in AGENTS.md), so
 don't edit this file by hand.
 
+## v0.8.1 (2026-11-06)
+
+### Fixes
+
+- **git**: use diff3, which git 2.34 understands (#119)
+
 ## v0.8.0 (2026-11-06)
 
 ### Breaking changes

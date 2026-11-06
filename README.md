@@ -387,4 +387,4 @@ At the end, uninstall lists what it kept.
 ## License
 
 MIT. See `LICENSE`.
-To report a security problem, see `SECURITY.md`.
+To report a security problem, see [SECURITY.md](SECURITY.md).

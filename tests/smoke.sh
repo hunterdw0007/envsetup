@@ -422,7 +422,10 @@ check "git gets the shipped defaults" same_list "$(git config --file "$CLONE/git
 # Two copies of the home differ only in the envsetup block in their startup files.
 # The copies keep the saved profile, so the shells load the same files as in $h.
 # CI runners vary in speed.
-# So the test starts each shell 31 times, takes turns between the homes, and compares the medians.
+# So the test starts each shell many times, takes turns between the homes, and compares the medians.
+# The shells run without a terminal and exit before the first prompt.
+# PATH has no direnv, zoxide, mise or fzf, so their hooks do not run.
+runs=31 # an odd count, so one run is the median
 linked=$(mktemp -d) bare=$(mktemp -d)
 cp -a "$h/." "$linked"
 cp -a "$h/." "$bare"
@@ -436,19 +439,21 @@ startup_ms() {
 	HOME=$1 setsid -w "$2" -i -c exit </dev/null >/dev/null 2>&1
 	echo $(((${EPOCHREALTIME/./} - ${t0/./}) / 1000))
 }
-median() { sort -n | sed -n 16p; }
+median() { sort -n | sed -n "$((runs / 2 + 1))p"; }
 # Both medians must exist, so two failed runs cannot pass.
-under_50ms() { [ -n "$1" ] && [ -n "$2" ] && [ $(($1 - $2)) -lt 50 ]; }
+under_50ms() { [[ -n "$1" && -n "$2" ]] && (($1 - $2 < 50)); }
+# profile_is <home> <bash|zsh> <profile> passes when a new shell in <home> loads <profile>.
+profile_is() { [[ "$(in_shell "$1" "$2" 'printf %s "${ENVSETUP_PROFILE:-none}"')" == "$3" ]]; }
 for sh in bash zsh; do
 	with=() without=()
-	for _ in {1..31}; do
-		with+=("$(startup_ms "$linked" $sh)")
-		without+=("$(startup_ms "$bare" $sh)")
+	for ((i = 0; i < runs; i++)); do
+		with+=("$(startup_ms "$linked" "$sh")")
+		without+=("$(startup_ms "$bare" "$sh")")
 	done
 	a=$(printf '%s\n' "${with[@]}" | median) b=$(printf '%s\n' "${without[@]}" | median)
-	check "$sh: the timed home loads the shell config" [ "$(in_shell "$linked" $sh 'printf %s "$ENVSETUP_PROFILE"')" = work ]
+	check "$sh: the timed home loads the shell config" profile_is "$linked" "$sh" work
 	check "  ...which adds less than 50 ms ($a ms with it, $b ms without)" under_50ms "$a" "$b"
-	check "  ...(the other home does not load it)" [ "$(in_shell "$bare" $sh 'printf %s "${ENVSETUP_PROFILE:-none}"')" = none ]
+	check "  ...(the other home does not load it)" profile_is "$bare" "$sh" none
 done
 # status runs setup.sh --status (#97).
 # PATH has no gum, and the repo for the newest release is out of reach, as offline.

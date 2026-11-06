@@ -50,6 +50,7 @@ To break a requirement, first change it in its own PR.
     It makes no network calls.
     The smoke test times new shells with the shell config and without it.
     It fails when the difference of the medians is 50 ms or more.
+    The test leaves out the first prompt and the hooks for optional tools, such as direnv and zoxide.
 
 ## Goals
 

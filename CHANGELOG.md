@@ -4,6 +4,12 @@ Every release of envsetup, newest first, with what changed in it. CI writes each
 from the commits on `main` when it releases them (see "Releases" in AGENTS.md), so
 don't edit this file by hand.
 
+## v0.8.0 (2026-11-06)
+
+### Breaking changes
+
+- show how to install git instead of installing it (#118)
+
 ## v0.7.0 (2026-11-06)
 
 ### Features

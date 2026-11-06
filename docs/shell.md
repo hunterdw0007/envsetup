@@ -40,6 +40,7 @@ So `ssh host cmd` stays fast.
 A file with an error does not stop the other files.
 To control the order, start each name with a number, for example `10-aliases.sh`.
 
+## Which shells get what
 
 Interactive shells get the most.
 Every profile gets the prompt, the aliases and the tool hooks.

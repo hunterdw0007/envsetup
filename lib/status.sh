@@ -5,7 +5,9 @@
 # Each line starts with "ok" or "missing".
 
 # A record of installed tool versions, one "<name> <version>" line per tool.
-ENVSETUP_INSTALLED=${XDG_STATE_HOME:-$HOME/.local/state}/envsetup/installed
+# #131 defines the same value in lib/common.sh. Whichever PR merges second drops this copy.
+ENVSETUP_INSTALLED=$HOME/.local/state/envsetup/installed
+if [[ "${XDG_STATE_HOME:-}" == /* ]]; then ENVSETUP_INSTALLED=$XDG_STATE_HOME/envsetup/installed; fi
 
 # status_line <ok|missing> <text> prints one line and counts each missing line.
 envsetup::status_line() {
@@ -105,21 +107,23 @@ envsetup::status() {
 		for script in "${scripts[@]}"; do
 			name=${script##*/}
 			name=${name%.sh}
-			# Each installer starts with "envsetup::has_cmd <command> && exit 0" (see AGENTS.md).
-			cmd=$name
+			# A tool installer exits early with "envsetup::has_cmd <command> && exit 0".
+			# A pinned one uses "envsetup::up_to_date <name> <command> && exit 0" instead.
+			# Other installers are setup steps without a tool, so the check skips them.
+			cmd=
 			while read -r line; do
-				if [[ "$line" =~ ^envsetup::has_cmd\ ([^ ]+)\ \&\&\ exit\ 0 ]]; then cmd=${BASH_REMATCH[1]}; fi
+				if [[ "$line" =~ ^envsetup::(has_cmd|up_to_date\ [^ ]+)\ ([^ ]+)\ \&\&\ exit\ 0 ]]; then cmd=${BASH_REMATCH[2]}; fi
 			done <"$script"
+			[[ -n "$cmd" ]] || continue
 			record=${recorded[$name]:-}
 			pin=$(envsetup::pin "$name" 2>/dev/null) || pin=
 			if ! envsetup::has_cmd "$cmd"; then
 				envsetup::status_line missing "$cmd is not on PATH. Select Run installers"
-			elif [[ -n "$record" && -n "$pin" && "$record" != "$pin" &&
-				"$(printf '%s\n' "$record" "$pin" | sort -V | head -n 1)" == "$record" ]]; then
-				envsetup::status_line missing "$name $record is older than the pinned $pin"
+			elif [[ -n "$record" && -n "$pin" && "$record" != "$pin" ]]; then
+				envsetup::status_line missing "$name $record differs from the pin $pin. Select Run installers"
 			fi
 		done
-		if ((before == ENVSETUP_STATUS_MISSING)); then envsetup::status_line ok "all ${#scripts[@]} installer tools are on PATH"; fi
+		if ((before == ENVSETUP_STATUS_MISSING)); then envsetup::status_line ok "no tool from ${#scripts[@]} installers is missing"; fi
 	fi
 
 	if [[ -n "$ENVSETUP_CONFIG_WARNED" ]]; then

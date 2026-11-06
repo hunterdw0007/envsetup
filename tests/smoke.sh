@@ -585,7 +585,8 @@ echo "== --status and Check status: ok after Run everything, then a removed bloc
 status() { HOME=$h ENVSETUP_REPO_URL=$W/no-repo PATH="$OFFLINE:/usr/bin:/bin" "$CLONE/setup.sh" --status >$W/status.out 2>&1; }
 before=$(snapshot "$h")
 check "--status exited 0 without gum" status
-check "  ...printed 7 lines, each one ok" [ "$(grep -c '^ok ' $W/status.out)" = 7 ] && [ "$(wc -l <$W/status.out)" = 7 ]
+all_ok() { [ "$(grep -c '^ok ' $W/status.out)" = 7 ] && [ "$(wc -l <$W/status.out)" = 7 ]; }
+check "  ...printed 7 lines, each one ok" all_ok
 check "  ...said the newest release is unknown" grep -qF 'newest release: unknown' $W/status.out
 check "  ...and changed nothing in \$HOME" [ "$(snapshot "$h")" = "$before" ]
 ((failures)) && show $W/status.out

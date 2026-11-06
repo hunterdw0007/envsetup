@@ -18,7 +18,28 @@ It offers to make zsh your login shell.
 It also adds the envsetup block to `~/.zshrc`.
 To include this action in **Link shell config** and **Run everything**, set `ENVSETUP_SHELL=zsh` in `config.sh`.
 
-## Which shells get what
+## Your own shell files
+
+You can keep your own aliases, functions and exports in separate files.
+Put them in `~/.config/envsetup/shell.d`.
+If you set `XDG_CONFIG_HOME`, the folder is `$XDG_CONFIG_HOME/envsetup/shell.d`.
+The folder is next to `config.sh`.
+**Link shell config** creates the folder.
+Updates never change it.
+
+Each new interactive shell loads the files in name order:
+
+- A file that ends in `.sh` loads in bash and zsh.
+- A file that ends in `.bash` loads only in bash.
+- A file that ends in `.zsh` loads only in zsh.
+- The shell skips every other file, for example a `README` or a backup file.
+
+The files load after `config.sh`, so they can use its variables.
+A non-interactive shell loads none of them.
+So `ssh host cmd` stays fast.
+A file with an error does not stop the other files.
+To control the order, start each name with a number, for example `10-aliases.sh`.
+
 
 Interactive shells get the most.
 Every profile gets the prompt, the aliases and the tool hooks.

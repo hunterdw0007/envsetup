@@ -8,6 +8,7 @@ ENVSETUP_RC_BEGIN="# >>> envsetup >>>"
 ENVSETUP_RC_END="# <<< envsetup <<<"
 ENVSETUP_CHSH_MARKER="$ENVSETUP_STATE/chsh"       # exists after envsetup changes your login shell to zsh
 ENVSETUP_SSH_KEY_MARKER="$ENVSETUP_STATE/ssh-key" # exists after envsetup creates ~/.ssh/id_ed25519
+ENVSETUP_SHELL_D="$ENVSETUP_STATE/shell.d"        # your own shell files, which shell/init.sh loads
 # New shells load this copy of shell/ (see envsetup::copy_shell).
 # The copy's release is recorded next to it.
 ENVSETUP_DATA=$HOME/.local/share/envsetup

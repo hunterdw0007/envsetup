@@ -257,8 +257,17 @@ envsetup::drop_checkout() {
 # It also links your login shell's startup file, so new terminals get the config.
 # It sets up zsh + oh-my-zsh only if you opt in.
 # To opt in, set ENVSETUP_SHELL=zsh or use the menu action.
+# It also creates shell.d for your own shell files.
 envsetup::link_shell_config() {
 	envsetup::copy_shell
+	if [[ ! -d "$ENVSETUP_SHELL_D" ]]; then
+		if envsetup::dry_run; then
+			envsetup::would "create $ENVSETUP_SHELL_D for your own shell files"
+		else
+			mkdir -p "$ENVSETUP_SHELL_D"
+			gum style --foreground 2 "Created $ENVSETUP_SHELL_D. New shells load your own shell files from it."
+		fi
+	fi
 	envsetup::link_rc "$HOME/.bashrc"
 	if [[ "${SHELL##*/}" == zsh ]]; then envsetup::link_rc "$HOME/.zshrc"; fi
 	if [[ "$ENVSETUP_SHELL" == zsh ]]; then

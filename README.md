@@ -34,6 +34,8 @@ So envsetup itself does not stay on the machine.
 Only your shell config, `config.sh` and the files that envsetup made stay.
 
 To update to the newest release, run the same command again.
+Or run `envsetup` in a new shell, which runs the same command for you.
+[docs/shell.md](docs/shell.md#the-envsetup-command) lists its other commands.
 **Link shell config** (or **Run everything**) then replaces the copy.
 Running the same release again changes nothing.
 
@@ -318,6 +320,7 @@ alias k=kubectl                                    # any other shell config work
 | `ENVSETUP_SHELL` | `bash`. The value `zsh` also sets up zsh + oh-my-zsh. | Link shell config |
 | `ENVSETUP_GIT_CONFIG` | `git/gitconfig`, as `key=value`. Later entries win. | Configure git |
 | `ENVSETUP_XDG_NINJA` | `0`. The value `1` adds **Move dotfiles to XDG dirs** to **Run everything**. | Run everything |
+| `ENVSETUP_REPO_URL` | `https://github.com/hunterdw0007/envsetup.git` | The `envsetup` command in your shell |
 | aliases, environment variables, functions, `PS1` | `shell/` | Every new shell, after the defaults |
 | your own shell files in `~/.config/envsetup/shell.d` | Empty. See [Your own shell files](docs/shell.md#your-own-shell-files). | Every new interactive shell, after `config.sh` |
 
@@ -335,7 +338,8 @@ curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.
 curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | bash -s -- --dry-run --uninstall
 ```
 
-**Uninstall** in the menu does the same.
+`envsetup uninstall` in a new shell does the same.
+**Uninstall** in the menu also does the same.
 `./setup.sh --uninstall` in a clone also does the same.
 
 Uninstall removes everything that envsetup added:

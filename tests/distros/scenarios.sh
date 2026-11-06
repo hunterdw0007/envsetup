@@ -130,9 +130,12 @@ declare -A expect=(
 # It reports them as WARN, not FAIL.
 # The first list holds the packages, and the second holds the commands that they provide.
 known_pkgs='' known_cmds=''
+# On Alma and Rocky 9, the home run must answer the EPEL question with yes.
+# Without EPEL, many listed packages fail to install.
+epel=()
 # shellcheck disable=SC1091 # this is the container's own os-release, not a file in this repo
 case $(. /etc/os-release && echo "${ID-}:${VERSION_ID-}") in
-almalinux:9.* | rocky:9.*) known_pkgs=direnv known_cmds=direnv ;;
+almalinux:9.* | rocky:9.*) known_pkgs=direnv known_cmds=direnv epel=(yes) ;;
 amzn:2023)
 	known_pkgs="fzf ripgrep bat neovim direnv shellcheck ncdu"
 	known_cmds="fzf rg bat|batcat nvim direnv shellcheck ncdu"
@@ -150,11 +153,15 @@ for run in home work-full work-lite; do
 	chown -R "$user:" "/home/$user/.config"
 
 	case $run in
-	# zsh comes first, so the first "no" always answers its chsh question.
+	# The home answers, in order:
+	# "no" answers the chsh question of "Set up zsh".
 	# chsh would ask for a password.
+	# On Alma and Rocky 9, "yes" turns on EPEL in "Install packages".
 	# The next "no" turns down SSH signing.
 	# Then "yes" moves dotfiles, if there are any to move.
-	home) answers "$user" no no yes -- "Select profile" home "Set up zsh + oh-my-zsh" "Run everything" Quit ;;
+	# work-full asks about EPEL again, and no answer declines.
+	# EPEL stays on, because home runs first and installs epel-release in this container.
+	home) answers "$user" no "${epel[@]}" no yes -- "Select profile" home "Set up zsh + oh-my-zsh" "Run everything" Quit ;;
 	work-full) answers "$user" -- "Select profile" work full "Run everything" Quit ;;
 	work-lite) answers "$user" -- "Select profile" work lite "Run everything" Quit ;;
 	esac

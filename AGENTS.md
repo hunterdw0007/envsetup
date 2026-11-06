@@ -36,8 +36,8 @@ CI also checks the PR title.
   Leave out the scope when a change does not fit one area.
   A change to the root `README.md` alone is an example.
 - A breaking change puts `!` after the type or scope: `feat!: ...`.
-  A change is breaking when a user's old way of working stops working.
-  A change to the menu structure is an example.
+  A change is breaking when it changes envsetup's API in a way that is not backwards compatible.
+  [`CONTRIBUTING.md`](CONTRIBUTING.md#breaking-changes) defines the API and gives examples.
   A breaking change raises the major version.
   While the version is 0.x, it raises the minor version instead (see Releases).
   The release notes list it under "Breaking changes".

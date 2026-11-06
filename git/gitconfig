@@ -53,7 +53,7 @@
 [help]
 	autocorrect = prompt
 [merge]
-	conflictstyle = zdiff3
+	conflictstyle = diff3
 [pull]
 	rebase = true
 [commit]

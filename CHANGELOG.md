@@ -4,6 +4,12 @@ Every release of envsetup, newest first, with what changed in it. CI writes each
 from the commits on `main` when it releases them (see "Releases" in AGENTS.md), so
 don't edit this file by hand.
 
+## v0.7.0 (2026-11-06)
+
+### Features
+
+- add a Paste config action and check config edits (#116)
+
 ## v0.6.0 (2026-11-05)
 
 ### Features

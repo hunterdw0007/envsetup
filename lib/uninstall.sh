@@ -126,6 +126,27 @@ envsetup::uninstall() {
 			rm -f "$state/config.sh"
 		fi
 	fi
+	# The files in shell.d are your own.
+	# So uninstall removes the folder only when it is empty, and asks otherwise.
+	if [[ -d "$ENVSETUP_SHELL_D" ]]; then
+		if (
+			shopt -s nullglob dotglob
+			f=("$ENVSETUP_SHELL_D"/*)
+			((${#f[@]}))
+		); then
+			if gum confirm "Keep $ENVSETUP_SHELL_D? It holds your own shell files."; then
+				kept+=("your shell files: $ENVSETUP_SHELL_D")
+			elif envsetup::dry_run; then
+				envsetup::would "delete $ENVSETUP_SHELL_D"
+			else
+				rm -rf "$ENVSETUP_SHELL_D"
+			fi
+		elif envsetup::dry_run; then
+			envsetup::would "delete the empty $ENVSETUP_SHELL_D"
+		else
+			rmdir "$ENVSETUP_SHELL_D"
+		fi
+	fi
 	# Uninstall asks only about a key that envsetup created.
 	# The key stays unless you say no.
 	if ((key_by_us)) && [[ -e "$key" ]]; then

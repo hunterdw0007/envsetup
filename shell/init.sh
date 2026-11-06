@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Your startup file sources this file, through the block that setup.sh adds.
 # It loads the shared config first, then the config of the active profile.
-# It loads your own config.sh last, so your settings win.
+# It loads your own config.sh next, so your settings win.
+# It loads your own files in shell.d last.
 
 [[ -n "${ENVSETUP_ROOT:-}" ]] || return 0
 
@@ -46,4 +47,27 @@ fi
 # shellcheck source=/dev/null # the user's own file
 [[ -f "$ENVSETUP_STATE/config.sh" ]] && source "$ENVSETUP_STATE/config.sh"
 
-unset _envsetup_files _envsetup_f
+# Your own shell files in shell.d load after config.sh, in name order, in interactive shells only.
+# Files that end in .sh load in bash and zsh.
+# Files that end in .bash or .zsh load only in that shell.
+# This file skips all other files, such as a README or a backup.
+if [[ $- == *i* ]]; then
+	_envsetup_ext=bash
+	if [[ -n "${ZSH_VERSION:-}" ]]; then
+		_envsetup_ext=zsh
+		# (N) makes an empty folder match nothing.
+		# Without it, zsh stops this file with an error.
+		# bash cannot parse (N), so eval hides it from bash.
+		eval '_envsetup_files=("$ENVSETUP_STATE/shell.d"/*(N))'
+	else
+		_envsetup_files=("$ENVSETUP_STATE/shell.d"/*)
+	fi
+	for _envsetup_f in "${_envsetup_files[@]}"; do
+		if [[ -f "$_envsetup_f" && ("$_envsetup_f" == *.sh || "$_envsetup_f" == *."$_envsetup_ext") ]]; then
+			# shellcheck disable=SC1090 # the user's own files
+			source "$_envsetup_f"
+		fi
+	done
+fi
+
+unset _envsetup_files _envsetup_f _envsetup_ext

@@ -307,6 +307,7 @@ alias k=kubectl                                    # any other shell config work
 | `ENVSETUP_GIT_CONFIG` | `git/gitconfig`, as `key=value`. Later entries win. | Configure git |
 | `ENVSETUP_XDG_NINJA` | `0`. The value `1` adds **Move dotfiles to XDG dirs** to **Run everything**. | Run everything |
 | aliases, environment variables, functions, `PS1` | `shell/` | Every new shell, after the defaults |
+| your own shell files in `~/.config/envsetup/shell.d` | Empty. See [Your own shell files](docs/shell.md#your-own-shell-files). | Every new interactive shell, after `config.sh` |
 
 A change to shell config takes effect in the next new shell.
 A change to an `ENVSETUP_*` setting takes effect the next time you run its action.
@@ -345,6 +346,9 @@ If you set `ENVSETUP_CONFIG_REPO`, uninstall asks "Keep ~/.config/envsetup/repo?
 The default answer keeps it.
 If you delete the repo but keep `config.sh`, uninstall keeps a copy of the repo's `config.sh`.
 Uninstall keeps `config.sh.bak`, your old `config.sh`, and lists it at the end.
+Uninstall removes an empty `shell.d` folder.
+If `shell.d` has files, uninstall asks "Keep ~/.config/envsetup/shell.d?".
+The default answer keeps it.
 If envsetup created `~/.ssh/id_ed25519`, uninstall asks "Keep ~/.ssh/id_ed25519?".
 The default answer keeps it.
 If envsetup changed your login shell to zsh, uninstall asks to change it back to bash.

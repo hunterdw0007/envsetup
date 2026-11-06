@@ -641,6 +641,46 @@ check "  ...unlinked both" none_exist_in '# >>> envsetup >>>' "$h/.bashrc" "$h/.
 check "  ...and didn't offer to change a login shell it didn't set" not_grep 'Keep zsh as your login shell' "$SMOKE_LOG"
 ((failures)) && show "$h/setup.out"
 
+echo "== shell.d: your own shell files (#105)"
+h=$(new_home)
+d=$h/.config/envsetup/shell.d
+SETUP_ARGS=(--dry-run)
+check "--dry-run Link shell config: exited 0" run_menu "$h" "Select profile" work lite "Link shell config" Quit
+SETUP_ARGS=()
+check "  ...said it would create shell.d" grep -qF "would create $d" "$SMOKE_LOG"
+check "  ...and didn't" [ ! -e "$d" ]
+# A zsh login shell gets ~/.zshrc linked too, so a real zsh loads shell.d.
+SHELL=/usr/bin/zsh check "Link shell config: exited 0" run_menu "$h" "Select profile" work lite "Link shell config" Quit
+check "  ...created shell.d" [ -d "$d" ]
+check "bash starts with the empty folder" [ "$(in_shell "$h" bash 'echo started')" = started ]
+check "  ...without errors" [ ! -s "$h/shell.err" ]
+check "zsh starts with the empty folder" [ "$(in_shell "$h" zsh 'echo started')" = started ]
+check "  ...without errors" [ ! -s "$h/shell.err" ]
+echo 'mine=cfg' >"$h/.config/envsetup/config.sh"
+for f in 10-a.sh 20-b.bash 30-z.zsh 50-c.sh README 50-c.sh~; do echo "mine+=${f:3:1}" >"$d/$f"; done
+echo 'if (' >"$d/40-broken.sh"
+check "bash loads .sh and .bash files in name order, after config.sh" [ "$(in_shell "$h" bash 'printf %s "$mine"')" = cfgabc ]
+check "  ...and names the broken file" grep -qF 40-broken.sh "$h/shell.err"
+check "zsh loads .sh and .zsh files in name order, after config.sh" [ "$(in_shell "$h" zsh 'printf %s "$mine"')" = cfgazc ]
+check "  ...and names the broken file" grep -qF 40-broken.sh "$h/shell.err"
+check "a non-interactive bash loads no file from shell.d" [ "$(not_interactive "$h" 'printf %s "$mine"')" = cfg ]
+before=$(snapshot "$d")
+SHELL=/usr/bin/zsh check "Link shell config again: exited 0" run_menu "$h" "Link shell config" Quit
+check "  ...and left shell.d unchanged" [ "$(snapshot "$d")" = "$before" ]
+# The answers: remove, yes; keep config.sh, yes; keep shell.d, yes.
+SETUP_ARGS=(--uninstall) CONFIRMS=(yes yes yes)
+check "--uninstall exits 0" run_menu "$h"
+check "  ...asked to keep shell.d" grep -qF "gum confirm Keep $d?" "$SMOKE_LOG"
+check "  ...kept it when told to" [ "$(snapshot "$d")" = "$before" ]
+check "  ...and listed it" grep -qF "your shell files: $d" "$SMOKE_LOG"
+# The answers: remove, yes; keep config.sh, no; keep shell.d, no.
+CONFIRMS=(yes no no)
+check "--uninstall again exits 0" run_menu "$h"
+SETUP_ARGS=() CONFIRMS=()
+check "  ...deleted shell.d when told to" [ ! -e "$d" ]
+check "  ...and the state folder" [ ! -e "$h/.config/envsetup" ]
+((failures)) && show "$h/setup.out"
+
 echo "== explaining itself"
 h=$(new_home)
 check "--help works before gum is installed" help_ok "$h"

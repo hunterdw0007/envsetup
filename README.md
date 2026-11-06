@@ -308,6 +308,7 @@ alias k=kubectl                                    # any other shell config work
 | `ENVSETUP_SHELL` | `bash`. The value `zsh` also sets up zsh + oh-my-zsh. | Link shell config |
 | `ENVSETUP_GIT_CONFIG` | `git/gitconfig`, as `key=value`. Later entries win. | Configure git |
 | `ENVSETUP_XDG_NINJA` | `0`. The value `1` adds **Move dotfiles to XDG dirs** to **Run everything**. | Run everything |
+| `ENVSETUP_REPO_URL` | `https://github.com/hunterdw0007/envsetup.git` | The `envsetup` command in your shell |
 | aliases, environment variables, functions, `PS1` | `shell/` | Every new shell, after the defaults |
 
 A change to shell config takes effect in the next new shell.

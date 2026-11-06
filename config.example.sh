@@ -72,6 +72,12 @@
 # That action installs zsh and oh-my-zsh and links ~/.zshrc.
 # ENVSETUP_SHELL=zsh
 
+# --- Repo URL -----------------------------------------------------------------------
+# The default is https://github.com/hunterdw0007/envsetup.git.
+# The envsetup command in your shell downloads envsetup from this repo.
+# An SSH URL or your own fork are examples.
+# ENVSETUP_REPO_URL=git@github.com:hunterdw0007/envsetup.git
+
 # --- Git ----------------------------------------------------------------------------
 # The defaults come from git/gitconfig.
 # Each entry is key=value, the same format as `git config --list`.

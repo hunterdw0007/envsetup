@@ -89,9 +89,11 @@ printf '#!/bin/sh\necho "apt-get $*" >>"$SMOKE_LOG"\ncase "$*" in *smoke-conflic
 printf '#!/bin/sh\necho "chsh $*" >>"$SMOKE_LOG"\n' >"$OFFLINE/chsh"
 # The fake curl serves a fake oh-my-zsh installer, and install.sh for the envsetup command.
 # Any other download is a bug in the test.
+# SMOKE_CURL_FAIL=1 makes every download fail, as offline.
 cat >"$OFFLINE/curl" <<'EOF'
 #!/bin/sh
 echo "curl $*" >>"$SMOKE_LOG"
+[ -z "$SMOKE_CURL_FAIL" ] || exit 6
 case "$*" in
 	*ohmyzsh*) cat <<'OMZ' ;;
 mkdir -p "$HOME/.oh-my-zsh"
@@ -313,7 +315,9 @@ check "  ...without errors" [ ! -s "$h/shell.err" ]
 for sh in bash zsh; do
 	check "$sh: envsetup version shows the recorded release" same_list "$(cat "$data/version" 2>/dev/null)" "$(in_shell "$h" $sh 'envsetup version')"
 	check "  ...envsetup --help lists the commands" grep -q '^  uninstall ' <(in_shell "$h" $sh 'envsetup --help')
-	check "  ...envsetup config opens config.sh in \$EDITOR" [ "$(in_shell "$h" $sh 'EDITOR=echo envsetup config')" = "$h/.config/envsetup/config.sh" ]
+	check "  ...envsetup config opens config.sh in \$EDITOR" [ "$(in_shell "$h" $sh 'EDITOR="echo --wait" envsetup config')" = "--wait $h/.config/envsetup/config.sh" ]
+	check "  ...a failed download returns 1" [ "$(PATH="$OFFLINE:$PATH" SMOKE_CURL_FAIL=1 in_shell "$h" $sh 'envsetup --dry-run; echo $?')" = 1 ]
+	check "  ...and says so" grep -qF 'envsetup: could not download' "$h/shell.err"
 	check "  ...an unknown command fails" [ "$(in_shell "$h" $sh 'envsetup bogus; echo $?')" = 2 ]
 done
 # config.sh sets ENVSETUP_REPO_URL without export, as a user would.

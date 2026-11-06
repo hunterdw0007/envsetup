@@ -84,8 +84,10 @@ curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.
 
 A dry run opens the real menu.
 Each action then describes its changes but does not make them.
-You can still select profiles and edit `config.sh`.
+You can still select profiles, and paste or edit `config.sh`.
 envsetup forgets those changes when you quit.
+A dry run still loads `config.sh` to read its settings.
+So the shell code that you paste or edit in a dry run runs.
 
 The menu needs gum.
 If the machine does not have gum, the dry run asks before it installs gum.
@@ -145,8 +147,9 @@ Work lite skips **Install packages** and **Run installers**.
 The menu has these other actions:
 
 - **Select profile** changes the profile and mode.
-- **Edit config** opens your `config.sh`.
+- **Paste config** adds the text that you paste to the end of your `config.sh`.
   See [Customize](#customize).
+- **Edit config** opens your `config.sh` in an editor.
 - **Set up zsh + oh-my-zsh** installs zsh and [oh-my-zsh](https://ohmyz.sh).
   It can also make zsh your login shell.
 - **Move dotfiles to XDG dirs** moves dotfiles out of `$HOME`.
@@ -248,9 +251,28 @@ envsetup does not keep a copy of this repo on your machine.
 An update replaces the copy of `shell/`.
 `config.sh` is outside both, so updates do not change it.
 
-Select **Edit config** in the menu to create `config.sh` and open it in `$EDITOR`.
+The fastest way to change settings is **Paste config** in the menu:
+
+1. Select **Paste config**.
+2. Paste your settings or shell code into the text box.
+3. Save or cancel with the keys that gum shows under the box.
+
+**Paste config** checks the text with `bash -n` first.
+`bash -n` finds syntax errors without running the code.
+If the text has an error, **Paste config** shows the line number and saves nothing.
+It also saves nothing if the text is empty, or if the text runs `exit`.
+Otherwise, it adds the text to the end of `config.sh`.
+Then it shows each setting that changed, for example `Extras: +lazygit +k9s`.
+
+`./setup.sh --config <file>` adds a file's text in the same way, then opens the menu.
+On an error, it adds nothing and exits 1.
+With curl, run `curl … | bash -s -- --config <file>`.
+
+**Edit config** creates `config.sh` and opens it in `$EDITOR`.
+Without `$EDITOR`, it uses `nano` if the machine has it, and `vi` otherwise.
 The new `config.sh` is a copy of [`config.example.sh`](config.example.sh).
 That copy lists every setting, all commented out.
+After the editor closes, **Edit config** runs the same check and shows the changes.
 
 `config.sh` is a bash script.
 envsetup runs it after it loads the defaults.

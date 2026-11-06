@@ -80,17 +80,30 @@ echo "== $slug ($pm)"
 # --- install.sh on a box without git --------------------------------------------------
 mkuser beta
 if command -v git >/dev/null; then
-	result bootstrap WARN "git was already in the image, so install.sh's git install wasn't exercised"
+	result bootstrap WARN "git was already in the image, so install.sh's git hint wasn't exercised"
+else
+	# The user runs the command from the hint.
+	# yes answers the package manager's questions.
+	# The hint can hold two commands (apt-get update && apt-get install), so yes feeds the whole group.
+	as beta "$install" >"$out/no-git.log" 2>&1
+	hint=$(sed -n 's/^  \(.*git\)$/\1/p' "$out/no-git.log")
+	# zypper ignores answers from a pipe, so it gets its flag for no questions.
+	if [[ "$pm" == zypper ]]; then hint=${hint/zypper/zypper -n}; fi
+	if [[ "$hint" == "sudo "* ]] && as beta "{ $hint; } < <(yes)" >>"$out/no-git.log" 2>&1 && command -v git >/dev/null; then
+		result bootstrap PASS "install.sh showed '$hint', and that command installed git"
+	else
+		result bootstrap FAIL "the git hint failed: $(tail -n 3 "$out/no-git.log")"
+	fi
 fi
 # deleted <log> passes when the download that install.sh names in its log is gone.
 deleted() {
 	local dl
-	dl=$(sed -n 's/^Downloaded envsetup .* to \(.*\), which .*/\1/p' "$1")
+	dl=$(sed -n 's/^Downloaded envsetup .* to \(.*\)\. envsetup deletes .*/\1/p' "$1")
 	[[ -n "$dl" && ! -e "$dl" ]]
 }
 if as beta "$install --help" >"$out/bootstrap.log" 2>&1 &&
 	grep -q '^Usage: ' "$out/bootstrap.log" && deleted "$out/bootstrap.log"; then
-	result bootstrap PASS "install.sh installed git, ran setup.sh --help from a download, and deleted it"
+	result bootstrap PASS "install.sh ran setup.sh --help from a download, and deleted it"
 else
 	result bootstrap FAIL "install.sh failed: $(tail -n 3 "$out/bootstrap.log")"
 fi

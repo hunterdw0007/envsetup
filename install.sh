@@ -32,49 +32,47 @@ fi
 REPO_URL="${ENVSETUP_REPO_URL:-https://github.com/hunterdw0007/envsetup.git}"
 ENVSETUP_VERSION="${ENVSETUP_VERSION:-latest}"
 
-# as_root runs a command as root.
-# If the user is already root, it runs the command directly (containers, WSL).
-# Otherwise it uses sudo, or doas (Alpine).
-envsetup::as_root() {
-	if ((EUID == 0)); then
-		"$@"
-	elif command -v sudo &>/dev/null; then
-		sudo "$@"
-	elif command -v doas &>/dev/null; then
-		doas "$@"
-	else
-		echo "This command needs root, but this machine has no sudo or doas: $*" >&2
-		return 1
-	fi
-}
-
-envsetup::bootstrap_git() {
+# require_git stops with a hint when the machine has no git.
+# It installs nothing, because the user has not chosen anything yet.
+envsetup::require_git() {
 	command -v git &>/dev/null && return 0
 
-	echo "git is not installed. Installing git..." >&2
-	if command -v brew &>/dev/null; then
-		brew install git
-	elif command -v apt-get &>/dev/null; then
-		# One broken source fails the update, but not the install (see envsetup::pkg_install).
-		envsetup::as_root apt-get update || echo "apt-get update reported errors. Installing anyway." >&2
-		envsetup::as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y git
-	elif command -v dnf &>/dev/null; then
-		envsetup::as_root dnf install -y git
-	elif command -v zypper &>/dev/null; then
-		envsetup::as_root zypper --non-interactive install git
-	elif command -v pacman &>/dev/null; then
-		# A new container has never synced.
-		# The sync uses -u, because Arch does not support partial upgrades.
-		compgen -G '/var/lib/pacman/sync/*.db' >/dev/null || envsetup::as_root pacman -Syu --noconfirm
-		envsetup::as_root pacman -S --noconfirm --needed git
-	elif command -v apk &>/dev/null; then
-		envsetup::as_root apk add git
-	elif command -v nix-env &>/dev/null; then
-		nix-env -f '<nixpkgs>' -iA git
-	else
-		echo "Couldn't install git. Install git yourself, then run this script again." >&2
-		exit 1
+	local pm cmd as='' how='To install git, run:'
+	for pm in brew apt-get dnf zypper pacman apk nix-env; do
+		if command -v "$pm" &>/dev/null; then break; fi
+		pm=
+	done
+	# The system's package managers need root.
+	# brew and nix-env do not.
+	if [[ -n "$pm" && "$pm" != brew && "$pm" != nix-env ]] && ((EUID != 0)); then
+		if command -v sudo &>/dev/null; then
+			as='sudo '
+		elif command -v doas &>/dev/null; then
+			as='doas '
+		else
+			how='As root, run:'
+		fi
 	fi
+	case $pm in
+	brew) cmd='brew install git' ;;
+	# A new machine may have no package lists yet.
+	apt-get) cmd="${as}apt-get update && ${as}apt-get install git" ;;
+	dnf | zypper) cmd="$as$pm install git" ;;
+	# -y syncs the package lists first.
+	# Arch needs -u together with -y.
+	pacman) cmd="${as}pacman -Syu git" ;;
+	apk) cmd="${as}apk add git" ;;
+	nix-env) cmd="nix-env -f '<nixpkgs>' -iA git" ;;
+	esac
+
+	echo "envsetup needs git, but this machine has no git." >&2
+	if [[ -n "$pm" ]]; then
+		printf 'This machine has %s. %s\n\n  %s\n\n' "$pm" "$how" "$cmd" >&2
+	else
+		echo "Download git from https://git-scm.com/downloads." >&2
+	fi
+	echo "Then run the curl command again." >&2
+	exit 1
 }
 
 # releases prints the release tags (vX.Y.Z), newest first.
@@ -123,7 +121,7 @@ envsetup::use_version() {
 	"${git[@]}" checkout -q --detach "$target"
 }
 
-envsetup::bootstrap_git
+envsetup::require_git
 
 download=$(mktemp -d)
 trap 'rm -rf "$download"' EXIT

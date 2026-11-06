@@ -9,7 +9,6 @@ It also gives an overview of the repo.
 
 Every change must keep these requirements true.
 To break a requirement, first change it in its own PR.
-Requirement 2 holds after [#104](https://github.com/hunterdw0007/envsetup/issues/104).
 
 1. **Linux only.**
    envsetup supports the Linux systems in the README table, including WSL.

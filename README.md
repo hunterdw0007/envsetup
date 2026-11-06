@@ -9,18 +9,21 @@ The menu uses [gum](https://github.com/charmbracelet/gum).
 
 ## Install
 
+envsetup needs `bash`, `curl` and `git` on the machine.
+On a machine without `git`, the command below shows how to install `git`.
+Then it stops.
+
 Run this command on the machine:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | bash
 ```
 
-The command does four things:
+The command does three things:
 
-1. It installs `git` if the machine does not have it.
-2. It downloads the newest release into a temporary folder.
-3. It opens the menu.
-4. When you quit the menu, it deletes the temporary folder.
+1. It downloads the newest release into a temporary folder.
+2. It opens the menu.
+3. When you quit the menu, it deletes the temporary folder.
    It also deletes the folder after an error or Ctrl-C.
 
 **Link shell config** copies the shell config (`shell/`) to `~/.local/share/envsetup`.

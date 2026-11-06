@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The smoke test runs envsetup for real on a bare Ubuntu container.
 # Only the slow parts and the network parts are fakes: gum's menus, package installs and vendor downloads.
-# These parts are real: install.sh's git install, the clone and the setup.sh menu flow.
+# These parts are real: the git install, the clone and the setup.sh menu flow.
 # The startup file links, and a real bash and zsh that load the result, are real too.
 #
 #   docker run --rm -t -v "$PWD:/src:ro" ubuntu:24.04 bash /src/tests/smoke.sh
@@ -55,7 +55,7 @@ same_commit() {
 # Without it, install.sh would pick the newest release.
 # Use the branch that /src has checked out.
 # When HEAD is detached, as in CI, use the commit itself.
-# Read the files by hand, because git is missing until install.sh installs it.
+# Read the files by hand, because git is missing until the test installs it.
 read -r UNDER_TEST <"$SRC/.git/HEAD"
 UNDER_TEST=${UNDER_TEST#ref: refs/heads/}
 
@@ -197,7 +197,64 @@ check "  ...named the last release for macOS" grep -qF 'ENVSETUP_VERSION=v0.3.0 
 check "  ...installed no git" not has git
 check "  ...and downloaded nothing" left_nothing
 
-echo "== install.sh on a bare box: real apt for git, a real download, hand-off to setup.sh"
+echo "== install.sh without git: shows the command that installs git, then stops (#104)"
+# The test runs as root, so the commands have no sudo.
+no_git() { curl_bash >$W/no-git.out 2>&1; }
+check "exited non-zero" not no_git
+check "  ...named apt-get" grep -qF 'This machine has apt-get.' $W/no-git.out
+check "  ...showed the command" grep -qxF '  apt-get update && apt-get install git' $W/no-git.out
+check "  ...said to run the curl command again" grep -qF 'run the curl command again' $W/no-git.out
+check "  ...installed no git" not has git
+check "  ...and downloaded nothing" left_nothing
+# Each folder on PATH holds one fake package manager and nothing else.
+# So install.sh finds only that package manager.
+only_pm() { PATH=$W/pm/$1 "$BASH" "$SRC/install.sh" >"$W/no-git-$1.out" 2>&1; }
+fake() { # fake <dir> <command>... adds empty commands to a folder
+	local dir=$1
+	shift
+	mkdir -p "$dir"
+	for c; do printf '#!/bin/sh\n' >"$dir/$c"; done
+	chmod +x "$dir"/*
+}
+for want in 'apt-get update && apt-get install git' 'dnf install git' 'zypper install git' 'pacman -Syu git' \
+	'apk add git' "nix-env -f '<nixpkgs>' -iA git"; do
+	pm=${want%% *}
+	fake "$W/pm/$pm" "$pm"
+	check "only $pm: exited non-zero" not only_pm "$pm"
+	check "  ...and showed '$want'" grep -qxF "  $want" "$W/no-git-$pm.out"
+done
+mkdir -p "$W/pm/none"
+check "no package manager: exited non-zero" not only_pm none
+check "  ...and linked to git's download page" grep -qF 'https://git-scm.com/downloads' "$W/no-git-none.out"
+# A user who is not root gets sudo or doas in front of the command.
+# Without either one, the hint says to run the command as root.
+as_user() { setpriv --reuid=65534 --regid=65534 --clear-groups env PATH="$W/pm/$1" "$BASH" "$SRC/install.sh" >"$W/no-git-$1.out" 2>&1; }
+fake "$W/pm/sudo" apt-get sudo
+fake "$W/pm/doas" apt-get doas
+check "not root, with sudo: exited non-zero" not as_user sudo
+check "  ...and showed sudo" grep -qxF '  sudo apt-get update && sudo apt-get install git' "$W/no-git-sudo.out"
+check "not root, with doas only: exited non-zero" not as_user doas
+check "  ...and showed doas" grep -qxF '  doas apt-get update && doas apt-get install git' "$W/no-git-doas.out"
+check "not root, with neither: exited non-zero" not as_user apt-get
+check "  ...and said to run it as root" grep -qF 'This machine has apt-get. As root, run:' "$W/no-git-apt-get.out"
+check "  ...without a prefix" grep -qxF '  apt-get update && apt-get install git' "$W/no-git-apt-get.out"
+
+echo "== install.sh on a bare box with git: a real download, hand-off to setup.sh"
+# The user runs the command from the hint, with real apt.
+# yes answers apt-get's question.
+hint=$(sed -n 's/^  \(.*git\)$/\1/p' $W/no-git.out)
+mkdir -p "$W/apt"
+if [[ -n "${SMOKE_APT_CACHE:-}" ]]; then
+	# Offline, the cached lists stand in for apt-get update.
+	printf '#!/bin/sh\n[ "$1" = update ] && exit 0\nexec /usr/bin/apt-get "$@"\n' >"$W/apt/apt-get"
+	chmod +x "$W/apt/apt-get"
+fi
+# yes reads from a process substitution, so its SIGPIPE does not fail a pipeline under pipefail.
+PATH="$W/apt:$PATH" DEBIAN_FRONTEND=noninteractive bash -c "$hint" < <(yes) >$W/git.out 2>&1 || {
+	show $W/git.out
+	exit 1
+}
+check "the command from the hint installed git" has git
 printf '[safe]\n\tdirectory = *\n' >/etc/gitconfig # /src is owned by the host's user
 printf 'Quit\n' >"$SMOKE_CHOICES"
 : >"$SMOKE_LOG"
@@ -207,7 +264,6 @@ else
 	fail "install.sh exited non-zero"
 	show $W/install.out
 fi
-check "git was installed" has git
 check "setup.sh reached the menu on a first run" grep -q '^gum choose Select profile (current: none)' "$SMOKE_LOG"
 check "  ...from a download in TMPDIR" grep -qF "to $TMP/" $W/install.out
 check "  ...which is gone" left_nothing

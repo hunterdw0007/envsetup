@@ -12,7 +12,7 @@
 curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | bash
 ```
 
-![envsetup selects the home profile, then runs Preview everything](docs/tapes/demo.gif)
+![A dry run from a clone of envsetup selects the home profile, then runs Preview everything](docs/tapes/demo.gif)
 
 envsetup sets up the shell on a new or wiped Linux machine.
 It adds aliases, environment variables, shell functions and common command-line tools.
@@ -24,9 +24,9 @@ The menu uses [gum](https://github.com/charmbracelet/gum).
 - You choose each action from a menu. Nothing changes until you select an action.
 - The `work` and `home` profiles fit different machines. The `lite` mode needs no sudo.
 - A dry run (`--dry-run` or **Preview everything**) shows each change and makes none.
-- **Uninstall** removes everything that envsetup added.
-- Every tool download has a pinned version and a checksum. You can also pin a release.
-- One file, `config.sh`, holds your own changes. Updates never change it.
+- **Uninstall** removes what envsetup added, except packages and tools.
+- Installers pin the version of each release that they download. They check each file before they use it. You can also pin a release.
+- Your own changes live in `~/.config/envsetup`. Updates never change them.
 
 ## Install
 
@@ -34,12 +34,15 @@ envsetup needs `bash`, `curl` and `git` on the machine.
 Run the command at the top of this page, then:
 
 1. Select **Select profile**, then `work` or `home`.
+   For `work`, also select `full` or `lite`.
 2. Select **Preview everything** to see the changes.
 3. Select **Run everything** to make them.
 
 The command deletes its download when you quit.
 Only your shell config, `config.sh` and the files that envsetup made stay.
 To update, run the command again, or run `envsetup` in a new shell.
+envsetup is still at 0.x, so a release can change something you use every day.
+envsetup runs its root steps with `sudo` or `doas`.
 
 These variables change what the command does:
 

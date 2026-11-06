@@ -1,6 +1,6 @@
 # Install and update
 
-The [README](../README.md#install) shows the install command.
+The top of the [README](../README.md) shows the install command.
 This page explains what the command does and the other ways to install.
 
 ## What the command does

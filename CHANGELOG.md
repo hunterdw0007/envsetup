@@ -4,6 +4,12 @@ Every release of envsetup, newest first, with what changed in it. CI writes each
 from the commits on `main` when it releases them (see "Releases" in AGENTS.md), so
 don't edit this file by hand.
 
+## v0.11.0 (2026-11-06)
+
+### Features
+
+- **shell**: add an envsetup command to new shells (#129)
+
 ## v0.10.0 (2026-11-06)
 
 ### Features

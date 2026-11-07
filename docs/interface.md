@@ -131,4 +131,4 @@ These changes do not need a new major version:
   envsetup asks before it writes the new name into `config.sh`.
 - A pinned tool moves to a new major version.
   The tool belongs to its vendor, not to envsetup's API.
-- A distro release reaches the end of its vendor's standard support ([#120](https://github.com/hunterdw0007/envsetup/issues/120)).
+- A distro release reaches the end of its security support (see [Supported systems](../README.md#supported-systems)).

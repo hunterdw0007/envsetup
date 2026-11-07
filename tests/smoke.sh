@@ -1066,6 +1066,47 @@ check "  ...kept ~/envsetup" [ -f "$h/envsetup/setup.sh" ]
 check "  ...and still rewrote the block" grep -qxF "export ENVSETUP_ROOT=$h/.local/share/envsetup" "$h/.bashrc"
 ((failures)) && show "$h/setup.out"
 
+echo "== update from the last 0.x release, with the same config.sh (#125)"
+# The last 0.x release is the newest v0.* tag below the commit under test.
+# So the choice needs no edit at each release, and it stays the same from 1.0.0 on.
+# CI fetches every tag for this (fetch-depth: 0 in ci.yml), so the test stays offline.
+old=$(git -C "$CLONE" describe --tags --abbrev=0 --match 'v0.*' --exclude '*-*' HEAD 2>/dev/null || true)
+check "(found the last 0.x release: ${old:-none, so fetch the tags})" [ -n "$old" ]
+h=$(new_home)
+mkdir -p "$h/.config/envsetup"
+printf '%s\n' 'ENVSETUP_SHELL=zsh' 'ENVSETUP_SKIP=(smoke-skipped)' 'ENVSETUP_GIT_CONFIG+=("alias.smoke=status")' \
+	"ENVSETUP_REPO_URL=$SRC" >"$h/.config/envsetup/config.sh"
+cp "$h/.config/envsetup/config.sh" $W/config.before
+echo '# a line of my own' >>"$h/.bashrc"
+echo 'my own notes' >"$h/notes.txt"
+# The user installed the old release with its own install.sh.
+git -C "$CLONE" show "$old:install.sh" >$W/old-install.sh 2>/dev/null || true
+old_release() { ENVSETUP_VERSION=$old ENVSETUP_REPO_URL=$SRC TMPDIR=$TMP bash $W/old-install.sh "$@"; }
+SETUP=old_release check "install $old, Run everything: exited 0" run_menu "$h" "Select profile" home "Run everything" Quit
+check "  ...recorded $old" same_list "$old" "$(cat "$h/.local/share/envsetup/version" 2>/dev/null)"
+# The user then updates with the envsetup command from the old release.
+SETUP_ARGS=(update)
+SETUP=envsetup_bash check "envsetup update to the commit under test, Run everything: exited 0" run_menu "$h" "Run everything" Quit
+SETUP_ARGS=()
+check "  ...recorded the new release" same_list "$(PATH=/usr/bin:/bin "$CLONE/setup.sh" --version)" "$(cat "$h/.local/share/envsetup/version" 2>/dev/null)"
+check "  ...kept config.sh the same" cmp -s $W/config.before "$h/.config/envsetup/config.sh"
+check "  ...kept the user's line in ~/.bashrc" grep -qxF '# a line of my own' "$h/.bashrc"
+check "  ...and the user's own file" [ "$(cat "$h/notes.txt")" = 'my own notes' ]
+# bash prints "alias ll=...", and zsh prints "ll=...".
+has_ll() { [[ "$(in_shell "$1" "$2" 'alias ll')" == *"ll='ls -alh'" ]]; }
+for sh in bash zsh; do
+	check "$sh loads the aliases" has_ll "$h" $sh
+	check "  ...without errors" [ ! -s "$h/shell.err" ]
+	[ -s "$h/shell.err" ] && show "$h/shell.err"
+done
+# Requirement 3: a second run changes nothing.
+before=$(snapshot "$h")
+SETUP_ARGS=(update)
+SETUP=envsetup_bash check "envsetup update again, Run everything: exited 0" run_menu "$h" "Run everything" Quit
+SETUP_ARGS=()
+check "  ...and changed nothing" [ "$(snapshot "$h")" = "$before" ]
+((failures)) && show "$h/setup.out"
+
 echo "== --uninstall: work/full, declined and dry-run first"
 h=$(new_home)
 run_menu "$h" "Select profile" work full "Run everything" Quit

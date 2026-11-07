@@ -24,7 +24,7 @@ images=("$@")
 if ((${#images[@]} == 0)); then
 	images=(
 		# Most home desktops, WSL's default, and most VMs/cloud images
-		ubuntu:24.04 ubuntu:22.04 debian:13 debian:12 linuxmintd/mint22-amd64
+		ubuntu:26.04 ubuntu:24.04 ubuntu:22.04 debian:13 debian:12 linuxmintd/mint22-amd64
 		# Fedora, and the RHEL family that most work servers run
 		fedora:latest almalinux:9 rockylinux/rockylinux:9 amazonlinux:2023
 		# Arch, and the desktops based on Arch, which are growing fast

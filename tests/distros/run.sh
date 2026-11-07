@@ -55,7 +55,7 @@ run_one() {
 		# The log keeps the whole URL.
 		err=$(tail -n 1 "$out/$slug/pull.log")
 		[[ "$err" =~ https?://[^\ ]{60,} ]] && err=${err//"${BASH_REMATCH[0]}"/<url>}
-		printf '%s\tcontainer\tWARN\tcouldn'"'"'t pull the image, so nothing ran: %s\n' "$slug" "${err:0:200}" >"$out/$slug/summary.tsv"
+		printf '%s\tcontainer\tWARN\tcouldn'"'"'t pull the image, so nothing ran: %s\n' "$slug" "${err:0:200}" >"$out/$slug/host.tsv"
 		echo "skipped  $image (pull failed)"
 		return
 	fi
@@ -64,11 +64,12 @@ run_one() {
 		-e "DISTRO_SLUG=$slug" -e "DISTROS_SKIP=${DISTROS_SKIP:-}" \
 		-v "$root:/src:ro" -v "$out:/report" \
 		"$image" sh /src/tests/distros/inside.sh >"$out/$slug/container.log" 2>&1 || rc=$?
+	# With rootful Docker, root owns summary.tsv, so the host writes its own rows to host.tsv.
 	if [[ ! -s "$out/$slug/summary.tsv" ]]; then
 		printf '%s\tcontainer\tFAIL\texited %s before any test ran; see %s/container.log\n' \
-			"$slug" "$rc" "$slug" >>"$out/$slug/summary.tsv"
+			"$slug" "$rc" "$slug" >>"$out/$slug/host.tsv"
 	elif ((rc)); then
-		printf '%s\tcontainer\tFAIL\texited %s; see %s/container.log\n' "$slug" "$rc" "$slug" >>"$out/$slug/summary.tsv"
+		printf '%s\tcontainer\tFAIL\texited %s; see %s/container.log\n' "$slug" "$rc" "$slug" >>"$out/$slug/host.tsv"
 	fi
 	echo "finished $image"
 }
@@ -78,6 +79,17 @@ for image in "${images[@]}"; do
 	run_one "$image" &
 done
 wait
+
+# rows <slug> prints the rows of one distro: the container's, then the host's.
+rows() { cat "$out/$1/summary.tsv" "$out/$1/host.tsv" 2>/dev/null || true; }
+
+# A distro with no rows counts as a failure, never as a pass.
+# set -e stops the run if this row cannot be written.
+for image in "${images[@]}"; do
+	slug=${image//[\/:]/-}
+	[[ -n "$(rows "$slug")" ]] && continue
+	printf '%s\tcontainer\tFAIL\tno results; see %s/container.log\n' "$slug" "$slug" >>"$out/$slug/host.tsv"
+done
 
 # The table has one row for each distro.
 # Each column shows the worst result of that phase and its checks.
@@ -101,7 +113,7 @@ icon() { case $1 in PASS) echo "✅" ;; WARN) echo "⚠️" ;; FAIL) echo "❌" 
 			while IFS=$'\t' read -r _ phase status _; do
 				[[ "$phase" == "$col" || "$phase" == "$col: "* || ("$phase" == container && "$col" == bootstrap) ]] || continue
 				case "$status:$worst" in FAIL:* | WARN:PASS | WARN: | PASS:) worst=$status ;; esac
-			done <"$out/$slug/summary.tsv"
+			done < <(rows "$slug")
 			printf ' %s |' "$(icon "$worst")"
 		done
 		echo
@@ -116,7 +128,7 @@ icon() { case $1 in PASS) echo "✅" ;; WARN) echo "⚠️" ;; FAIL) echo "❌" 
 			[[ "$status" == PASS ]] && continue
 			echo "- \`$image\` **$phase** ($status): $detail"
 			found=1
-		done <"$out/$slug/summary.tsv"
+		done < <(rows "$slug")
 	done
 	((found)) || echo "None."
 } >"$out/report.md"
@@ -125,4 +137,5 @@ echo
 cat "$out/report.md"
 echo
 echo "Report: $out/report.md"
-! grep -q $'\tFAIL\t' "$out"/*/summary.tsv
+all=$(for image in "${images[@]}"; do rows "${image//[\/:]/-}"; done)
+[[ "$all" != *$'\tFAIL\t'* ]]

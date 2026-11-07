@@ -59,6 +59,11 @@ jobs:
       - name: tests/eol.sh
         run: tests/eol.sh
 
+      # This step tests the report and the exit status of the distros run.
+      # A fake docker plays the container.
+      - name: tests/distros-report.sh
+        run: tests/distros-report.sh
+
   smoke:
     # This job runs the real tool on a bare Ubuntu container: install.sh, then setup.sh, then real bash and zsh.
     # Only gum's menus, package installs and vendor downloads are fakes.

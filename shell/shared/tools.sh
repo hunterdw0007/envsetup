@@ -15,7 +15,7 @@ if command -v zoxide >/dev/null; then eval "$(zoxide init "$_envsetup_sh")"; fi
 if command -v mise >/dev/null; then eval "$(mise activate "$_envsetup_sh")"; fi
 
 # fzf 0.48 and newer prints its own key bindings.
-# Older versions (Ubuntu 22.04 and 24.04, Debian 12) include a file instead.
+# Older versions (Ubuntu 22.04 and 24.04) include a file instead.
 # The path of that file differs by distro.
 # Key bindings need a terminal, because zsh's zle fails without one.
 if command -v fzf >/dev/null && [[ -t 0 ]]; then

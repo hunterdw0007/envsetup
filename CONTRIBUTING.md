@@ -65,8 +65,11 @@ New work moves envsetup toward these goals.
   [#42](https://github.com/hunterdw0007/envsetup/issues/42) tracks this.
 - **Tested on each supported system.**
   The tests cover each system in the README table.
-  A distro release leaves the tests when its vendor's standard support ends.
+  A distro release leaves the tests when its security support ends.
   [Supported systems](README.md#supported-systems) explains this rule.
+  Then a `feat:` PR removes the distro release.
+  That PR changes `tests/distros/run.sh` and every doc that names the distro release.
+  It is not a breaking change (see [docs/interface.md](docs/interface.md#changes-that-are-not-breaking)).
 
 ## Layout
 

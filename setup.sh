@@ -46,6 +46,7 @@ Profiles (select one in the menu, and change it at any time):
 Put your own changes in ~/.config/envsetup/config.sh.
 If you set XDG_CONFIG_HOME, the file is $XDG_CONFIG_HOME/envsetup/config.sh.
 "Paste config" in the menu adds the text that you paste to the end of the file.
+It can also save the text as a new file in shell.d, next to config.sh.
 "Edit config" in the menu creates the file from config.example.sh and opens it.
 Both check the file for syntax errors and show each setting that changed.
 The file is outside this repo, so updates never change it.

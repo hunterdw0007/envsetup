@@ -91,6 +91,7 @@ Work lite skips **Install packages** and **Run installers**.
 
 - **Select profile** changes the profile and mode.
 - **Paste config** adds the text that you paste to the end of your `config.sh`.
+  It can also save the text as a new file of your own shell code.
   See [Customize](#customize).
 - **Edit config** opens your `config.sh` in an editor.
 - **Set up zsh + oh-my-zsh** installs zsh and [oh-my-zsh](https://ohmyz.sh).
@@ -147,6 +148,12 @@ An update replaces the copy of `shell/`.
 The fastest way is **Paste config** in the menu.
 Paste your settings or shell code into the text box.
 Save or cancel with the keys that gum shows under the box.
+Then pick where the text goes:
+
+- **settings** adds the text to the end of `config.sh`.
+- **shell** saves the text as a new file in `~/.config/envsetup/shell.d`.
+  **Paste config** asks for the file name.
+  See [Your own shell files](docs/shell.md#your-own-shell-files).
 
 <details>
 <summary>How Paste config, Edit config and <code>--config</code> check your text</summary>
@@ -157,6 +164,9 @@ If the text has an error, **Paste config** shows the line number and saves nothi
 It also saves nothing if the text is empty, or if the text runs `exit`.
 Otherwise, it adds the text to the end of `config.sh`.
 Then it shows each setting that changed, for example `Extras: +lazygit +k9s`.
+A new shell file gets the same check before **Paste config** saves it.
+If a file with that name exists, **Paste config** asks "Replace <name>?".
+The default answer keeps the old file.
 
 `./setup.sh --config <file>` adds a file's text in the same way, then opens the menu.
 On an error, it adds nothing and exits 1.

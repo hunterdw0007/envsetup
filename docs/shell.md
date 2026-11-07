@@ -25,6 +25,7 @@ Put them in `~/.config/envsetup/shell.d`.
 If you set `XDG_CONFIG_HOME`, the folder is `$XDG_CONFIG_HOME/envsetup/shell.d`.
 The folder is next to `config.sh`.
 **Link shell config** creates the folder.
+**Paste config** can save the text that you paste as a new file in it.
 Updates never change it.
 
 Each new interactive shell loads the files in name order:

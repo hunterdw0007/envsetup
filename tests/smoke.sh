@@ -780,6 +780,27 @@ check "  ...and names the broken file" grep -qF 40-broken.sh "$h/shell.err"
 check "zsh loads .sh and .zsh files in name order, after config.sh" [ "$(in_shell "$h" zsh 'printf %s "$mine"')" = cfgazc ]
 check "  ...and names the broken file" grep -qF 40-broken.sh "$h/shell.err"
 check "a non-interactive bash loads no file from shell.d" [ "$(not_interactive "$h" 'printf %s "$mine"')" = cfg ]
+SMOKE_WRITE='mine+=p' SMOKE_INPUT=60-pasted check "Paste config, shell file: exited 0" run_menu "$h" "Paste config" shell Quit
+check "  ...saved the text as 60-pasted.sh" [ "$(cat "$d/60-pasted.sh" 2>/dev/null)" = 'mine+=p' ]
+check "  ...and the next new shell loads it" [ "$(in_shell "$h" bash 'printf %s "$mine"')" = cfgabcp ]
+SMOKE_WRITE='mine+=q' SMOKE_INPUT=60-pasted.sh run_menu "$h" "Paste config" shell Quit || true
+check "a name that exists asks to replace it" grep -qF "gum confirm --default=false Replace 60-pasted.sh?" "$SMOKE_LOG"
+check "  ...and the default answer keeps the old file" [ "$(cat "$d/60-pasted.sh")" = 'mine+=p' ]
+CONFIRMS=(yes)
+SMOKE_WRITE='mine+=q' SMOKE_INPUT=60-pasted.sh run_menu "$h" "Paste config" shell Quit || true
+CONFIRMS=()
+check "  ...and yes replaces it" [ "$(cat "$d/60-pasted.sh")" = 'mine+=q' ]
+SMOKE_WRITE=$'if true\nfi' SMOKE_INPUT=70-bad.sh run_menu "$h" "Paste config" shell Quit || true
+check "a shell file with an error is not saved" none_exist "$d/70-bad.sh"
+check "  ...and the error shows the line number" grep -qF 'line 2: syntax error' "$SMOKE_LOG"
+SMOKE_WRITE='mine+=x' SMOKE_INPUT=../x.sh run_menu "$h" "Paste config" shell Quit || true
+check "a name with a / is rejected" grep -qF '"../x.sh" is not a file name' "$SMOKE_LOG"
+check "  ...and nothing is saved outside shell.d" none_exist "$h/.config/envsetup/x.sh"
+SETUP_ARGS=(--dry-run)
+SMOKE_WRITE='mine+=x' SMOKE_INPUT=80-dry.sh run_menu "$h" "Paste config" shell Quit || true
+SETUP_ARGS=()
+check "a dry-run paste says it would save the shell file" grep -qF "would save the text as $d/80-dry.sh" "$SMOKE_LOG"
+check "  ...and saves nothing" none_exist "$d/80-dry.sh"
 before=$(snapshot "$d")
 SHELL=/usr/bin/zsh check "Link shell config again: exited 0" run_menu "$h" "Link shell config" Quit
 check "  ...and left shell.d unchanged" [ "$(snapshot "$d")" = "$before" ]
@@ -853,29 +874,29 @@ check "  ...and nothing was saved" [ "$(snapshot "$h")" = "$before" ]
 echo "== Paste config, Edit config and --config: check the text, then show the changes"
 h=$(new_home)
 c=$h/.config/envsetup/config.sh
-SMOKE_WRITE='ENVSETUP_EXTRAS+=(lazygit k9s)' check "Paste config: exited 0" run_menu "$h" "Paste config" Quit
+SMOKE_WRITE='ENVSETUP_EXTRAS+=(lazygit k9s)' check "Paste config: exited 0" run_menu "$h" "Paste config" settings Quit
 check "  ...added the text to the end of config.sh" [ "$(cat "$c" 2>/dev/null)" = 'ENVSETUP_EXTRAS+=(lazygit k9s)' ]
 check "  ...and showed the changed setting" grep -qxF 'gum style Extras: +lazygit +k9s' "$SMOKE_LOG"
-SMOKE_WRITE=$'ENVSETUP_SKIP+=(tig)\r' run_menu "$h" "Paste config" Quit || true
+SMOKE_WRITE=$'ENVSETUP_SKIP+=(tig)\r' run_menu "$h" "Paste config" settings Quit || true
 want=$'ENVSETUP_EXTRAS+=(lazygit k9s)\nENVSETUP_SKIP+=(tig)'
 check "a paste from Windows loses its \\r" [ "$(cat "$c")" = "$want" ]
-SMOKE_WRITE=$'ENVSETUP_SHELL=zsh\nfi' run_menu "$h" "Paste config" Quit || true
+SMOKE_WRITE=$'ENVSETUP_SHELL=zsh\nfi' run_menu "$h" "Paste config" settings Quit || true
 check "a paste with an error leaves config.sh as it was" [ "$(cat "$c")" = "$want" ]
 check "  ...and shows the line number" grep -qF 'line 2: syntax error' "$SMOKE_LOG"
-SMOKE_WRITE=$' \n\t' run_menu "$h" "Paste config" Quit || true
+SMOKE_WRITE=$' \n\t' run_menu "$h" "Paste config" settings Quit || true
 check "an empty paste saves nothing" [ "$(cat "$c")" = "$want" ]
 check "  ...and says so" grep -qF 'The text is empty' "$SMOKE_LOG"
-SMOKE_WRITE='exit 0' run_menu "$h" "Paste config" Quit || true
+SMOKE_WRITE='exit 0' run_menu "$h" "Paste config" settings Quit || true
 check "a paste that runs exit saves nothing" [ "$(cat "$c")" = "$want" ]
 check "  ...and says why" grep -qF 'would stop before its end' "$SMOKE_LOG"
 printf 'if true; then\n' >>"$c"
-SMOKE_WRITE='ENVSETUP_SHELL=zsh' run_menu "$h" "Paste config" Quit || true
+SMOKE_WRITE='ENVSETUP_SHELL=zsh' run_menu "$h" "Paste config" settings Quit || true
 check "a paste onto a config.sh with an error saves nothing" [ "$(cat "$c")" = "$want"$'\nif true; then' ]
 check "  ...and names the line in config.sh" grep -qF 'config.sh already has an error, so envsetup saved nothing. Select Edit config to fix it: line 4: syntax error' "$SMOKE_LOG"
 printf '%s\n' "$want" >"$c"
 before=$(snapshot "$h")
 SETUP_ARGS=(--dry-run)
-SMOKE_WRITE='ENVSETUP_SKIP+=(btop)' run_menu "$h" "Paste config" Quit || true
+SMOKE_WRITE='ENVSETUP_SKIP+=(btop)' run_menu "$h" "Paste config" settings Quit || true
 SETUP_ARGS=()
 check "a dry-run paste shows the changes" grep -qxF 'gum style Skip: +btop' "$SMOKE_LOG"
 check "  ...and saves nothing" [ "$(snapshot "$h")" = "$before" ]
@@ -1125,10 +1146,10 @@ EDITOR=$W/edit-append check "--dry-run Edit config with a linked config.sh: exit
 SETUP_ARGS=()
 check "  ...left the clone clean" not dirty
 SETUP_ARGS=(--dry-run)
-SMOKE_WRITE='# smoke paste' check "--dry-run Paste config with a linked config.sh: exited 0" run_menu "$h" "Paste config" Quit
+SMOKE_WRITE='# smoke paste' check "--dry-run Paste config with a linked config.sh: exited 0" run_menu "$h" "Paste config" settings Quit
 SETUP_ARGS=()
 check "  ...left the clone clean" not dirty
-SMOKE_WRITE='# smoke paste' check "Paste config with a linked config.sh: exited 0" run_menu "$h" "Paste config" Quit
+SMOKE_WRITE='# smoke paste' check "Paste config with a linked config.sh: exited 0" run_menu "$h" "Paste config" settings Quit
 check "  ...added the text to the clone's config.sh" [ "$(tail -n 1 "$st/repo/config.sh")" = '# smoke paste' ]
 check "  ...and said to commit and push it" grep -qF 'Commit and push your edits there' "$SMOKE_LOG"
 git -C "$st/repo" checkout -q -- config.sh

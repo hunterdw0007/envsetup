@@ -42,6 +42,8 @@ prehook=()
 run_one() {
 	local image=$1 slug=${1//[\/:]/-} rc=0 err
 	mkdir -p "$out/$slug"
+	# A reused DISTROS_OUT holds the old results, so remove them first.
+	rm -f "$out/$slug/summary.tsv" "$out/$slug/host.tsv" "$out/$slug/container.log"
 	# Registries limit the number of anonymous pulls, and Docker Hub then answers 429.
 	# That is not a problem with the distro, so the report lists it separately.
 	# A mirror of the same image avoids the limit.
@@ -74,26 +76,50 @@ run_one() {
 	echo "finished $image"
 }
 
+pids=() bad=0
 for image in "${images[@]}"; do
 	while (($(jobs -rp | wc -l) >= ${JOBS:-3})); do wait -n || true; done
 	run_one "$image" &
+	pids+=("$!")
 done
-wait
+# bash keeps each job's exit status, even after wait -n.
+# A job fails when set -e stops it, for example on a row that it cannot write.
+for pid in "${pids[@]}"; do wait "$pid" || bad=1; done
 
+# Each distro gets one column for each phase.
+cols=(bootstrap gum home work-full work-lite)
 # rows <slug> prints the rows of one distro: the container's, then the host's.
 rows() { cat "$out/$1/summary.tsv" "$out/$1/host.tsv" 2>/dev/null || true; }
+# in_col <phase> <col> tells whether a row of that phase counts in that column.
+in_col() { [[ "$1" == "$2" || "$1" == "$2: "* || ("$1" == container && "$2" == bootstrap) ]]; }
+# fail_row <slug> <phase> <detail> adds a FAIL row, and marks the run bad if it cannot.
+# The run goes on, so the report still gets written.
+fail_row() {
+	printf '%s\t%s\tFAIL\t%s; see %s/container.log\n' "$1" "$2" "$3" "$1" >>"$out/$1/host.tsv" || bad=1
+}
 
-# A distro with no rows counts as a failure, never as a pass.
-# set -e stops the run if this row cannot be written.
+# A distro without a result for each phase counts as a failure, never as a pass.
+# Only a container that ran must have every phase, because a failed pull writes a WARN row.
+ran=0
 for image in "${images[@]}"; do
 	slug=${image//[\/:]/-}
-	[[ -n "$(rows "$slug")" ]] && continue
-	printf '%s\tcontainer\tFAIL\tno results; see %s/container.log\n' "$slug" "$slug" >>"$out/$slug/host.tsv"
+	[[ -e "$out/$slug/container.log" ]] && ran=1
+	if [[ -e "$out/$slug/summary.tsv" && ! -r "$out/$slug/summary.tsv" ]]; then
+		fail_row "$slug" container "couldn't read summary.tsv"
+	elif [[ -z "$(rows "$slug")" ]]; then
+		fail_row "$slug" container "no results"
+	elif [[ -e "$out/$slug/container.log" && "$(rows "$slug")" != *$'\tFAIL\t'* ]]; then
+		for col in "${cols[@]}"; do
+			while IFS=$'\t' read -r _ phase _; do
+				in_col "$phase" "$col" && continue 2
+			done < <(rows "$slug")
+			fail_row "$slug" "$col" "no result"
+		done
+	fi
 done
 
 # The table has one row for each distro.
 # Each column shows the worst result of that phase and its checks.
-cols=(bootstrap gum home work-full work-lite)
 icon() { case $1 in PASS) echo "✅" ;; WARN) echo "⚠️" ;; FAIL) echo "❌" ;; *) echo "–" ;; esac }
 {
 	echo "# envsetup on other distros"
@@ -111,7 +137,7 @@ icon() { case $1 in PASS) echo "✅" ;; WARN) echo "⚠️" ;; FAIL) echo "❌" 
 		for col in "${cols[@]}"; do
 			worst=
 			while IFS=$'\t' read -r _ phase status _; do
-				[[ "$phase" == "$col" || "$phase" == "$col: "* || ("$phase" == container && "$col" == bootstrap) ]] || continue
+				in_col "$phase" "$col" || continue
 				case "$status:$worst" in FAIL:* | WARN:PASS | WARN: | PASS:) worst=$status ;; esac
 			done < <(rows "$slug")
 			printf ' %s |' "$(icon "$worst")"
@@ -130,6 +156,14 @@ icon() { case $1 in PASS) echo "✅" ;; WARN) echo "⚠️" ;; FAIL) echo "❌" 
 			found=1
 		done < <(rows "$slug")
 	done
+	if ((! ran)); then
+		echo "- No image ran, so this run tested nothing. See each pull.log."
+		found=1
+	fi
+	if ((bad)); then
+		echo "- run.sh hit an error, so some results may be missing or old. See the output of run.sh."
+		found=1
+	fi
 	((found)) || echo "None."
 } >"$out/report.md"
 
@@ -137,5 +171,6 @@ echo
 cat "$out/report.md"
 echo
 echo "Report: $out/report.md"
+if ((bad || ! ran)); then exit 1; fi
 all=$(for image in "${images[@]}"; do rows "${image//[\/:]/-}"; done)
 [[ "$all" != *$'\tFAIL\t'* ]]

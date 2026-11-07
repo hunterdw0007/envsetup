@@ -65,6 +65,8 @@ New work moves envsetup toward these goals.
   [#42](https://github.com/hunterdw0007/envsetup/issues/42) tracks this.
 - **Tested on each supported system.**
   The tests cover each system in the README table.
+  A distro release leaves the tests when its vendor's standard support ends.
+  [Supported systems](README.md#supported-systems) explains this rule.
 
 ## Layout
 

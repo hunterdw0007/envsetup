@@ -138,6 +138,13 @@ It uses the package manager that the machine has.
 | Bazzite, Aurora, Silverblue, SteamOS, Aeon | `brew` | `/usr` is read-only, so envsetup needs Homebrew or Nix. Bazzite and Aurora include Homebrew. |
 | NixOS | `nix` | Installs into your user profile with `nix profile` or `nix-env`. |
 
+envsetup supports each distro release until its vendor's standard support ends.
+Paid extended support does not count.
+Ubuntu Pro ESM is one example of paid extended support.
+After that date, a `feat:` PR removes the distro release.
+That PR changes `tests/distros/run.sh` and every doc that names the distro release.
+The PR is not a breaking change (see [docs/interface.md](docs/interface.md#changes-that-are-not-breaking)).
+
 ## Customize
 
 The packages, installers, aliases and git settings in this repo are defaults.

@@ -4,6 +4,12 @@ Every release of envsetup, newest first, with what changed in it. CI writes each
 from the commits on `main` when it releases them (see "Releases" in AGENTS.md), so
 don't edit this file by hand.
 
+## v0.15.0 (2026-11-07)
+
+### Features
+
+- **distros**: test openSUSE Leap 16.0 instead of Leap 15.6 (#151)
+
 ## v0.14.0 (2026-11-07)
 
 ### Features

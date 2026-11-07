@@ -305,8 +305,14 @@ The file `version` next to the copy records the release.
 - The `ENVSETUP_*` variables in `config.sh` are part of the interface that users rely on.
   A new setting gets its default in `envsetup::load_config` (`lib/config.sh`).
   Document it in `config.example.sh`, in the README's settings table and in `docs/interface.md`.
-- A renamed setting, or a setting with a new meaning, breaks users' configs.
+- A setting with a new meaning breaks users' configs.
   So that change is a `!` change.
+- A renamed setting gets an item in `ENVSETUP_RENAMED` (`lib/config.sh`).
+  Then envsetup still reads the old name and asks to migrate `config.sh`.
+  So that rename is not a `!` change.
+  A rename without that item is a `!` change.
+  Code under `shell/` does not read `ENVSETUP_RENAMED`.
+  So code under `shell/` must read both the old name and the new name.
 - `work`'s `lite` mode skips `packages/work.txt` and `installers/work/` completely.
   Lite mode does not assume sudo.
   So do not add something to either one that lite mode needs.

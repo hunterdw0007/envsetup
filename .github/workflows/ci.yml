@@ -54,6 +54,11 @@ jobs:
       - name: tests/release.sh
         run: tests/release.sh
 
+      # This step tests the monthly script that drops distro releases past their security support.
+      # It uses fixed JSON files, not the network.
+      - name: tests/eol.sh
+        run: tests/eol.sh
+
   smoke:
     # This job runs the real tool on a bare Ubuntu container: install.sh, then setup.sh, then real bash and zsh.
     # Only gum's menus, package installs and vendor downloads are fakes.

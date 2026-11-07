@@ -7,6 +7,13 @@
 #   bump-pr.sh <changes.md>   the list that bump-versions.sh printed
 #
 # .github/workflows/bump-versions.yml runs this script every week.
+# .github/workflows/drop-eol-distros.yml runs it every month for tests/distros/run.sh.
+# That workflow sets these variables:
+#   BUMP_BRANCH  the PR's branch (default: bump-versions)
+#   BUMP_FILE    the file that the PR changes (default: installers/versions.txt)
+#   BUMP_TITLE   the PR's title and the commit's first line
+#   BUMP_BODY    a file with the PR's description, instead of the text below
+#   BUMP_COMPARE "list" to compare the list of changes, not the file (see below)
 # PUSH_TOKEN and GH_TOKEN must not be GITHUB_TOKEN.
 # A push or PR made with GITHUB_TOKEN starts no workflows, so the PR would get no CI.
 set -euo pipefail
@@ -16,10 +23,11 @@ changes=${1:?the list of changes bump-versions.sh printed}
 repo=${GITHUB_REPOSITORY:?owner/repo, as GitHub Actions sets it}
 server=${GITHUB_SERVER_URL:-https://github.com}
 branch=${BUMP_BRANCH:-bump-versions}
-title="fix(installers): bump pinned tool versions"
+file=${BUMP_FILE:-installers/versions.txt}
+title=${BUMP_TITLE:-"fix(installers): bump pinned tool versions"}
 
-if git diff --quiet -- installers/versions.txt; then
-	echo "Every pin is up to date."
+if git diff --quiet -- "$file"; then
+	echo "$file has no changes."
 	exit 0
 fi
 # The git config goes through the environment, so the token is in no file and no argument.
@@ -30,14 +38,27 @@ if [[ -n "${PUSH_TOKEN:-}" ]]; then
 	GIT_CONFIG_VALUE_1="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 -w0)"
 	export GIT_CONFIG_VALUE_1
 fi
-# The PR may already have these pins.
-# Then a push of the same pins would only run CI again.
-if git fetch -q origin "refs/heads/$branch" 2>/dev/null && git diff --quiet FETCH_HEAD -- installers/versions.txt; then
-	echo "$branch already has these pins."
+# The PR may already have this change.
+# Then a push of the same change would only run CI again.
+# With BUMP_COMPARE=list, the script compares the top-level items of <changes.md>, not the file.
+# The bot's last commit on the branch holds the old list.
+# So a change to the file on main does not erase fixes that people pushed to the branch.
+same=false
+if git fetch -q origin "refs/heads/$branch" 2>/dev/null; then
+	if [[ "${BUMP_COMPARE:-}" == list ]]; then
+		new_items=$(grep '^- ' "$changes" || true)
+		old_items=$(git log -1 --format=%B --author='github-actions\[bot\]' FETCH_HEAD | grep '^- ' || true)
+		if [[ -n "$new_items" && "$new_items" == "$old_items" ]]; then same=true; fi
+	elif git diff --quiet FETCH_HEAD -- "$file"; then
+		same=true
+	fi
+fi
+if "$same"; then
+	echo "$branch already has this change to $file."
 	exit 0
 fi
 
-git add installers/versions.txt
+git add "$file"
 git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
 	commit -q -F - <<EOF
 $title
@@ -50,7 +71,10 @@ git push -q --force origin "HEAD:refs/heads/$branch"
 
 body=$(mktemp)
 trap 'rm -f "$body"' EXIT
-cat >"$body" <<EOF
+if [[ -n "${BUMP_BODY:-}" ]]; then
+	cp "$BUMP_BODY" "$body"
+else
+	cat >"$body" <<EOF
 This is the weekly bump of \`installers/versions.txt\`, from \`.github/scripts/bump-versions.sh\`.
 It has the newest release of each tool.
 It also has the sha256 that each project publishes for each download.
@@ -64,6 +88,7 @@ $(<"$changes")
 
 The script writes this PR again each week while it is open. It replaces any edits pushed to \`$branch\`.
 EOF
+fi
 if [[ -n "$(gh pr list --repo "$repo" --head "$branch" --state open --json number --jq '.[].number')" ]]; then
 	gh pr edit "$branch" --repo "$repo" --body-file "$body"
 else

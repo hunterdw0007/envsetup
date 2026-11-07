@@ -1,0 +1,94 @@
+name: drop-eol-distros
+
+# This workflow runs every month.
+# It looks up when each distro release in tests/distros/run.sh loses security support.
+# It opens one PR that drops each release past that date, or updates that PR.
+# It does nothing while every release still has security support.
+# README.md ("Supported systems") states the rule, and AGENTS.md describes the PR.
+# To run it now, open Actions > drop-eol-distros > Run workflow.
+on:
+  schedule:
+    - cron: "23 4 2 * *" # the 2nd of each month, 04:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read # the push and the PR use RELEASE_TOKEN, below
+
+concurrency:
+  group: drop-eol-distros
+  cancel-in-progress: false
+
+jobs:
+  drop:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          # .git/config holds no token while the lookups run.
+          # Only the last step gets a token.
+          persist-credentials: false
+
+      - name: Look up the end of security support
+        run: |
+          .github/scripts/drop-eol-distros.sh >"$RUNNER_TEMP/changes.md"
+          tee -a "$GITHUB_STEP_SUMMARY" <"$RUNNER_TEMP/changes.md"
+          cat - "$RUNNER_TEMP/changes.md" >"$RUNNER_TEMP/body.md" <<'EOF'
+          This is the monthly check of `tests/distros/run.sh`, from `.github/scripts/drop-eol-distros.sh`.
+          It drops each distro release whose security support ended, as README.md ("Supported systems") states.
+
+          EOF
+          cat >>"$RUNNER_TEMP/body.md" <<'EOF'
+
+          ## To do before the merge
+          - [ ] Fix each line above that still names a dropped release. Push the fixes to this branch.
+          - [ ] Close the issue that tracks each dropped release, if there is one.
+
+          ## Test plan
+          - [ ] CI passes.
+          - [ ] The distros run on this branch passed on every release that is left.
+          - [ ] I checked each date on its endoflife.date page.
+
+          The workflow checks again each month while this PR is open. It rewrites the branch only when another release loses support. That rewrite drops any edits pushed to the branch.
+          EOF
+
+      - name: Open or update the PR
+        env:
+          BUMP_BRANCH: drop-eol-distros
+          BUMP_FILE: tests/distros/run.sh
+          BUMP_TITLE: "feat(distros): drop distro releases past their security support"
+          # People push doc fixes to this PR's branch.
+          # So the script rewrites the branch only when the list of dropped releases changes.
+          BUMP_COMPARE: list
+          # This step does not use GITHUB_TOKEN.
+          # A push or PR made with GITHUB_TOKEN starts no workflows, so the PR would get no CI.
+          # The token needs write access to Contents, Pull requests and Actions.
+          PUSH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: BUMP_BODY="$RUNNER_TEMP/body.md" .github/scripts/bump-pr.sh "$RUNNER_TEMP/changes.md"
+
+  # A missing row, a changed API or a changed run.sh stops the script on purpose.
+  # This job makes sure that someone sees it.
+  report-failure:
+    needs: drop
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write # this job only, and it runs no repo code
+    steps:
+      - name: Open or comment on the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: "drop-eol-distros: monthly run failed"
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          n=$(gh issue list --state open --search "in:title \"$TITLE\"" --json number,title \
+            --jq "map(select(.title == env.TITLE))[0].number // empty")
+          if [[ -n $n ]]; then
+            gh issue comment "$n" --body "Failed again: $RUN"
+          else
+            gh issue create --title "$TITLE" --body "The monthly drop-eol-distros run failed: $RUN. The log names the cause."
+          fi

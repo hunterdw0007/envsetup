@@ -61,8 +61,15 @@ while IFS= read -r line; do
 		in_list=true
 	elif [[ "$line" == $'\t)' ]]; then
 		in_list=false
-	elif "$in_list" && [[ "$line" != *#* ]]; then
-		read -ra words <<<"$line"
+	elif "$in_list"; then
+		# The images come before any "#". A comment after them stays.
+		images=${line%%#*} comment=${line:${#images}}
+		read -ra words <<<"$images"
+		# A blank line or a whole comment line stays as it is.
+		if ((${#words[@]} == 0)); then
+			printf '%s\n' "$line" >>"$new"
+			continue
+		fi
 		kept=()
 		for image in "${words[@]}"; do
 			found=$((found + 1))
@@ -88,7 +95,7 @@ while IFS= read -r line; do
 		done
 		# A line with no images left goes away.
 		((${#kept[@]} == 0)) && continue
-		line=$'\t\t'"${kept[*]}"
+		line=$'\t\t'"${kept[*]}${comment:+ $comment}"
 	fi
 	printf '%s\n' "$line" >>"$new"
 done <"$list"

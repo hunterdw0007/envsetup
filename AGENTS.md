@@ -341,6 +341,8 @@ On pushes to `main`, it also runs `release` after those jobs pass (see Releases)
   It also runs `tests/release.sh`.
   That script tests the release flow against a local test remote with the hash-locked commitizen.
   To run it locally, put `cz` on your PATH.
+  It also runs `tests/eol.sh`.
+  That script tests `drop-eol-distros.sh` and its PR step against fixed data and a local test remote.
 - `smoke` runs `tests/smoke.sh` in a bare `ubuntu:24.04` container.
   It runs these scenarios in order:
   - `install.sh` stops on macOS.

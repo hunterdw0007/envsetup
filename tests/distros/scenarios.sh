@@ -136,6 +136,8 @@ epel=()
 # shellcheck disable=SC1091 # this is the container's own os-release, not a file in this repo
 case $(. /etc/os-release && echo "${ID-}:${VERSION_ID-}") in
 almalinux:9.* | rocky:9.*) known_pkgs=direnv known_cmds=direnv epel=(yes) ;;
+# Leap 16.0 does not package nmap, which only work lists.
+opensuse-leap:16.*) known_pkgs=nmap known_cmds=nmap ;;
 amzn:2023)
 	known_pkgs="fzf ripgrep bat neovim direnv shellcheck ncdu"
 	known_cmds="fzf rg bat|batcat nvim direnv shellcheck ncdu"

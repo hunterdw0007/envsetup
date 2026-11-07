@@ -133,7 +133,7 @@ It uses the package manager that the machine has.
 | RHEL, Rocky, Alma, CentOS Stream, Oracle Linux | `dnf` | Asks to turn on EPEL. See [EPEL](docs/systems.md#epel). |
 | Amazon Linux 2023 | `dnf` | Has no EPEL. See [EPEL](docs/systems.md#epel). |
 | Arch, CachyOS, EndeavourOS, Manjaro | `pacman` | |
-| openSUSE Tumbleweed and Leap | `zypper` | |
+| openSUSE Tumbleweed and Leap | `zypper` | Leap 16.0 does not package `nmap`. For `work`, add it to `ENVSETUP_SKIP`. |
 | Alpine | `apk` | Install bash first: `apk add bash curl`. |
 | Bazzite, Aurora, Silverblue, SteamOS, Aeon | `brew` | `/usr` is read-only, so envsetup needs Homebrew or Nix. Bazzite and Aurora include Homebrew. |
 | NixOS | `nix` | Installs into your user profile with `nix profile` or `nix-env`. |

@@ -938,6 +938,40 @@ SETUP_ARGS=()
 check "  ...added the file's text to config.sh" [ "$(cat "$c" 2>/dev/null)" = ENVSETUP_SHELL=zsh ]
 check "  ...and showed the changed setting" grep -qxF 'gum style Shell: +zsh -bash' "$SMOKE_LOG"
 
+echo "== A renamed setting in config.sh: ask, then migrate (#124)"
+# The shipped ENVSETUP_RENAMED is empty, so a copy of the clone gets a test item.
+M=$W/renamed
+cp -a "$CLONE" "$M"
+sed -i 's/^ENVSETUP_RENAMED=()$/ENVSETUP_RENAMED=(ENVSETUP_OLD_SHELL=ENVSETUP_SHELL)/' "$M/lib/config.sh"
+check "  ...(control: the copy has the test item)" grep -qxF 'ENVSETUP_RENAMED=(ENVSETUP_OLD_SHELL=ENVSETUP_SHELL)' "$M/lib/config.sh"
+h=$(new_home)
+c=$h/.config/envsetup/config.sh
+mkdir -p "${c%/*}"
+# The first line has a byte that is not valid UTF-8, before the old name (Latin-1 text).
+old=$'# caf\xe9\nENVSETUP_OLD_SHELL=zsh\n# ENVSETUP_OLD_SHELLS stays'
+printf '%s\n' "$old" >"$c"
+check "the shipped list is empty, so it asks nothing" run_menu "$h" Quit
+check "  ...and leaves config.sh as it was" [ "$(cat "$c")" = "$old" ]
+check "  ...and never asks" not grep -qF 'gum confirm' "$SMOKE_LOG"
+before=$(snapshot "$h")
+SETUP_ARGS=(--dry-run)
+SETUP=$M/setup.sh check "--dry-run: exited 0" run_menu "$h" Quit
+SETUP_ARGS=()
+check "  ...said it would ask" grep -qF "would ask to rename these settings in $c: ENVSETUP_OLD_SHELL → ENVSETUP_SHELL" "$SMOKE_LOG"
+check "  ...did not ask" not grep -qF 'gum confirm' "$SMOKE_LOG"
+check "  ...and saved nothing" [ "$(snapshot "$h")" = "$before" ]
+CONFIRMS=(no)
+SETUP=$M/setup.sh check "no: exited 0" run_menu "$h" "Select profile" home Quit
+check "  ...asked first" grep -qF 'gum confirm --default=false Some settings in '"$c"' have a new name: ENVSETUP_OLD_SHELL → ENVSETUP_SHELL.' "$SMOKE_LOG"
+check "  ...left config.sh as it was" [ "$(cat "$c")" = "$old" ]
+check "  ...and still read the old name" described "$hm" "home  zsh + oh-my-zsh · $hm packages"
+CONFIRMS=(yes)
+SETUP=$M/setup.sh check "yes: exited 0" run_menu "$h" Quit
+check "  ...renamed only that name" [ "$(cat "$c")" = $'# caf\xe9\nENVSETUP_SHELL=zsh\n# ENVSETUP_OLD_SHELLS stays' ]
+SETUP=$M/setup.sh check "a second run: exited 0" run_menu "$h" Quit
+check "  ...and asked nothing" not grep -qF 'gum confirm' "$SMOKE_LOG"
+CONFIRMS=()
+
 echo "== Preview everything (normal session): work/full"
 h=$(new_home)
 check "exited 0" run_menu "$h" "Select profile" work full "Preview everything" Quit

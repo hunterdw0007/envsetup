@@ -312,7 +312,7 @@ The file `version` next to the copy records the release.
   So that rename is not a `!` change.
   A rename without that item is a `!` change.
   Code under `shell/` does not read `ENVSETUP_RENAMED`.
-  So a setting that `shell/` reads must also keep its old name there.
+  So code under `shell/` must read both the old name and the new name.
 - `work`'s `lite` mode skips `packages/work.txt` and `installers/work/` completely.
   Lite mode does not assume sudo.
   So do not add something to either one that lite mode needs.

@@ -138,6 +138,16 @@ It uses the package manager that the machine has.
 | Bazzite, Aurora, Silverblue, SteamOS, Aeon | `brew` | `/usr` is read-only, so envsetup needs Homebrew or Nix. Bazzite and Aurora include Homebrew. |
 | NixOS | `nix` | Installs into your user profile with `nix profile` or `nix-env`. |
 
+envsetup supports each distro release until its security support ends.
+[endoflife.date](https://endoflife.date) lists that date for each distro release.
+Extended support does not count, paid or free.
+Ubuntu Pro ESM and Debian LTS are two examples of extended support.
+A rolling distro, such as Arch or openSUSE Tumbleweed, has no releases.
+envsetup supports its current state.
+For Fedora and Alpine, the tests use the newest release.
+The image list in [`tests/distros/run.sh`](tests/distros/run.sh) names each distro release that the tests cover.
+[CONTRIBUTING.md](CONTRIBUTING.md#goals) explains how a distro release leaves.
+
 ## Customize
 
 The packages, installers, aliases and git settings in this repo are defaults.

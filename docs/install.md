@@ -31,9 +31,10 @@ Or run `envsetup` in a new shell, which runs the same command for you.
 **Link shell config** (or **Run everything**) then replaces the copy.
 Running the same release again changes nothing.
 
-envsetup is still at version 0.x.
-In 0.x, a release can change something you use every day.
-The changelog lists these changes first, under "Breaking changes".
+From 1.0.0 on, envsetup follows [Semantic Versioning](https://semver.org/).
+Only a new major version, such as 2.0.0, can break something you use.
+[docs/interface.md](interface.md) lists what that promise covers.
+The changelog lists those changes first, under "Breaking changes".
 
 ## Select a release
 

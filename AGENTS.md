@@ -253,6 +253,17 @@ The file `version` next to the copy records the release.
   The same version with new checksums means the project replaced a release's files.
 - A bump PR is a `fix(installers): ...`, so it makes a release.
 - `RELEASE_TOKEN` needs write access to Contents, Pull requests and Actions.
+- The `drop-eol-distros` workflow runs on the 2nd of each month.
+  It runs `.github/scripts/drop-eol-distros.sh`, then `bump-pr.sh`.
+  The script reads each release's end of security support from endoflife.date.
+  It drops each release past that date from `tests/distros/run.sh`.
+  It lists the docs that still name the release.
+  Fix those docs on the PR's branch before you merge.
+  The PR is a `feat(distros): ...`.
+- Each image in `tests/distros/run.sh` needs a row in the script's table.
+  The row names the endoflife.date field that means "security support ends".
+  A missing row stops the workflow.
+  `tests/eol.sh` tests the script, and CI's `shell-checks` job runs it.
 - Download the build for the machine's architecture.
   `envsetup::arch` returns `amd64` or `arm64`.
 - Run steps that need root through `envsetup::as_root`.

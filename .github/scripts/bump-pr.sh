@@ -13,6 +13,7 @@
 #   BUMP_FILE    the file that the PR changes (default: installers/versions.txt)
 #   BUMP_TITLE   the PR's title and the commit's first line
 #   BUMP_BODY    a file with the PR's description, instead of the text below
+#   BUMP_COMPARE "list" to compare the list of changes, not the file (see below)
 # PUSH_TOKEN and GH_TOKEN must not be GITHUB_TOKEN.
 # A push or PR made with GITHUB_TOKEN starts no workflows, so the PR would get no CI.
 set -euo pipefail
@@ -39,7 +40,20 @@ if [[ -n "${PUSH_TOKEN:-}" ]]; then
 fi
 # The PR may already have this change.
 # Then a push of the same change would only run CI again.
-if git fetch -q origin "refs/heads/$branch" 2>/dev/null && git diff --quiet FETCH_HEAD -- "$file"; then
+# With BUMP_COMPARE=list, the script compares the top-level items of <changes.md>, not the file.
+# The bot's last commit on the branch holds the old list.
+# So a change to the file on main does not erase fixes that people pushed to the branch.
+same=false
+if git fetch -q origin "refs/heads/$branch" 2>/dev/null; then
+	if [[ "${BUMP_COMPARE:-}" == list ]]; then
+		new_items=$(grep '^- ' "$changes" || true)
+		old_items=$(git log -1 --format=%B --author='github-actions\[bot\]' FETCH_HEAD | grep '^- ' || true)
+		if [[ -n "$new_items" && "$new_items" == "$old_items" ]]; then same=true; fi
+	elif git diff --quiet FETCH_HEAD -- "$file"; then
+		same=true
+	fi
+fi
+if "$same"; then
 	echo "$branch already has this change to $file."
 	exit 0
 fi

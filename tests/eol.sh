@@ -78,10 +78,16 @@ check "the output names the doc that still names Debian 12" has "$T/out" 'README
 check "the output does not name ubuntu:24.04" lacks "$T/out" ubuntu
 
 echo "== A line loses its only image"
-new_repo
+new_repo ''
 run 2027-01-02
-list | sed -e 's/ debian:12$//' -e '/leap/d' >"$T/want"
-check "run.sh drops the line with opensuse/leap:15.6" cmp -s "$T/want" "$T/repo/tests/distros/run.sh"
+list '' | sed -e 's/ debian:12$//' -e '/leap/d' >"$T/want"
+check "run.sh drops the line with opensuse/leap:15.6 and keeps the blank line" cmp -s "$T/want" "$T/repo/tests/distros/run.sh"
+
+echo "== An image line ends with a comment"
+new_repo $'\t\tarchlinux:latest debian:12 # a note'
+run 2026-07-12
+list $'\t\tarchlinux:latest # a note' | sed 's/ debian:12$//' >"$T/want"
+check "run.sh drops debian:12 and keeps the comment" cmp -s "$T/want" "$T/repo/tests/distros/run.sh"
 
 echo "== An image has no row in the table"
 new_repo $'\t\tgentoo/stage3:latest'
@@ -89,6 +95,57 @@ run 2030-01-01
 check "the script fails" test "$rc" -ne 0
 check "the error names the image" has "$T/err" "gentoo/stage3:latest has no row"
 check "run.sh is unchanged" unchanged
+
+echo "== An image with no row ends with a comment"
+new_repo $'\t\tgentoo/stage3:latest # a note'
+run 2026-01-01
+check "the script fails" test "$rc" -ne 0
+check "the error names the image" has "$T/err" "gentoo/stage3:latest has no row"
+
+echo "== The PR step keeps fixes that people pushed to the branch"
+# bump-pr.sh pushes to a local test remote, and a fake gh does nothing.
+new_repo
+cp "$root/.github/scripts/bump-pr.sh" "$T/repo/.github/scripts/"
+mkdir -p "$T/bin"
+printf '#!/bin/sh\nexit 0\n' >"$T/bin/gh"
+chmod +x "$T/bin/gh"
+git init -q --bare "$T/origin.git"
+me=(-c user.name=me -c user.email=me@example.com)
+git -C "$T/repo" add -A
+git -C "$T/repo" "${me[@]}" commit -qm main
+base=$(git -C "$T/repo" rev-parse HEAD)
+git -C "$T/repo" remote add origin "$T/origin.git"
+git -C "$T/repo" push -q origin HEAD:refs/heads/main
+pr() {
+	(cd "$T/repo" && PATH=$T/bin:$PATH GITHUB_REPOSITORY=me/envsetup BUMP_BRANCH=drop BUMP_COMPARE=list \
+		BUMP_FILE=tests/distros/run.sh BUMP_TITLE="feat(distros): drop" .github/scripts/bump-pr.sh "$T/out") >"$T/pr.log" 2>&1
+}
+tip() { git -C "$T/origin.git" rev-parse -q --verify refs/heads/drop; }
+run 2026-07-12
+pr
+check "the first run pushes the branch" test -n "$(tip)"
+# A person pushes a fix to the branch.
+git -C "$T/repo" checkout -q -- tests/distros/run.sh
+git -C "$T/repo" checkout -q -B main "$base"
+git -C "$T/repo" fetch -q origin drop
+git -C "$T/repo" checkout -q FETCH_HEAD
+echo "Tested on Debian 13." >"$T/repo/README.md"
+git -C "$T/repo" "${me[@]}" commit -qam "docs: fix"
+git -C "$T/repo" push -q origin HEAD:refs/heads/drop
+fixed=$(git -C "$T/repo" rev-parse HEAD)
+# Then run.sh changes on main.
+git -C "$T/repo" checkout -q main
+echo "# a change" >>"$T/repo/tests/distros/run.sh"
+git -C "$T/repo" "${me[@]}" commit -qam "test: change run.sh"
+git -C "$T/repo" push -q origin HEAD:refs/heads/main
+run 2026-07-12
+pr
+check "a change on main keeps the fix" test "$(tip)" = "$fixed"
+check "the PR step says the branch has the change" has "$T/pr.log" "drop already has this change"
+git -C "$T/repo" checkout -q -- tests/distros/run.sh
+run 2027-01-02
+pr
+check "another drop rewrites the branch" test "$(git -C "$T/origin.git" log -1 --format=%s drop)" = "feat(distros): drop"
 
 echo "== A lookup fails"
 new_repo

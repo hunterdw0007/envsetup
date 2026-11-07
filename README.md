@@ -239,6 +239,7 @@ It keeps packages and tools.
 - [docs/xdg.md](docs/xdg.md): how envsetup moves dotfiles to XDG folders.
 - [docs/systems.md](docs/systems.md): macOS, EPEL, root access and pinned downloads.
 - [docs/uninstall.md](docs/uninstall.md): what uninstall removes, asks about and keeps.
+- [docs/interface.md](docs/interface.md): the parts of envsetup that only a new major version may break.
 - [CONTRIBUTING.md](CONTRIBUTING.md): the repo layout, new installers, releases and tests.
 
 ## License

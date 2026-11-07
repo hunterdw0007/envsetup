@@ -38,6 +38,7 @@ CI also checks the PR title.
 - A breaking change puts `!` after the type or scope: `feat!: ...`.
   A change is breaking when it changes envsetup's API in a way that is not backwards compatible.
   [`CONTRIBUTING.md`](CONTRIBUTING.md#breaking-changes) defines the API and gives examples.
+  [`docs/interface.md`](docs/interface.md) lists each part of the API.
   A breaking change raises the major version.
   While the version is 0.x, it raises the minor version instead (see Releases).
   The release notes list it under "Breaking changes".
@@ -303,7 +304,7 @@ The file `version` next to the copy records the release.
   `xdg.sh` is an example.
 - The `ENVSETUP_*` variables in `config.sh` are part of the interface that users rely on.
   A new setting gets its default in `envsetup::load_config` (`lib/config.sh`).
-  Document it in `config.example.sh` and in the README's settings table.
+  Document it in `config.example.sh`, in the README's settings table and in `docs/interface.md`.
 - A renamed setting, or a setting with a new meaning, breaks users' configs.
   So that change is a `!` change.
 - `work`'s `lite` mode skips `packages/work.txt` and `installers/work/` completely.

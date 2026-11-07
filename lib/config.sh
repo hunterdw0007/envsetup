@@ -7,6 +7,12 @@
 ENVSETUP_USER_CONFIG="$ENVSETUP_STATE/config.sh"
 # The clone of the user's own config repo (see envsetup::sync_config_repo).
 ENVSETUP_CONFIG_CLONE="$ENVSETUP_STATE/repo"
+# ENVSETUP_RENAMED lists the settings that got a new name.
+# Each item is "<old name>=<new name>", for example "ENVSETUP_OLD=ENVSETUP_NEW".
+# load_config still reads each old name.
+# envsetup::migrate_config asks to write the new name into config.sh.
+# With an item here, a rename is not a breaking change (see docs/interface.md).
+ENVSETUP_RENAMED=()
 
 envsetup::load_config() {
 	ENVSETUP_PROFILE=$1
@@ -48,6 +54,15 @@ envsetup::load_config() {
 	eval "$_envsetup_trap"
 	if [[ $_envsetup_opts == *e* ]]; then set -e; fi
 	if [[ $_envsetup_opts == *u* ]]; then set -u; fi
+	# An old name from ENVSETUP_RENAMED sets the new name.
+	# So a config.sh that the user did not migrate still works.
+	local _envsetup_item
+	for _envsetup_item in "${ENVSETUP_RENAMED[@]}"; do
+		if declare -p "${_envsetup_item%%=*}" >/dev/null 2>&1; then
+			local -n _envsetup_old=${_envsetup_item%%=*} _envsetup_new=${_envsetup_item#*=}
+			_envsetup_new=("${_envsetup_old[@]}")
+		fi
+	done
 	if [[ -n "$_envsetup_err" ]]; then
 		envsetup::config_warning "$ENVSETUP_USER_CONFIG did not load completely ($_envsetup_err). envsetup uses the settings before the error."
 	elif [[ -n "$_envsetup_line" ]]; then
@@ -184,6 +199,46 @@ envsetup::sync_config_repo() {
 	fi
 	ln -sfn "$repo/config.sh" "$link"
 	gum style --foreground 2 "Linked $link to $repo/config.sh"
+}
+
+# migrate_config asks to rename the old names from ENVSETUP_RENAMED in config.sh.
+# It changes only whole words that match an old name.
+# A dry run only describes the change.
+# After a "no", load_config still reads the old names, and the next run asks again.
+envsetup::migrate_config() {
+	local file=$ENVSETUP_USER_CONFIG item text tok out='' found=() list=''
+	[[ -f "$file" ]] || return 0
+	for item in "${ENVSETUP_RENAMED[@]}"; do
+		if grep -qw -- "${item%%=*}" "$file"; then
+			found+=("$item")
+			list+=" ${item%%=*} → ${item#*=}"
+		fi
+	done
+	((${#found[@]})) || return 0
+	if envsetup::dry_run; then
+		# A dry run's file is a temporary copy, so name the real file.
+		envsetup::would "ask to rename these settings in $ENVSETUP_STATE/config.sh:$list"
+		return 0
+	fi
+	if ! gum confirm "Some settings in $file have a new name:$list. Rename them in $file?"; then
+		gum style --foreground 3 "envsetup keeps $file as it is and reads the old names. The next run asks again."
+		return 0
+	fi
+	IFS= read -rd '' text <"$file" || true
+	# Split the text into words and the text between words, so only whole words change.
+	while [[ "$text" =~ ^([A-Za-z0-9_]+|[^A-Za-z0-9_]+) ]]; do
+		tok=${BASH_REMATCH[0]}
+		text=${text:${#tok}}
+		for item in "${found[@]}"; do
+			if [[ "$tok" == "${item%%=*}" ]]; then tok=${item#*=}; fi
+		done
+		out+=$tok
+	done
+	# The loop stops early at bytes that are not valid text, so add the rest as it is.
+	out+=$text
+	printf '%s' "$out" >"$file"
+	gum style --foreground 2 "Renamed the settings in $file:$list"
+	envsetup::warn_config_repo
 }
 
 # warn_config_repo warns when config.sh links into the clone of the user's config repo.

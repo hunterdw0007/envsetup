@@ -466,6 +466,7 @@ if ((UNINSTALL)); then
 fi
 # run_step keeps a failure here from stopping setup before the menu.
 envsetup::run_step envsetup::sync_config_repo
+envsetup::run_step envsetup::migrate_config
 # --config runs after the sync, so the text goes to the end of the repo's config.sh.
 if [[ -n "$CONFIG_FILE" ]]; then
 	envsetup::load_config "$(envsetup::read_state profile)" "$(envsetup::read_state mode full)"

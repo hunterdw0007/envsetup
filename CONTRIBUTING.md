@@ -160,7 +160,8 @@ It also lists the changes that are not breaking.
 
 Some examples of breaking changes:
 
-- A setting gets a new name or a new meaning.
+- A setting gets a new meaning.
+- A setting gets a new name, and `ENVSETUP_RENAMED` does not list the old name.
 - A default value changes.
 - A package or installer leaves a profile.
 - An option, menu action, alias or function gets a new name or goes away.

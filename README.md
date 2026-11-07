@@ -1,119 +1,58 @@
+<div align="center">
+
 # envsetup
 
+**Set up your Linux shell in one command.**
+
 [![Release](https://img.shields.io/github/v/release/hunterdw0007/envsetup)](https://github.com/hunterdw0007/envsetup/releases/latest) [![CI](https://img.shields.io/github/actions/workflow/status/hunterdw0007/envsetup/ci.yml?branch=main&label=CI)](https://github.com/hunterdw0007/envsetup/actions/workflows/ci.yml) [![License](https://img.shields.io/github/license/hunterdw0007/envsetup)](LICENSE)
+
+</div>
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | bash
+```
+
+![A dry run from a clone of envsetup selects the home profile, then runs Preview everything](docs/tapes/demo.gif)
 
 envsetup sets up the shell on a new or wiped Linux machine.
 It adds aliases, environment variables, shell functions and common command-line tools.
 You choose what it does from a menu in the terminal.
 The menu uses [gum](https://github.com/charmbracelet/gum).
 
+## Highlights
+
+- You choose each action from a menu. Nothing changes until you select an action.
+- The `work` and `home` profiles fit different machines. The `lite` mode needs no sudo.
+- A dry run (`--dry-run` or **Preview everything**) shows each change and makes none.
+- **Uninstall** removes what envsetup added, except packages and tools.
+- Installers pin the version of each release that they download. They check each file before they use it. You can also pin a release.
+- Your own changes live in `~/.config/envsetup`. Updates never change them.
+
 ## Install
 
 envsetup needs `bash`, `curl` and `git` on the machine.
-On a machine without `git`, the command below shows how to install `git`.
-Then it stops.
+Run the command at the top of this page, then:
 
-Run this command on the machine:
+1. Select **Select profile**, then `work` or `home`.
+   For `work`, also select `full` or `lite`.
+2. Select **Preview everything** to see the changes.
+3. Select **Run everything** to make them.
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | bash
-```
-
-The command does three things:
-
-1. It downloads the newest release into a temporary folder.
-2. It opens the menu.
-3. When you quit the menu, it deletes the temporary folder.
-   It also deletes the folder after an error or Ctrl-C.
-
-**Link shell config** copies the shell config (`shell/`) to `~/.local/share/envsetup`.
-If you set `XDG_DATA_HOME`, it copies the shell config to `$XDG_DATA_HOME/envsetup` instead.
-New shells load it from there.
-It also records the release there, in a file called `version`.
-So envsetup itself does not stay on the machine.
+The command deletes its download when you quit.
 Only your shell config, `config.sh` and the files that envsetup made stay.
-
-To update to the newest release, run the same command again.
-Or run `envsetup` in a new shell, which runs the same command for you.
-[docs/shell.md](docs/shell.md#the-envsetup-command) lists its other commands.
-**Link shell config** (or **Run everything**) then replaces the copy.
-Running the same release again changes nothing.
+To update, run the command again, or run `envsetup` in a new shell.
+envsetup is still at 0.x, so a release can change something you use every day.
+envsetup runs its root steps with `sudo` or `doas`.
 
 These variables change what the command does:
 
 | Variable | What it does |
 | --- | --- |
 | `ENVSETUP_REPO_URL` | Sets the repo URL, for example an SSH URL. |
-| `ENVSETUP_VERSION` | Selects a release. See [Select a release](#select-a-release). |
+| `ENVSETUP_VERSION` | Selects a release. See [Select a release](docs/install.md#select-a-release). |
 | `ENVSETUP_CONFIG_REPO` | Gets `config.sh` from your own git repo. See [Use config.sh on other machines](docs/customizing.md#use-configsh-on-other-machines). |
 
-### Select a release
-
-Each release has a number, for example `v0.2.0`.
-[`CHANGELOG.md`](CHANGELOG.md) lists the changes in each release.
-The [releases page](https://github.com/hunterdw0007/envsetup/releases) lists them too.
-To install a specific release, set `ENVSETUP_VERSION`:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | ENVSETUP_VERSION=v0.2.0 bash
-```
-
-- `ENVSETUP_VERSION` also accepts `0.2.0`, a branch name or a commit.
-- `ENVSETUP_VERSION=main` gives you changes that are not in a release yet.
-- An unknown value shows the list of releases.
-- A run without `ENVSETUP_VERSION` selects the newest release again.
-- `~/.local/share/envsetup/version` shows the release your shells use.
-
-### Update from a `~/envsetup` folder
-
-Before version 0.3.0, the command kept a copy of this repo in `~/envsetup`, or in `ENVSETUP_DIR`.
-Your startup files loaded the shell config from that copy.
-`ENVSETUP_DIR` no longer does anything.
-To update, run the curl command above, not `~/envsetup/install.sh`.
-**Link shell config** then rewrites envsetup's block in your startup files to load the new copy.
-It also asks "Keep ~/envsetup?".
-If you made changes in that folder, answer yes.
-Then move your changes to `config.sh` (see [Customize](#customize)).
-
-envsetup is still at version 0.x.
-In 0.x, a release can change something you use every day.
-The changelog lists these changes first, under "Breaking changes".
-
-### Try it without changes
-
-```sh
-./setup.sh --dry-run
-# or with curl, which deletes its download afterwards, as usual
-curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | bash -s -- --dry-run
-```
-
-A dry run opens the real menu.
-Each action then describes its changes but does not make them.
-You can still select profiles, and paste or edit `config.sh`.
-envsetup forgets those changes when you quit.
-A dry run still loads `config.sh` to read its settings.
-So the shell code that you paste or edit in a dry run runs.
-
-The menu needs gum.
-If the machine does not have gum, the dry run asks before it installs gum.
-A dry run makes no other change.
-
-The **Preview everything** action is the same as a dry run of **Run everything**.
-
-### Install without curl
-
-```sh
-git clone git@github.com:hunterdw0007/envsetup.git ~/envsetup
-cd ~/envsetup
-./setup.sh
-```
-
-This method uses the newest commit on `main`.
-To use a release, run `git checkout v0.2.0` first.
-`git tag` lists the releases.
-envsetup never deletes this folder.
-New shells load the copy of `shell/` that **Link shell config** makes.
-So run **Link shell config** again after you change `shell/`.
+[docs/install.md](docs/install.md) explains updates, releases, dry runs and an install without curl.
 
 ## Use the menu
 
@@ -130,7 +69,6 @@ For `work`, also select a mode:
   It installs nothing.
 
 This README calls the `work` profile in `lite` mode "work lite".
-
 Each profile and mode in the menu shows what it does on this machine.
 For example, `work` shows how many packages it installs and which installers it runs.
 
@@ -140,16 +78,16 @@ For example, `work` shows how many packages it installs and which installers it 
 2. **Configure git** writes envsetup's git settings and asks for your name and email.
 3. **Install packages** installs the packages for your profile.
 4. **Run installers** runs scripts for tools that package managers do not have.
-5. **Set up SSH key** creates `~/.ssh/id_ed25519` if it does not exist. See [SSH key](#ssh-key).
+5. **Set up SSH key** creates `~/.ssh/id_ed25519` if it does not exist. See [docs/ssh.md](docs/ssh.md).
 6. **Move dotfiles to XDG dirs**, only if you set `ENVSETUP_XDG_NINJA=1`.
 
 With `ENVSETUP_SHELL=zsh`, **Link shell config** also runs **Set up zsh + oh-my-zsh**.
-
 If one action fails, **Run everything** continues with the next action.
 You can also run each action alone from the menu.
 Work lite skips **Install packages** and **Run installers**.
 
-The menu has these other actions:
+<details>
+<summary>The other menu actions</summary>
 
 - **Select profile** changes the profile and mode.
 - **Paste config** adds the text that you paste to the end of your `config.sh`.
@@ -168,6 +106,8 @@ The menu has these other actions:
 - **Uninstall** removes what envsetup added.
   See [Uninstall](#uninstall).
 
+</details>
+
 ### What your shell gets
 
 Every profile gets a prompt, aliases and hooks for some tools.
@@ -179,100 +119,37 @@ For example, `git pull` rebases your commits and does not merge.
 Also, `git aa` adds every file that `.gitignore` does not exclude, including `.env` files.
 Read [the git settings](docs/shell.md#git-settings) before you run **Configure git**.
 
-### SSH key
-
-**Set up SSH key** creates one SSH key for this machine, so `git clone git@...` works.
-If `~/.ssh/id_ed25519` exists, the action changes nothing.
-Otherwise, `ssh-keygen` asks for a passphrase.
-You can leave the passphrase empty.
-The key comment is `<user>@<hostname>`, so you can find the key in a list of keys.
-If `gh` is installed, the action offers to add the key to your GitHub account.
-A scope is a permission that you give `gh` when you log in.
-`gh` needs the `admin:public_key` scope for this: `gh auth refresh -s admin:public_key`.
-If `gh` is missing, you say no, or the upload fails, the action shows the public key.
-Then add the public key at <https://github.com/settings/keys>.
-The action also offers to sign your git commits with the key.
-It skips this offer if git already has `user.signingkey` or `commit.gpgsign`.
-If you say yes to both offers, the action also adds the key to GitHub as a signing key.
-GitHub then shows a signed commit as "Verified" if its email is verified on your GitHub account.
-`gh` needs the `admin:ssh_signing_key` scope for this: `gh auth refresh -s admin:ssh_signing_key`.
-If the action does not add the signing key, add the public key at <https://github.com/settings/keys>.
-Choose the key type **Signing Key** there.
-Uninstall asks before it deletes the key.
-Uninstall does not remove the key from your GitHub account.
-Work lite installs no packages, so it needs `ssh-keygen` from the system's `openssh-client` package.
-
 ## Supported systems
 
 envsetup supports Linux only, including WSL.
-On macOS, `install.sh` stops and changes nothing.
-It names v0.3.0, the last release that supports macOS.
-It also shows how to install v0.3.0 and how to uninstall envsetup.
-
-envsetup uses the package manager that the machine has.
-If the machine has Homebrew, envsetup uses Homebrew.
-`packages/names.txt` translates package names for each package manager.
+It uses the package manager that the machine has.
+[docs/systems.md](docs/systems.md) explains macOS, EPEL, root access and downloads.
 
 | System | Package manager | Notes |
 |---|---|---|
 | Ubuntu, Debian, Mint, Pop!_OS, WSL | `apt` | |
 | Fedora | `dnf` | |
-| RHEL, Rocky, Alma, CentOS Stream, Oracle Linux | `dnf` | Asks to turn on EPEL. See [EPEL](#epel). |
-| Amazon Linux 2023 | `dnf` | Has no EPEL. See [EPEL](#epel). |
+| RHEL, Rocky, Alma, CentOS Stream, Oracle Linux | `dnf` | Asks to turn on EPEL. See [EPEL](docs/systems.md#epel). |
+| Amazon Linux 2023 | `dnf` | Has no EPEL. See [EPEL](docs/systems.md#epel). |
 | Arch, CachyOS, EndeavourOS, Manjaro | `pacman` | |
 | openSUSE Tumbleweed and Leap | `zypper` | |
 | Alpine | `apk` | Install bash first: `apk add bash curl`. |
 | Bazzite, Aurora, Silverblue, SteamOS, Aeon | `brew` | `/usr` is read-only, so envsetup needs Homebrew or Nix. Bazzite and Aurora include Homebrew. |
 | NixOS | `nix` | Installs into your user profile with `nix profile` or `nix-env`. |
 
-### EPEL
-
-On RHEL and similar systems, about 15 packages come from EPEL.
-These packages include fzf, ripgrep, bat, htop and neovim.
-EPEL 9 does not have direnv.
-Docker comes from Docker CE's own package repo.
-
-Amazon Linux 2023 has no EPEL.
-On Amazon Linux, envsetup cannot install fzf, ripgrep, bat and some other packages.
-Add them to `ENVSETUP_SKIP` in `config.sh`.
-
-### Root access and downloads
-
-envsetup runs root steps with `sudo`, or with `doas` if the machine has it.
-If you are already root, envsetup runs those steps directly.
-The menu itself does not need sudo.
-envsetup installs gum with Homebrew if the machine has it.
-Otherwise it downloads gum's pinned release into `~/.local/bin` and checks its checksum.
-If that fails and the machine has Go, it uses `go install`.
-Installers download the amd64 or arm64 build that matches the machine.
-
-`installers/versions.txt` sets the version and sha256 checksum of each download.
-So two machines on the same release get the same tool versions.
-A project may change a download after its release.
-Then the download fails the checksum, and envsetup does not install it.
-envsetup records each tool that it installs in `~/.local/state/envsetup/installed`.
-If you set `XDG_STATE_HOME`, the file is `$XDG_STATE_HOME/envsetup/installed`.
-A new release may pin a newer version of such a tool.
-Then **Run installers** updates the tool and lists each update first.
-Older releases kept no record.
-So envsetup does not update a tool that an older release installed.
-It treats that tool as one that you installed.
-To use another version of a tool, install the tool yourself.
-Installers skip any tool on your `PATH` that envsetup did not install.
-
 ## Customize
 
 The packages, installers, aliases and git settings in this repo are defaults.
 To change a default, edit `~/.config/envsetup/config.sh`.
-envsetup does not keep a copy of this repo on your machine.
 An update replaces the copy of `shell/`.
-`config.sh` is outside both, so updates do not change it.
+`config.sh` is outside that copy, so updates do not change it.
 
-The fastest way to change settings is **Paste config** in the menu:
+The fastest way is **Paste config** in the menu.
+Paste your settings or shell code into the text box.
+Save or cancel with the keys that gum shows under the box.
 
-1. Select **Paste config**.
-2. Paste your settings or shell code into the text box.
-3. Save or cancel with the keys that gum shows under the box.
+<details>
+<summary>How Paste config, Edit config and <code>--config</code> check your text</summary>
 
 **Paste config** checks the text with `bash -n` first.
 `bash -n` finds syntax errors without running the code.
@@ -290,6 +167,8 @@ Without `$EDITOR`, it uses `nano` if the machine has it, and `vi` otherwise.
 The new `config.sh` is a copy of [`config.example.sh`](config.example.sh).
 That copy lists every setting, all commented out.
 After the editor closes, **Edit config** runs the same check and shows the changes.
+
+</details>
 
 `config.sh` is a bash script.
 envsetup runs it after it loads the defaults.
@@ -326,9 +205,7 @@ alias k=kubectl                                    # any other shell config work
 
 A change to shell config takes effect in the next new shell.
 A change to an `ENVSETUP_*` setting takes effect the next time you run its action.
-
-[docs/customizing.md](docs/customizing.md) lists popular tools to add.
-It also explains where `config.sh` lives and how to use it on other machines.
+[docs/customizing.md](docs/customizing.md) lists popular tools and explains where `config.sh` lives.
 
 ## Uninstall
 
@@ -339,53 +216,33 @@ curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.
 ```
 
 `envsetup uninstall` in a new shell does the same.
-**Uninstall** in the menu also does the same.
-`./setup.sh --uninstall` in a clone also does the same.
+**Uninstall** in the menu and `./setup.sh --uninstall` in a clone also do the same.
+Uninstall removes everything that envsetup added.
+It asks before it removes anything that may be yours, such as `config.sh` or your SSH key.
+It keeps packages and tools.
+[docs/uninstall.md](docs/uninstall.md) lists each part.
 
-Uninstall removes everything that envsetup added:
+## Related projects
 
-- envsetup's block in `~/.bashrc` and `~/.zshrc`
-- the copy of `shell/` in `~/.local/share/envsetup`, and its `version` file
-- the include line in `~/.gitconfig` and the file it includes
-- your saved profile and mode
-- the dotfile moves to XDG folders
-- the git settings that sign your commits with the SSH key that envsetup created
-
-Uninstall does not change the rest of each startup file.
-Uninstall moves each dotfile back to its old path.
-Sometimes a program creates the old path again.
-Then uninstall leaves that dotfile in its new path and tells you why.
-After you fix the problem, run uninstall again.
-
-Uninstall asks before it removes your `config.sh`.
-If you set `ENVSETUP_CONFIG_REPO`, uninstall asks "Keep ~/.config/envsetup/repo?".
-The default answer keeps it.
-If you delete the repo but keep `config.sh`, uninstall keeps a copy of the repo's `config.sh`.
-Uninstall keeps `config.sh.bak`, your old `config.sh`, and lists it at the end.
-Uninstall removes an empty `shell.d` folder.
-If `shell.d` has files, uninstall asks "Keep ~/.config/envsetup/shell.d?".
-The default answer keeps it.
-If envsetup created `~/.ssh/id_ed25519`, uninstall asks "Keep ~/.ssh/id_ed25519?".
-The default answer keeps it.
-If envsetup changed your login shell to zsh, uninstall asks to change it back to bash.
-
-Uninstall keeps these things, because they can exist without envsetup:
-
-- packages and tools
-- your git `user.name` and `user.email`
-- oh-my-zsh, which has its own `uninstall_oh_my_zsh` command
-
-At the end, uninstall lists what it kept.
+- [gum](https://github.com/charmbracelet/gum) draws envsetup's menu.
+- [VHS](https://github.com/charmbracelet/vhs) records the demo above.
+- [oh-my-zsh](https://ohmyz.sh) is the zsh setup that **Set up zsh + oh-my-zsh** installs.
+- [xdg-ninja](https://github.com/b3nj5m1n/xdg-ninja) tells **Move dotfiles to XDG dirs** which moves are safe.
+- [thoughtbot/laptop](https://github.com/thoughtbot/laptop) is a similar setup script for macOS.
 
 ## More information
 
+- [docs/install.md](docs/install.md): updates, releases, dry runs and an install without curl.
 - [docs/shell.md](docs/shell.md): the prompt, aliases, functions and git settings.
 - [docs/customizing.md](docs/customizing.md): popular tools and the location of `config.sh`.
+- [docs/ssh.md](docs/ssh.md): the SSH key, GitHub and signed commits.
 - [docs/xdg.md](docs/xdg.md): how envsetup moves dotfiles to XDG folders.
+- [docs/systems.md](docs/systems.md): macOS, EPEL, root access and pinned downloads.
+- [docs/uninstall.md](docs/uninstall.md): what uninstall removes, asks about and keeps.
 - [docs/interface.md](docs/interface.md): the parts of envsetup that only a new major version may break.
 - [CONTRIBUTING.md](CONTRIBUTING.md): the repo layout, new installers, releases and tests.
 
 ## License
 
 MIT. See `LICENSE`.
-To report a security problem, see `SECURITY.md`.
+To report a security problem, see [SECURITY.md](SECURITY.md).

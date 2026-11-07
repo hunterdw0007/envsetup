@@ -45,6 +45,12 @@ To break a requirement, first change it in its own PR.
     Each menu choice says what it does on this machine.
 14. **Breaking changes come first.**
     The changelog lists each breaking change first, under "Breaking changes".
+15. **Fast shell start.**
+    The shell config adds less than 50 ms to each new shell, in bash and in zsh.
+    It makes no network calls.
+    The smoke test times new shells with the shell config and without it.
+    It fails when the difference of the medians is 50 ms or more.
+    The test leaves out the first prompt and the hooks for optional tools, such as direnv and zoxide.
 
 ## Goals
 
@@ -54,9 +60,6 @@ New work moves envsetup toward these goals.
   Each user can change envsetup for their own needs.
   A user can paste their own settings and shell code from the menu.
   [#105](https://github.com/hunterdw0007/envsetup/issues/105) and [#106](https://github.com/hunterdw0007/envsetup/issues/106) track this.
-- **Fast shell start.**
-  The shell config adds less than 50 ms to each new shell.
-  It makes no network calls.
 - **Runs without a person.**
   Each action can run from options, without the menu.
   [#42](https://github.com/hunterdw0007/envsetup/issues/42) tracks this.
@@ -73,6 +76,7 @@ config.example.sh    # template for ~/.config/envsetup/config.sh
 AGENTS.md            # the rules for this repo
 CHANGELOG.md         # the changes in each release (CI writes it)
 docs/                # user docs that the README links to
+  tapes/             # the VHS tape and the demo GIF that the README shows
 tests/               # smoke.sh and release.sh (CI), distros/ (manual)
 shell/
   shared/            # prompt, aliases, tool hooks, environment variables and functions

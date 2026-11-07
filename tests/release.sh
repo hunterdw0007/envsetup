@@ -110,36 +110,36 @@ notes_are_entry() {
 # section <tag> <heading> prints the bullets under "### <heading>" in that release's notes.
 section() { sed -n "/^### $2\$/,/^###/{/^- /p}" "$GH_STATE/$1"; }
 
-echo "== first release: everything so far, on 0.x"
+echo "== first release: everything so far"
 commit -m "feat: a feature" >/dev/null
 commit -m "fix(home): a fix" >/dev/null
 commit -m "chore!: drop something" >/dev/null
 commit -m "feat(work)!: change something" >/dev/null
 first=$(commit -m "refactor: tidy" -m "BREAKING CHANGE: the footer explains")
 check "exits 0" release "$first"
-check "tags v0.1.0 (breaking changes bump the minor version on 0.x)" tags "v0.1.0 "
-check "pushes a bump commit to main" main_subject "bump: version 0.0.0 → 0.1.0"
+check "tags v1.0.0 (breaking changes bump the major version)" tags "v1.0.0 "
+check "pushes a bump commit to main" main_subject "bump: version 0.0.0 → 1.0.0"
 check "  ...as github-actions[bot]" [ "$(git -C "$O" log -1 --format=%an main)" = "github-actions[bot]" ]
 check "  ...right after the released commit" [ "$(git -C "$O" rev-parse main~1)" = "$first" ]
-check "the tag is annotated" [ "$(git -C "$O" cat-file -t v0.1.0)" = tag ]
-check "  ...and on the bump commit" [ "$(git -C "$O" rev-parse 'v0.1.0^{commit}')" = "$(git -C "$O" rev-parse main)" ]
+check "the tag is annotated" [ "$(git -C "$O" cat-file -t v1.0.0)" = tag ]
+check "  ...and on the bump commit" [ "$(git -C "$O" rev-parse 'v1.0.0^{commit}')" = "$(git -C "$O" rev-parse main)" ]
 check "CHANGELOG.md keeps its header" [ "$(git -C "$O" show main:CHANGELOG.md | head -n 1)" = "# Changelog" ]
-check "  ...and gains the entry" grep -qx '## v0.1.0 (.*)' <(git -C "$O" show main:CHANGELOG.md)
-check "publishes one release" created v0.1.0
-check "its notes start with the breaking changes" [ "$(head -n 1 "$GH_STATE/v0.1.0")" = "### Breaking changes" ]
-check "  ...all three kinds of them" [ "$(section v0.1.0 'Breaking changes' | sort | tr '\n' '|')" = "- **work**: change something|- drop something|- the footer explains|" ]
-check "  ...and the rest by type" [ "$(section v0.1.0 Fixes)" = "- **home**: a fix" ]
-check "  ...with a blank line before the install instructions" [ -z "$(grep -B1 '^### Install this version$' "$GH_STATE/v0.1.0" | head -n 1)" ]
-check "  ...which pin this version" notes_have v0.1.0 "curl -fsSL https://raw.githubusercontent.com/owner/envsetup/main/install.sh | ENVSETUP_VERSION=v0.1.0 bash"
-check "the notes are the CHANGELOG.md entry" notes_are_entry v0.1.0
+check "  ...and gains the entry" grep -qx '## v1.0.0 (.*)' <(git -C "$O" show main:CHANGELOG.md)
+check "publishes one release" created v1.0.0
+check "its notes start with the breaking changes" [ "$(head -n 1 "$GH_STATE/v1.0.0")" = "### Breaking changes" ]
+check "  ...all three kinds of them" [ "$(section v1.0.0 'Breaking changes' | sort | tr '\n' '|')" = "- **work**: change something|- drop something|- the footer explains|" ]
+check "  ...and the rest by type" [ "$(section v1.0.0 Fixes)" = "- **home**: a fix" ]
+check "  ...with a blank line before the install instructions" [ -z "$(grep -B1 '^### Install this version$' "$GH_STATE/v1.0.0" | head -n 1)" ]
+check "  ...which pin this version" notes_have v1.0.0 "curl -fsSL https://raw.githubusercontent.com/owner/envsetup/main/install.sh | ENVSETUP_VERSION=v1.0.0 bash"
+check "the notes are the CHANGELOG.md entry" notes_are_entry v1.0.0
 ((failures)) && show "$T/out"
 bumped=$(git -C "$O" rev-parse main)
 
 echo "== re-running the same commit"
-rm "$GH_STATE/v0.1.0"
+rm "$GH_STATE/v1.0.0"
 check "with its release missing: exits 0" release "$first"
-check "  ...creates just the release" created v0.1.0
-check "  ...without another tag or commit" tags "v0.1.0 "
+check "  ...creates just the release" created v1.0.0
+check "  ...without another tag or commit" tags "v1.0.0 "
 check "  ...or moving main" main_is "$bumped"
 check "with its release there: exits 0" release "$first"
 check "  ...and does nothing" none_created
@@ -148,40 +148,40 @@ echo "== commits that don't call for a release"
 commit -m "docs: words" >/dev/null
 docs=$(commit -m "ci: a pipeline")
 check "exits 0" release "$docs"
-check "  ...without a tag" tags "v0.1.0 "
+check "  ...without a tag" tags "v1.0.0 "
 check "  ...a commit" main_is "$docs"
 check "  ...or a release" none_created
 
 echo "== a fix, then a breaking change"
 check "fix: exits 0" release "$(commit -m "fix: another fix")"
-check "  ...tags v0.1.1" tags "v0.1.0 v0.1.1 "
-check "  ...links the diff from v0.1.0" notes_have v0.1.1 "**Full diff**: https://github.example/owner/envsetup/compare/v0.1.0...v0.1.1"
+check "  ...tags v1.0.1" tags "v1.0.0 v1.0.1 "
+check "  ...links the diff from v1.0.0" notes_have v1.0.1 "**Full diff**: https://github.example/owner/envsetup/compare/v1.0.0...v1.0.1"
 check "feat!: exits 0" release "$(commit -m "feat(work)!: break it")"
-check "  ...tags v0.2.0" tags "v0.1.0 v0.1.1 v0.2.0 "
+check "  ...tags v2.0.0" tags "v1.0.0 v1.0.1 v2.0.0 "
 
 echo "== main moves on while a release runs"
 x=$(commit -m "feat: x")
 y=$(commit -m "fix: y")
 check "the older commit's run exits 0" release "$x"
 check "  ...warns" grep -qF "::warning::main got a new commit" "$T/out"
-check "  ...and pushes nothing" tags "v0.1.0 v0.1.1 v0.2.0 "
+check "  ...and pushes nothing" tags "v1.0.0 v1.0.1 v2.0.0 "
 check "  ...leaving main where it was" main_is "$y"
 check "the newer commit's run exits 0" release "$y"
-check "  ...and releases both" tags "v0.1.0 v0.1.1 v0.2.0 v0.3.0 "
-check "  ...in one entry" [ "$(section v0.3.0 Features)/$(section v0.3.0 Fixes)" = "- x/- y" ]
+check "  ...and releases both" tags "v1.0.0 v1.0.1 v2.0.0 v2.1.0 "
+check "  ...in one entry" [ "$(section v2.1.0 Features)/$(section v2.1.0 Fixes)" = "- x/- y" ]
 check "re-running the older commit exits 0" release "$x"
-check "  ...and does nothing (v0.3.0 has it)" none_created
+check "  ...and does nothing (v2.1.0 has it)" none_created
 
 echo "== the push is refused (as branch protection would)"
 z=$(commit -m "fix: z")
 printf '#!/bin/sh\necho "protected branch" >&2\nexit 1\n' >"$O/hooks/pre-receive"
 chmod +x "$O/hooks/pre-receive"
 check "fails" fails release "$z"
-check "  ...pushing neither the commit nor the tag" tags "v0.1.0 v0.1.1 v0.2.0 v0.3.0 "
+check "  ...pushing neither the commit nor the tag" tags "v1.0.0 v1.0.1 v2.0.0 v2.1.0 "
 check "  ...nor publishing a release" none_created
 rm "$O/hooks/pre-receive"
 check "once it's allowed, a re-run releases it" release "$z"
-check "  ...as v0.3.1" tags "v0.1.0 v0.1.1 v0.2.0 v0.3.0 v0.3.1 "
+check "  ...as v2.1.1" tags "v1.0.0 v1.0.1 v2.0.0 v2.1.0 v2.1.1 "
 
 echo "== usage"
 check "an unknown step is refused" [ "$(

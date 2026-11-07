@@ -4,6 +4,12 @@ Every release of envsetup, newest first, with what changed in it. CI writes each
 from the commits on `main` when it releases them (see "Releases" in AGENTS.md), so
 don't edit this file by hand.
 
+## v0.13.0 (2026-11-07)
+
+### Features
+
+- migrate renamed settings in config.sh after the user agrees (#139)
+
 ## v0.12.0 (2026-11-07)
 
 ### Features

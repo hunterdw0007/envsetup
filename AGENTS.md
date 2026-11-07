@@ -336,6 +336,7 @@ On pushes to `main`, it also runs `release` after those jobs pass (see Releases)
   - `install.sh` stops on a machine without git.
   - It picks a release, then switches to another one.
   - It runs "Run everything" for every profile.
+  - It updates from the last 0.x release with the same `config.sh`.
   - A real bash and a real zsh load the result.
 - The smoke test replaces only gum's menus, package installs and vendor downloads with fakes.
   So it takes about 15 seconds.

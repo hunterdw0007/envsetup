@@ -76,6 +76,7 @@ config.example.sh    # template for ~/.config/envsetup/config.sh
 AGENTS.md            # the rules for this repo
 CHANGELOG.md         # the changes in each release (CI writes it)
 docs/                # user docs that the README links to
+  tapes/             # the VHS tape and the demo GIF that the README shows
 tests/               # smoke.sh and release.sh (CI), distros/ (manual)
 shell/
   shared/            # prompt, aliases, tool hooks, environment variables and functions

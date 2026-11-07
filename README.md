@@ -164,7 +164,9 @@ If the text has an error, **Paste config** shows the line number and saves nothi
 It also saves nothing if the text is empty, or if the text runs `exit`.
 Otherwise, it adds the text to the end of `config.sh`.
 Then it shows each setting that changed, for example `Extras: +lazygit +k9s`.
-A new shell file gets the same check before **Paste config** saves it.
+A new shell file gets the same checks before **Paste config** saves it.
+Each shell that loads the file runs the checks: bash for `.bash`, zsh for `.zsh`, and both for `.sh`.
+Without zsh, **Paste config** cannot check a `.zsh` file, and it says so.
 If a file with that name exists, **Paste config** asks "Replace <name>?".
 The default answer keeps the old file.
 

@@ -424,7 +424,7 @@ envsetup::main_menu() {
 		case "$choice" in
 		"Select profile"*) envsetup::run_step envsetup::pick_profile ;;
 		"Paste config")
-			envsetup::dry_run && gum style --foreground 6 "Dry run: you are editing a copy of your config. Your changes last until you quit."
+			envsetup::dry_run && gum style --foreground 6 "Dry run: settings go to a copy of your config until you quit. A shell file is not saved."
 			envsetup::run_step envsetup::paste_config
 			;;
 		"Edit config")

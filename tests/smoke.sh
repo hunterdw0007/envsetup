@@ -790,6 +790,18 @@ CONFIRMS=(yes)
 SMOKE_WRITE='mine+=q' SMOKE_INPUT=60-pasted.sh run_menu "$h" "Paste config" shell Quit || true
 CONFIRMS=()
 check "  ...and yes replaces it" [ "$(cat "$d/60-pasted.sh")" = 'mine+=q' ]
+echo 'mine+=t' >"$h/target.sh"
+ln -s "$h/target.sh" "$d/65-link.sh"
+CONFIRMS=(yes)
+SMOKE_WRITE='mine+=l' SMOKE_INPUT=65-link.sh run_menu "$h" "Paste config" shell Quit || true
+CONFIRMS=()
+check "yes to replace a link saves a plain file" [ ! -L "$d/65-link.sh" ]
+check "  ...with the new text" [ "$(cat "$d/65-link.sh")" = 'mine+=l' ]
+check "  ...and leaves the file that the link pointed to" [ "$(cat "$h/target.sh")" = 'mine+=t' ]
+rm -f "$d/65-link.sh" "$h/target.sh"
+SMOKE_WRITE=$'alias x=y\nexit 0' SMOKE_INPUT=70-exit.sh run_menu "$h" "Paste config" shell Quit || true
+check "a shell file that runs exit is not saved" none_exist "$d/70-exit.sh"
+check "  ...and says why" grep -qF 'stops before its end in bash' "$SMOKE_LOG"
 SMOKE_WRITE=$'if true\nfi' SMOKE_INPUT=70-bad.sh run_menu "$h" "Paste config" shell Quit || true
 check "a shell file with an error is not saved" none_exist "$d/70-bad.sh"
 check "  ...and the error shows the line number" grep -qF 'line 2: syntax error' "$SMOKE_LOG"

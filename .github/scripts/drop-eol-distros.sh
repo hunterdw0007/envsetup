@@ -43,6 +43,7 @@ rockylinux/rockylinux:9 rocky-linux 9 eol Rocky Linux 9
 # support is "Standard Support". eol is "Security Support".
 amazonlinux:2023 amazon-linux 2023 eol Amazon Linux 2023
 # eol is "End of Life". The page defines support as security updates.
+opensuse/leap:16.0 opensuse 16.0 eol openSUSE Leap 16.0
 opensuse/leap:15.6 opensuse 15.6 eol openSUSE Leap 15.6
 fedora:latest -
 archlinux:latest -

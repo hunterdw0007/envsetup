@@ -30,7 +30,7 @@ if ((${#images[@]} == 0)); then
 		# Arch, and the desktops based on Arch, which are growing fast
 		archlinux:latest
 		# Not supported yet, so this shows what breaks
-		opensuse/tumbleweed opensuse/leap:15.6 alpine:latest
+		opensuse/tumbleweed opensuse/leap:16.0 alpine:latest
 	)
 fi
 out=${DISTROS_OUT:-$PWD/distros-report/$(date +%Y%m%d-%H%M%S)}

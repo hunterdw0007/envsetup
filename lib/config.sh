@@ -219,15 +219,89 @@ envsetup::edit_config() {
 	envsetup::show_changes "$before" "$(envsetup::settings_of "$ENVSETUP_USER_CONFIG")"
 }
 
-# paste_config adds the text that you paste to the end of config.sh.
+# paste_config saves the text that you paste.
+# It asks where the text goes: the end of config.sh, or a new file in shell.d.
 envsetup::paste_config() {
-	local text
+	local text choice
 	# gum shows its own keys to save and to cancel under the box.
 	# The keys differ between gum releases.
 	text=$(gum write --char-limit 0 --height 15 --show-line-numbers \
 		--header "Paste your settings or shell code.") || return 0
 	printf '%s\n' "$text" >"$ENVSETUP_TMP/paste.sh"
-	envsetup::add_config "$ENVSETUP_TMP/paste.sh"
+	choice=$(gum choose --header "Where does the text go?" \
+		"settings  the end of config.sh" \
+		"shell  a new file in shell.d, next to config.sh") || return 0
+	if [[ "${choice%% *}" == shell ]]; then
+		envsetup::add_shell_file "$ENVSETUP_TMP/paste.sh"
+	else
+		envsetup::add_config "$ENVSETUP_TMP/paste.sh"
+	fi
+}
+
+# add_shell_file <file> saves the file's text as a new file in shell.d.
+# It asks for the name.
+# It saves nothing if a shell that loads the file finds a syntax error, or if the file stops before its end.
+# It asks before it replaces a file, and the default answer keeps the old file.
+envsetup::add_shell_file() {
+	local text name file sh opt shells=()
+	text=$(<"$1")
+	text=${text//$'\r'/}
+	if [[ -z "${text//[[:space:]]/}" ]]; then
+		gum style --foreground 3 "The text is empty, so envsetup saved nothing."
+		return 0
+	fi
+	printf '%s\n' "$text" >"$ENVSETUP_TMP/add.sh"
+	name=$(gum input --placeholder aliases.sh \
+		--header "File name. New bash and zsh shells load .sh files. Only bash loads .bash, and only zsh loads .zsh.") || return 0
+	if [[ -z "$name" ]]; then return 0; fi # an empty name is a cancel
+	# The function shows its own message, so a bad name is not a failed step.
+	if [[ ! "$name" =~ ^[[:alnum:]_][[:alnum:]._-]*$ ]]; then
+		gum style --foreground 3 "\"$name\" is not a file name, so envsetup saved nothing. Use letters, digits, dots, dashes and underscores."
+		return 0
+	fi
+	# shell/init.sh skips a file without one of these endings.
+	if [[ ! "$name" =~ \.(sh|bash|zsh)$ ]]; then name+=.sh; fi
+	# Each shell that loads the file checks it.
+	if [[ "$name" != *.zsh ]]; then shells+=("$BASH"); fi
+	if [[ "$name" != *.bash ]] && envsetup::has_cmd zsh; then shells+=(zsh); fi
+	if ((${#shells[@]} == 0)); then
+		gum style --foreground 3 "zsh is not installed, so envsetup cannot check $name."
+	fi
+	for sh in "${shells[@]}"; do
+		envsetup::check_config "$ENVSETUP_TMP/add.sh" "The text has an error in ${sh##*/}, so envsetup saved nothing:" "$sh"
+		# A file that runs exit would close every new shell.
+		# zsh -f skips the user's own zsh startup files.
+		# bash -f means something else (no globs), so bash gets only -c.
+		opt=-c
+		if [[ "$sh" == zsh ]]; then opt=-fc; fi
+		# shellcheck disable=SC2016 # $1 expands in the inner shell
+		if [[ "$("$sh" "$opt" '. "$1" >/dev/null 2>&1; echo envsetup-ok' sh "$ENVSETUP_TMP/add.sh" 2>/dev/null </dev/null)" != envsetup-ok ]]; then
+			gum style --foreground 1 "The text stops before its end in ${sh##*/}, for example at an exit." \
+				"Every new shell would then close. So envsetup saved nothing."
+			return 1
+		fi
+	done
+	# shellcheck disable=SC2153 # lib/common.sh sets ENVSETUP_SHELL_D, and it is not a misspelling of ENVSETUP_SHELL
+	file=$ENVSETUP_SHELL_D/$name
+	if [[ -e "$file" || -L "$file" ]]; then
+		if envsetup::dry_run; then
+			envsetup::would "ask to replace $file"
+			return 0
+		fi
+		if ! gum confirm --default=false "Replace $name?"; then
+			gum style "envsetup kept the old $name and saved nothing."
+			return 0
+		fi
+	fi
+	if envsetup::dry_run; then
+		envsetup::would "save the text as $file"
+		return 0
+	fi
+	mkdir -p "$ENVSETUP_SHELL_D"
+	# Replace a link itself, not the file that it points to.
+	rm -f "$file"
+	cat "$ENVSETUP_TMP/add.sh" >"$file"
+	gum style --foreground 2 "Saved $file. New interactive shells load it."
 }
 
 # add_config <file> adds the file's text to the end of config.sh.
@@ -272,13 +346,15 @@ envsetup::add_config() {
 	envsetup::warn_config_repo
 }
 
-# check_config <file> <message> checks the file with bash -n.
+# check_config <file> <message> [shell] checks the file with bash -n, or with `<shell> -n`.
 # On a syntax error, it shows the message and the error with its line number.
 # Then it returns 1.
 envsetup::check_config() {
 	local err
-	if err=$("$BASH" -n "$1" 2>&1); then return 0; fi
-	gum style --foreground 1 "$2" "${err//"$1: "/}"
+	if err=$("${3:-$BASH}" -n "$1" 2>&1); then return 0; fi
+	# bash writes "<file>: line 2: …", and zsh writes "<file>:2: …".
+	err=${err//"$1: "/}
+	gum style --foreground 1 "$2" "${err//"$1:"/line }"
 	return 1
 }
 

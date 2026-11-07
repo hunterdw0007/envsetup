@@ -46,6 +46,15 @@ envsetup::load_config() {
 	# Only a failed command in config.sh itself counts.
 	# config.sh may end with a false `[[ ... ]] && ...`.
 	# Then `source` below returns 1, but that is not an error.
+	# Each old name from ENVSETUP_RENAMED starts with the new name's default.
+	# So `OLD+=(x)` adds to the default, and a value from an earlier load is gone.
+	local _envsetup_item _envsetup_old
+	local -A _envsetup_before=()
+	for _envsetup_item in "${ENVSETUP_RENAMED[@]}"; do
+		_envsetup_old=${_envsetup_item%%=*}
+		envsetup::copy_var "${_envsetup_item#*=}" "$_envsetup_old"
+		_envsetup_before[$_envsetup_old]=$(declare -p "$_envsetup_old" 2>/dev/null)
+	done
 	trap 'if [[ ${BASH_SOURCE[0]} == "$ENVSETUP_USER_CONFIG" ]]; then _envsetup_line=${_envsetup_line:-$LINENO}; fi' ERR
 	set +eu
 	# shellcheck source=/dev/null # the user's own file
@@ -54,19 +63,33 @@ envsetup::load_config() {
 	eval "$_envsetup_trap"
 	if [[ $_envsetup_opts == *e* ]]; then set -e; fi
 	if [[ $_envsetup_opts == *u* ]]; then set -u; fi
-	# An old name from ENVSETUP_RENAMED sets the new name.
+	# An old name that config.sh changed sets the new name.
 	# So a config.sh that the user did not migrate still works.
-	local _envsetup_item
+	# If config.sh changes both names, the old name wins.
 	for _envsetup_item in "${ENVSETUP_RENAMED[@]}"; do
-		if declare -p "${_envsetup_item%%=*}" >/dev/null 2>&1; then
-			local -n _envsetup_old=${_envsetup_item%%=*} _envsetup_new=${_envsetup_item#*=}
-			_envsetup_new=("${_envsetup_old[@]}")
+		_envsetup_old=${_envsetup_item%%=*}
+		if [[ "$(declare -p "$_envsetup_old" 2>/dev/null)" != "${_envsetup_before[$_envsetup_old]}" ]]; then
+			envsetup::copy_var "$_envsetup_old" "${_envsetup_item#*=}"
 		fi
 	done
 	if [[ -n "$_envsetup_err" ]]; then
 		envsetup::config_warning "$ENVSETUP_USER_CONFIG did not load completely ($_envsetup_err). envsetup uses the settings before the error."
 	elif [[ -n "$_envsetup_line" ]]; then
 		envsetup::config_warning "In $ENVSETUP_USER_CONFIG, the command on line $_envsetup_line failed. envsetup continues with the other settings."
+	fi
+}
+
+# copy_var <from> <to> sets the variable <to> to the value of <from>.
+# An array stays an array, and a plain value stays a plain value.
+# If <from> is not set, it unsets <to>.
+envsetup::copy_var() {
+	local -n _envsetup_from=$1 _envsetup_to=$2
+	unset _envsetup_to
+	if [[ "$(declare -p "$1" 2>/dev/null)" =~ ^declare\ -[a-zA-Z]*a ]]; then
+		_envsetup_to=("${_envsetup_from[@]}")
+	elif [[ -v "$1" ]]; then
+		# shellcheck disable=SC2178 # this branch copies a plain value, and the branch above copies an array
+		_envsetup_to=$_envsetup_from
 	fi
 }
 
@@ -206,7 +229,7 @@ envsetup::sync_config_repo() {
 # A dry run only describes the change.
 # After a "no", load_config still reads the old names, and the next run asks again.
 envsetup::migrate_config() {
-	local file=$ENVSETUP_USER_CONFIG item text tok out='' found=() list=''
+	local file=$ENVSETUP_USER_CONFIG item line tok new hit out='' found=() lines=() list=''
 	[[ -f "$file" ]] || return 0
 	for item in "${ENVSETUP_RENAMED[@]}"; do
 		if grep -qw -- "${item%%=*}" "$file"; then
@@ -220,22 +243,36 @@ envsetup::migrate_config() {
 		envsetup::would "ask to rename these settings in $ENVSETUP_STATE/config.sh:$list"
 		return 0
 	fi
-	if ! gum confirm "Some settings in $file have a new name:$list. Rename them in $file?"; then
+	# The old names still work after a "no", so "no" is the safe default.
+	if ! gum confirm --default=false "Some settings in $file have a new name:$list. Rename them in $file?"; then
 		gum style --foreground 3 "envsetup keeps $file as it is and reads the old names. The next run asks again."
 		return 0
 	fi
-	IFS= read -rd '' text <"$file" || true
-	# Split the text into words and the text between words, so only whole words change.
-	while [[ "$text" =~ ^([A-Za-z0-9_]+|[^A-Za-z0-9_]+) ]]; do
-		tok=${BASH_REMATCH[0]}
-		text=${text:${#tok}}
+	# In the C locale, every byte is a letter or not, so bytes that are not valid text match too.
+	local LC_ALL=C
+	readarray -t lines <"$file"
+	for line in "${lines[@]}"; do
+		hit=0
 		for item in "${found[@]}"; do
-			if [[ "$tok" == "${item%%=*}" ]]; then tok=${item#*=}; fi
+			if [[ "$line" == *"${item%%=*}"* ]]; then hit=1; fi
 		done
-		out+=$tok
+		if ((hit)); then
+			# Split the line into words and the text between words, so only whole words change.
+			new=''
+			while [[ "$line" =~ ^([A-Za-z0-9_]+|[^A-Za-z0-9_]+) ]]; do
+				tok=${BASH_REMATCH[0]}
+				line=${line:${#tok}}
+				for item in "${found[@]}"; do
+					if [[ "$tok" == "${item%%=*}" ]]; then tok=${item#*=}; fi
+				done
+				new+=$tok
+			done
+			line=$new$line
+		fi
+		out+=$line$'\n'
 	done
-	# The loop stops early at bytes that are not valid text, so add the rest as it is.
-	out+=$text
+	# Keep a last line without a newline as it is.
+	if [[ -n "$(tail -c 1 "$file")" ]]; then out=${out%$'\n'}; fi
 	printf '%s' "$out" >"$file"
 	gum style --foreground 2 "Renamed the settings in $file:$list"
 	envsetup::warn_config_repo

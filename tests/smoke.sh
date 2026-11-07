@@ -947,7 +947,8 @@ check "  ...(control: the copy has the test item)" grep -qxF 'ENVSETUP_RENAMED=(
 h=$(new_home)
 c=$h/.config/envsetup/config.sh
 mkdir -p "${c%/*}"
-old=$'ENVSETUP_OLD_SHELL=zsh\n# ENVSETUP_OLD_SHELLS stays'
+# The first line has a byte that is not valid UTF-8, before the old name (Latin-1 text).
+old=$'# caf\xe9\nENVSETUP_OLD_SHELL=zsh\n# ENVSETUP_OLD_SHELLS stays'
 printf '%s\n' "$old" >"$c"
 check "the shipped list is empty, so it asks nothing" run_menu "$h" Quit
 check "  ...and leaves config.sh as it was" [ "$(cat "$c")" = "$old" ]
@@ -961,12 +962,12 @@ check "  ...did not ask" not grep -qF 'gum confirm' "$SMOKE_LOG"
 check "  ...and saved nothing" [ "$(snapshot "$h")" = "$before" ]
 CONFIRMS=(no)
 SETUP=$M/setup.sh check "no: exited 0" run_menu "$h" "Select profile" home Quit
-check "  ...asked first" grep -qF 'gum confirm Some settings in '"$c"' have a new name: ENVSETUP_OLD_SHELL → ENVSETUP_SHELL.' "$SMOKE_LOG"
+check "  ...asked first" grep -qF 'gum confirm --default=false Some settings in '"$c"' have a new name: ENVSETUP_OLD_SHELL → ENVSETUP_SHELL.' "$SMOKE_LOG"
 check "  ...left config.sh as it was" [ "$(cat "$c")" = "$old" ]
 check "  ...and still read the old name" described "$hm" "home  zsh + oh-my-zsh · $hm packages"
 CONFIRMS=(yes)
 SETUP=$M/setup.sh check "yes: exited 0" run_menu "$h" Quit
-check "  ...renamed only that name" [ "$(cat "$c")" = $'ENVSETUP_SHELL=zsh\n# ENVSETUP_OLD_SHELLS stays' ]
+check "  ...renamed only that name" [ "$(cat "$c")" = $'# caf\xe9\nENVSETUP_SHELL=zsh\n# ENVSETUP_OLD_SHELLS stays' ]
 SETUP=$M/setup.sh check "a second run: exited 0" run_menu "$h" Quit
 check "  ...and asked nothing" not grep -qF 'gum confirm' "$SMOKE_LOG"
 CONFIRMS=()

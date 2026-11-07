@@ -127,7 +127,8 @@ These changes do not need a new major version:
 - A new feature, option, setting, menu action or alias.
 - A setting gets a new name, and `ENVSETUP_RENAMED` in `lib/config.sh` lists the old name.
   envsetup still reads the old name.
-  It asks before it writes the new name into `config.sh`.
+  If `config.sh` sets both names, the old name wins.
+  envsetup asks before it writes the new name into `config.sh`.
 - A pinned tool moves to a new major version.
   The tool belongs to its vendor, not to envsetup's API.
 - A distro release reaches the end of its vendor's standard support ([#120](https://github.com/hunterdw0007/envsetup/issues/120)).

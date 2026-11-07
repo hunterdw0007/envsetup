@@ -46,6 +46,7 @@ Profiles (select one in the menu, and change it at any time):
 Put your own changes in ~/.config/envsetup/config.sh.
 If you set XDG_CONFIG_HOME, the file is $XDG_CONFIG_HOME/envsetup/config.sh.
 "Paste config" in the menu adds the text that you paste to the end of the file.
+It can also save the text as a new file in shell.d, next to config.sh.
 "Edit config" in the menu creates the file from config.example.sh and opens it.
 Both check the file for syntax errors and show each setting that changed.
 The file is outside this repo, so updates never change it.
@@ -423,7 +424,7 @@ envsetup::main_menu() {
 		case "$choice" in
 		"Select profile"*) envsetup::run_step envsetup::pick_profile ;;
 		"Paste config")
-			envsetup::dry_run && gum style --foreground 6 "Dry run: you are editing a copy of your config. Your changes last until you quit."
+			envsetup::dry_run && gum style --foreground 6 "Dry run: settings go to a copy of your config until you quit. A shell file is not saved."
 			envsetup::run_step envsetup::paste_config
 			;;
 		"Edit config")

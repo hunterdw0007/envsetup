@@ -5,7 +5,7 @@
 # install.sh then downloads a release and runs setup.sh from it.
 
 envsetup() {
-	local url=https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh script editor
+	local url=https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh script
 	local version=${ENVSETUP_VERSION:-}
 	case ${1:-} in
 	-h | --help | help)
@@ -16,7 +16,8 @@ Commands:
   update     download the newest release and open the menu (the default)
   status     show what envsetup set up (setup.sh --status), with the
              release that your shells use
-  config     open config.sh in $EDITOR
+  config     open config.sh in $EDITOR and check it, like "Edit config"
+             (setup.sh --edit-config)
   uninstall  remove what envsetup added (setup.sh --uninstall)
   version    show the release that your shells use
 
@@ -26,20 +27,13 @@ curl command.
 EOF
 		;;
 	version) cat "$ENVSETUP_ROOT/version" ;;
-	config)
-		# Without $EDITOR, use nano if the machine has it, and vi otherwise, like "Edit config".
-		editor=${EDITOR:-vi}
-		if [[ -z "${EDITOR:-}" ]] && command -v nano >/dev/null; then editor=nano; fi
-		# eval splits $EDITOR into words in bash and zsh, for example EDITOR="code --wait".
-		eval "$editor \"\$ENVSETUP_STATE/config.sh\""
-		;;
-	'' | update | status | uninstall | -*)
+	'' | update | status | config | uninstall | -*)
 		case ${1:-} in
 		update) shift ;;
 		uninstall) set -- --uninstall "${@:2}" ;;
-		status)
-			set -- --status "${@:2}"
-			# Check against the release that the shells use, not the newest one.
+		status | config)
+			if [[ $1 == status ]]; then set -- --status "${@:2}"; else set -- --edit-config "${@:2}"; fi
+			# Use the release that the shells use, not the newest one.
 			if [[ -z "$version" && -f "$ENVSETUP_ROOT/version" ]]; then version=$(<"$ENVSETUP_ROOT/version"); fi
 			;;
 		esac

@@ -324,7 +324,6 @@ check "  ...without errors" [ ! -s "$h/shell.err" ]
 for sh in bash zsh; do
 	check "$sh: envsetup version shows the recorded release" same_list "$(cat "$data/version" 2>/dev/null)" "$(in_shell "$h" $sh 'envsetup version')"
 	check "  ...envsetup --help lists the commands" grep -q '^  uninstall ' <(in_shell "$h" $sh 'envsetup --help')
-	check "  ...envsetup config opens config.sh in \$EDITOR" [ "$(in_shell "$h" $sh 'EDITOR="echo --wait" envsetup config')" = "--wait $h/.config/envsetup/config.sh" ]
 	check "  ...a failed download returns 1" [ "$(PATH="$OFFLINE:$PATH" SMOKE_CURL_FAIL=1 in_shell "$h" $sh 'envsetup --dry-run; echo $?')" = 1 ]
 	check "  ...and says so" grep -qF 'envsetup: could not download' "$h/shell.err"
 	check "  ...an unknown command fails" [ "$(in_shell "$h" $sh 'envsetup bogus; echo $?')" = 2 ]
@@ -353,6 +352,28 @@ SETUP_ARGS=()
 check "  ...and named docker" grep -qF 'missing  docker is not on PATH' "$h/setup.out"
 check "  ...changed nothing" [ "$(snapshot "$h")" = "$before" ]
 check "  ...and deleted its download" left_nothing
+# envsetup config runs Edit config from the release that the shells use (#152).
+# Each fake editor adds one line to config.sh.
+cfg=$h/.config/envsetup/config.sh
+cp "$cfg" $W/config.sh
+printf '#!/bin/sh\necho exit >>"$1"\n' >$W/add-exit
+printf '#!/bin/sh\necho "if true" >>"$1"\n' >$W/add-if
+chmod +x $W/add-exit $W/add-if
+SETUP_ARGS=(config)
+EDITOR=$W/add-exit ENVSETUP_VERSION='' SETUP=envsetup_bash check "envsetup config, and save an exit: exited 0" run_menu "$h"
+check "  ...downloaded the release that the shells use" grep -qF "Downloaded envsetup $(cat "$data/version" 2>/dev/null) " "$h/setup.out"
+check "  ...saved the exit" [ "$(tail -n 1 "$cfg")" = exit ]
+check "  ...and warned that config.sh stops before its end" grep -qF 'config.sh stops before its end' "$h/setup.out"
+cp $W/config.sh "$cfg"
+EDITOR=$W/add-if ENVSETUP_VERSION='' SETUP=envsetup_bash check "  ...save a syntax error: exited 1" not run_menu "$h"
+check "  ...and showed the error line" grep -qE "^line [0-9]+: syntax error" "$h/setup.out"
+cp $W/config.sh "$cfg"
+rm "$cfg"
+EDITOR=true ENVSETUP_REPO_URL=$SRC ENVSETUP_VERSION='' SETUP=envsetup_bash check "  ...without config.sh: exited 0" run_menu "$h"
+check "  ...and created it from config.example.sh" cmp -s "$CLONE/config.example.sh" "$cfg"
+cp $W/config.sh "$cfg"
+SETUP_ARGS=()
+check "  ...deleted its download" left_nothing
 SETUP=curl_bash check "the same release again: exited 0" run_menu "$h" "Run everything" Quit
 check "  ...and changed nothing" [ "$(snapshot "$h")" = "$before" ]
 SETUP_ARGS=(--dry-run)

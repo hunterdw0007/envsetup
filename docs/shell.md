@@ -96,7 +96,7 @@ It runs the curl command from the README for you.
 | `envsetup` | Downloads the newest release and opens the menu. |
 | `envsetup update` | Does the same as `envsetup`. |
 | `envsetup status` | Runs `setup.sh --status`, which shows what envsetup set up. It checks the release that your shells use. |
-| `envsetup config` | Opens `config.sh` in `$EDITOR`. |
+| `envsetup config` | Runs `setup.sh --edit-config`, which works like **Edit config**. It uses the release that your shells use. |
 | `envsetup uninstall` | Runs `setup.sh --uninstall`. |
 | `envsetup version` | Shows the release that your shells use. |
 | `envsetup --help` | Lists these commands. |
@@ -106,12 +106,13 @@ For example, `envsetup --dry-run` opens the menu but changes nothing.
 `ENVSETUP_REPO_URL` and `ENVSETUP_VERSION` work as they do in the curl command.
 You can set `ENVSETUP_REPO_URL` in `config.sh`.
 
-`envsetup status` reads the release from `~/.local/share/envsetup/version`.
-It downloads that release and checks this machine against its packages and pins.
-Without that file, it uses the newest release.
+`envsetup status` and `envsetup config` read the release from `~/.local/share/envsetup/version`.
+They download that release and run its `setup.sh`.
+`envsetup status` checks this machine against that release's packages and pins.
+Without that file, both commands use the newest release.
 `ENVSETUP_VERSION` selects another release.
 
-Every command except `config` and `version` needs a terminal.
+Every command except `version` needs a terminal.
 `install.sh` runs `setup.sh` with its input from the terminal.
 So `envsetup status` does not work in a script or a cron job.
 

@@ -336,6 +336,12 @@ envsetup::ensure_gum() {
 		envsetup::has_cmd tar || need+=(tar)
 		envsetup::has_cmd gzip || need+=(gzip)
 		if ((${#need[@]})); then
+			# setup.sh's dry-run question promises no change besides gum.
+			# So a dry run installs no system package (#155).
+			if envsetup::dry_run; then
+				echo "gum's download needs ${need[*]}. A dry run installs no system package. Install ${need[*]}, then run it again." >&2
+				return 1
+			fi
 			manager=$(envsetup::pkg_manager)
 			if [[ -n "$manager" ]]; then envsetup::pkg_install "$manager" "${need[@]}"; fi
 		fi

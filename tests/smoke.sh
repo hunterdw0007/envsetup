@@ -908,6 +908,19 @@ echo "# control" >>"$h/.bashrc"
 check "  ...(control: the snapshot does notice a change)" [ "$(snapshot "$h")" != "$before" ]
 ((failures)) && show "$h/setup.out"
 
+echo "== --dry-run without gum or tar installs no system package (#155)"
+# PATH holds a copy of /usr/bin without tar, and no gum.
+mkdir "$W/notar"
+for f in /usr/bin/*; do [ "${f##*/}" = tar ] || ln -s "$f" "$W/notar/"; done
+h=$(new_home)
+: >"$SMOKE_LOG"
+# The answer "y" goes to the question "Install gum?".
+no_tar() { HOME=$h PATH="$OFFLINE:$W/notar" "$CLONE/setup.sh" --dry-run <<<y >"$h/setup.out" 2>&1; }
+check "exited 1" not no_tar
+check "  ...ran no package manager" not_grep '^apt-get ' "$SMOKE_LOG"
+check "  ...and named tar" grep -qF 'Install tar, then run it again.' "$h/setup.out"
+((failures)) && show "$h/setup.out"
+
 echo "== --dry-run: config edits last only for the session"
 h=$(new_home)
 before=$(snapshot "$h")

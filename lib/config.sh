@@ -334,6 +334,7 @@ envsetup::paste_config() {
 # It asks for the name.
 # It saves nothing if a shell that loads the file finds a syntax error, or if the file stops before its end.
 # It asks before it replaces a file, and the default answer keeps the old file.
+# A dry run checks only the syntax, because the other check runs the text.
 envsetup::add_shell_file() {
 	local text name file sh opt shells=()
 	text=$(<"$1")
@@ -361,6 +362,8 @@ envsetup::add_shell_file() {
 	fi
 	for sh in "${shells[@]}"; do
 		envsetup::check_config "$ENVSETUP_TMP/add.sh" "The text has an error in ${sh##*/}, so envsetup saved nothing:" "$sh"
+		# The check below runs the text, so a dry run skips it.
+		if envsetup::dry_run; then continue; fi
 		# A file that runs exit would close every new shell.
 		# zsh -f skips the user's own zsh startup files.
 		# bash -f means something else (no globs), so bash gets only -c.
@@ -373,6 +376,10 @@ envsetup::add_shell_file() {
 			return 1
 		fi
 	done
+	if envsetup::dry_run; then
+		gum style --foreground 3 "A dry run does not run the text. It checks only the syntax." \
+			"A real run also checks that the text runs to its end."
+	fi
 	# shellcheck disable=SC2153 # lib/common.sh sets ENVSETUP_SHELL_D, and it is not a misspelling of ENVSETUP_SHELL
 	file=$ENVSETUP_SHELL_D/$name
 	if [[ -e "$file" || -L "$file" ]]; then
@@ -399,6 +406,7 @@ envsetup::add_shell_file() {
 # add_config <file> adds the file's text to the end of config.sh.
 # It saves nothing if the text is empty, or if bash -n finds an error in the text or in config.sh.
 # It also saves nothing if config.sh would stop before its end, for example at an exit.
+# A dry run checks only the syntax and adds nothing, because the other checks run the text.
 # Paste config and setup.sh --config use it.
 envsetup::add_config() {
 	local text before after new=$ENVSETUP_TMP/config.new
@@ -420,6 +428,13 @@ envsetup::add_config() {
 	if [[ -s "$new" && -n "$(tail -c 1 "$new")" ]]; then echo >>"$new"; fi
 	printf '%s\n' "$text" >>"$new"
 	envsetup::check_config "$new" "config.sh with the text at its end has an error, so envsetup saved nothing:"
+	# settings_of runs config.sh and the text, so a dry run stops here.
+	if envsetup::dry_run; then
+		envsetup::would "add the text to the end of config.sh"
+		gum style --foreground 3 "A dry run does not run the text. It checks only the syntax." \
+			"A real run also checks that config.sh runs to its end." "Then it shows the changed settings."
+		return 0
+	fi
 	before=$(envsetup::settings_of "$ENVSETUP_USER_CONFIG")
 	after=$(envsetup::settings_of "$new")
 	if [[ -z "$after" ]]; then
@@ -429,11 +444,7 @@ envsetup::add_config() {
 	fi
 	mkdir -p "${ENVSETUP_USER_CONFIG%/*}"
 	cat "$new" >"$ENVSETUP_USER_CONFIG"
-	if envsetup::dry_run; then
-		gum style --foreground 2 "Added the text to this session's copy of config.sh. The copy lasts until you quit."
-	else
-		gum style --foreground 2 "Added the text to the end of $ENVSETUP_USER_CONFIG"
-	fi
+	gum style --foreground 2 "Added the text to the end of $ENVSETUP_USER_CONFIG"
 	envsetup::show_changes "$before" "$after"
 	envsetup::warn_config_repo
 }

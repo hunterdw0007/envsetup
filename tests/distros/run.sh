@@ -29,7 +29,7 @@ if ((${#images[@]} == 0)); then
 		fedora:latest almalinux:9 rockylinux/rockylinux:9 amazonlinux:2023
 		# Arch, and the desktops based on Arch, which are growing fast
 		archlinux:latest
-		# Not supported yet, so this shows what breaks
+		# openSUSE and Alpine
 		opensuse/tumbleweed opensuse/leap:16.0 alpine:latest
 	)
 fi

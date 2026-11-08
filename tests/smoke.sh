@@ -918,7 +918,7 @@ h=$(new_home)
 no_tar() { HOME=$h PATH="$OFFLINE:$W/notar" "$CLONE/setup.sh" --dry-run <<<y >"$h/setup.out" 2>&1; }
 check "exited 1" not no_tar
 check "  ...ran no package manager" not_grep '^apt-get ' "$SMOKE_LOG"
-check "  ...and named tar" grep -qF 'Install tar, then run it again.' "$h/setup.out"
+check "  ...and named tar" grep -qF "gum's download needs these tools: tar. A dry run" "$h/setup.out"
 ((failures)) && show "$h/setup.out"
 
 echo "== --dry-run: config edits last only for the session"

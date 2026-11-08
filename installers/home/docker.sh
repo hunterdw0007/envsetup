@@ -24,6 +24,8 @@ dnf)
 		# dnf checks each package against Docker's key in docker.asc.
 		# Docker publishes the key's fingerprint at https://docs.docker.com/engine/install/rhel/:
 		# 060A 61C5 1B55 8A7F 742B 77AA C52F EB6B 621E 9F35
+		# If Docker changes its key, replace docker.asc with https://download.docker.com/linux/centos/gpg.
+		# Then copy the new fingerprint from that page into this comment.
 		repo=centos
 		[[ "$id" == rhel ]] && repo=rhel
 		envsetup::as_root rpm --import "$ENVSETUP_ROOT/installers/home/docker.asc"

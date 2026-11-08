@@ -19,7 +19,7 @@ CLONE=/root/envsetup
 W=/tmp/smoke
 STUBS=$W/stubs     # fake gum and sudo, on PATH for every run
 OFFLINE=$W/offline # fake package manager, curl, chsh, and vendor tools that count as installed
-HOOKS=$W/hooks     # fake direnv and zoxide that print a marker function as their hook
+HOOKS=$W/hooks     # fake direnv and zoxide that print a marker function as their hook, and a fake vim
 export SMOKE_LOG=$W/calls.log SMOKE_CHOICES=$W/choices SMOKE_CONFIRMS=$W/confirms
 failures=0
 
@@ -118,6 +118,7 @@ cp "$SRC/tests/ssh-keygen.sh" "$OFFLINE/ssh-keygen"
 mkdir -p "$HOOKS"
 printf '#!/bin/sh\necho "_direnv_hook() { :; }"\n' >"$HOOKS/direnv"
 printf '#!/bin/sh\necho "__zoxide_z() { :; }"\n' >"$HOOKS/zoxide"
+printf '#!/bin/sh\n' >"$HOOKS/vim"
 chmod +x "$STUBS"/* "$OFFLINE"/* "$HOOKS"/*
 
 # run_menu <home> <answers...> runs the cloned setup.sh offline and answers the menu.
@@ -412,7 +413,8 @@ check "bash starts without errors" [ ! -s "$h/shell.err" ]
 check "a non-interactive bash (ssh host cmd) runs the rc block" [ "$(not_interactive "$h" 'printf %s "$ENVSETUP_ROOT"')" = "$h/.local/share/envsetup" ]
 check "  ...but gets no functions" [ "$(not_interactive "$h" 'type -t fetchAll || echo none')" = none ]
 check "  ...no aliases" [ "$(not_interactive "$h" 'alias ll >/dev/null 2>&1 || echo none')" = none ]
-check "  ...but the exports (ssh host git commit gets EDITOR)" [ "$(not_interactive "$h" 'printf %s "${EDITOR:-}"')" = vim ]
+check "  ...but the exports (ssh host git commit gets EDITOR)" [ "$(PATH=$HOOKS:$PATH not_interactive "$h" 'printf %s "${EDITOR:-}"')" = vim ]
+check "  ...but no EDITOR on a machine without vim (#156)" [ "$(not_interactive "$h" 'printf %s "${EDITOR:-none}"')" = none ]
 check "  ...and prints nothing of its own (scp needs a silent shell)" [ "$(not_interactive "$h" 'echo marker')" = marker ]
 check "values set before envsetup's block stay" [ "$(EDITOR=nano XDG_CONFIG_HOME=$h/mine MANPAGER=most in_shell "$h" bash 'printf %s "$EDITOR|$XDG_CONFIG_HOME|$MANPAGER"')" = "nano|$h/mine|most" ]
 check "  ...and with no envsetup dir in that XDG_CONFIG_HOME, ~/.config/envsetup stays in use" [ "$(XDG_CONFIG_HOME=$h/mine in_shell "$h" bash 'alias kc')" = "alias kc='kubectl'" ]
@@ -509,7 +511,7 @@ check "linked ~/.bashrc" grep -qF '# >>> envsetup >>>' "$h/.bashrc"
 check "no package installs" [ "$(count 'apt-get' "$SMOKE_LOG")" = 0 ]
 check "no installers run" [ "$(count 'Running ' "$SMOKE_LOG")" = 0 ]
 check "bash loads the aliases" [ "$(in_shell "$h" bash 'alias ll')" = "alias ll='ls -alh'" ]
-check "bash skips exports" [ -z "$(in_shell "$h" bash 'printf %s "${EDITOR:-}"')" ]
+check "bash skips exports" [ -z "$(PATH=$HOOKS:$PATH in_shell "$h" bash 'printf %s "${EDITOR:-}"')" ]
 check "bash gets the functions" [ "$(in_shell "$h" bash 'type -t fetchAll')" = function ]
 check "bash still gets the envsetup command" [ "$(in_shell "$h" bash 'type -t envsetup')" = function ]
 check "bash still gets the prompt" has_prompt "$h"
@@ -654,8 +656,8 @@ check "saved the profile in \$XDG_CONFIG_HOME/envsetup" [ "$(cat "$x/envsetup/pr
 check "  ...and nothing in ~/.config/envsetup" [ ! -e "$h/.config/envsetup" ]
 # Lite mode loads no exports.
 # Without the saved mode, a shell would load full mode's EDITOR=vim.
-check "a shell with the same XDG_CONFIG_HOME finds it (lite: no EDITOR)" [ "$(XDG_CONFIG_HOME=$x in_shell "$h" bash 'printf %s "${EDITOR:-none}"')" = none ]
-check "  ...and so does a shell without XDG_CONFIG_HOME (ssh, cron): the rc block keeps the dir" [ "$(in_shell "$h" bash 'printf %s "${EDITOR:-none}|$ENVSETUP_STATE"')" = "none|$x/envsetup" ]
+check "a shell with the same XDG_CONFIG_HOME finds it (lite: no EDITOR)" [ "$(XDG_CONFIG_HOME=$x PATH=$HOOKS:$PATH in_shell "$h" bash 'printf %s "${EDITOR:-none}"')" = none ]
+check "  ...and so does a shell without XDG_CONFIG_HOME (ssh, cron): the rc block keeps the dir" [ "$(PATH=$HOOKS:$PATH in_shell "$h" bash 'printf %s "${EDITOR:-none}|$ENVSETUP_STATE"')" = "none|$x/envsetup" ]
 check "  ...and the copy of shell/ in \$XDG_DATA_HOME" [ "$(in_shell "$h" bash 'printf %s "$ENVSETUP_ROOT"')" = "$odd/envsetup" ]
 check "  ...and loads its aliases" [ "$(in_shell "$h" bash 'alias ll')" = "alias ll='ls -alh'" ]
 quoted() { [ ! -s "$h/shell.err" ] && [ ! -e "$h/ran" ]; }

@@ -131,7 +131,7 @@ On Debian and Ubuntu, `fd` runs `fdfind`.
 envsetup sets these environment variables:
 
 - the XDG base folder variables
-- `EDITOR=vim`
+- `EDITOR=vim`, if you have `vim`
 - a `MANPAGER` that shows man pages with `bat`, if you have `bat`
 
 Each value is only a default.

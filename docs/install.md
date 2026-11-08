@@ -80,6 +80,7 @@ So the shell code that you edit in a dry run runs.
 A dry run of **Paste config** checks only the syntax of the text.
 It does not run the text.
 It saves the text nowhere, not even for the session.
+With `--dry-run`, `--config <file>` also checks only the syntax of the file.
 
 The menu needs gum.
 If the machine does not have gum, the dry run asks before it installs gum.

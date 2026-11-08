@@ -433,7 +433,7 @@ envsetup::main_menu() {
 		case "$choice" in
 		"Select profile"*) envsetup::run_step envsetup::pick_profile ;;
 		"Paste config")
-			envsetup::dry_run && gum style --foreground 6 "Dry run: settings go to a copy of your config until you quit. A shell file is not saved."
+			envsetup::dry_run && gum style --foreground 6 "Dry run: Paste config checks only the syntax of the text. It saves the text nowhere."
 			envsetup::run_step envsetup::paste_config
 			;;
 		"Edit config")

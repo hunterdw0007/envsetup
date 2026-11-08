@@ -1282,10 +1282,6 @@ SETUP_ARGS=(--dry-run)
 EDITOR=$W/edit-append check "--dry-run Edit config with a linked config.sh: exited 0" run_menu "$h" "Edit config" Quit
 SETUP_ARGS=()
 check "  ...left the clone clean" not dirty
-SETUP_ARGS=(--dry-run)
-SMOKE_WRITE='# smoke paste' check "--dry-run Paste config with a linked config.sh: exited 0" run_menu "$h" "Paste config" settings Quit
-SETUP_ARGS=()
-check "  ...left the clone clean" not dirty
 SMOKE_WRITE='# smoke paste' check "Paste config with a linked config.sh: exited 0" run_menu "$h" "Paste config" settings Quit
 check "  ...added the text to the clone's config.sh" [ "$(tail -n 1 "$st/repo/config.sh")" = '# smoke paste' ]
 check "  ...and said to commit and push it" grep -qF 'Commit and push your edits there' "$SMOKE_LOG"

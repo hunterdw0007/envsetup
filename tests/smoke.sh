@@ -326,6 +326,8 @@ for sh in bash zsh; do
 	check "  ...envsetup --help lists the commands" grep -q '^  uninstall ' <(in_shell "$h" $sh 'envsetup --help')
 	check "  ...a failed download returns 1" [ "$(PATH="$OFFLINE:$PATH" SMOKE_CURL_FAIL=1 in_shell "$h" $sh 'envsetup --dry-run; echo $?')" = 1 ]
 	check "  ...and says so" grep -qF 'envsetup: could not download' "$h/shell.err"
+	check "  ...envsetup config without the download still opens config.sh" [ "$(PATH="$OFFLINE:$PATH" SMOKE_CURL_FAIL=1 in_shell "$h" $sh 'EDITOR="echo --wait" envsetup config')" = "--wait $h/.config/envsetup/config.sh" ]
+	check "  ...and says that it checks nothing" grep -qF 'without the checks of Edit config' "$h/shell.err"
 	check "  ...an unknown command fails" [ "$(in_shell "$h" $sh 'envsetup bogus; echo $?')" = 2 ]
 done
 # config.sh sets ENVSETUP_REPO_URL without export, as a user would.
@@ -364,6 +366,16 @@ EDITOR=$W/add-exit ENVSETUP_VERSION='' SETUP=envsetup_bash check "envsetup confi
 check "  ...downloaded the release that the shells use" grep -qF "Downloaded envsetup $(cat "$data/version" 2>/dev/null) " "$h/setup.out"
 check "  ...saved the exit" [ "$(tail -n 1 "$cfg")" = exit ]
 check "  ...and warned that config.sh stops before its end" grep -qF 'config.sh stops before its end' "$h/setup.out"
+# A new shell closes at the exit, so the user runs setup.sh --edit-config to remove it.
+printf '#!/bin/sh\nsed -i "\\$d" "$1"\n' >$W/drop-last
+chmod +x $W/drop-last
+SETUP_ARGS=(--edit-config)
+EDITOR=$W/drop-last check "  ...setup.sh --edit-config with that exit still in config.sh: exited 0" run_menu "$h"
+check "  ...and the editor removed the exit" same_list "$(cat $W/config.sh)" "$(cat "$cfg")"
+SETUP_ARGS=(--edit-config --uninstall)
+check "  ...--edit-config with --uninstall: exits non-zero" not run_menu "$h"
+check "  ...and says why" grep -qF -- '--edit-config does not work with --config or --uninstall' "$h/setup.out"
+SETUP_ARGS=(config)
 cp $W/config.sh "$cfg"
 EDITOR=$W/add-if ENVSETUP_VERSION='' SETUP=envsetup_bash check "  ...save a syntax error: exited 1" not run_menu "$h"
 check "  ...and showed the error line" grep -qE "^line [0-9]+: syntax error" "$h/setup.out"
@@ -929,7 +941,7 @@ check "  ...and says why" grep -qF 'would stop before its end' "$SMOKE_LOG"
 printf 'if true; then\n' >>"$c"
 SMOKE_WRITE='ENVSETUP_SHELL=zsh' run_menu "$h" "Paste config" settings Quit || true
 check "a paste onto a config.sh with an error saves nothing" [ "$(cat "$c")" = "$want"$'\nif true; then' ]
-check "  ...and names the line in config.sh" grep -qF 'config.sh already has an error, so envsetup saved nothing. Select Edit config to fix it: line 4: syntax error' "$SMOKE_LOG"
+check "  ...and names the line in config.sh" grep -qF 'config.sh already has an error, so envsetup saved nothing. Run envsetup config, or select Edit config, to fix it: line 4: syntax error' "$SMOKE_LOG"
 printf '%s\n' "$want" >"$c"
 before=$(snapshot "$h")
 SETUP_ARGS=(--dry-run)
@@ -945,7 +957,7 @@ check "Edit config without \$EDITOR opens nano" grep -qxF "nano $c" "$SMOKE_LOG"
 check "  ...and shows the changed setting" grep -qxF 'gum style XDG ninja: +1 -0' "$SMOKE_LOG"
 printf '#!/bin/sh\necho fi >>"$1"\n' >$W/editor
 EDITOR=$W/editor run_menu "$h" "Edit config" Quit || true
-check "an edit with an error shows the line number" grep -qF "$c has an error. Select Edit config to fix it: line $(wc -l <"$c"): syntax error" "$SMOKE_LOG"
+check "an edit with an error shows the line number" grep -qF "$c has an error. Run envsetup config, or select Edit config, to fix it: line $(wc -l <"$c"): syntax error" "$SMOKE_LOG"
 h=$(new_home)
 c=$h/.config/envsetup/config.sh
 printf 'ENVSETUP_SHELL=zsh\nfi\n' >$W/bad.sh

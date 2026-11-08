@@ -307,7 +307,7 @@ envsetup::edit_config() {
 		editor=(nano)
 	fi
 	"${editor[@]}" "$ENVSETUP_USER_CONFIG"
-	envsetup::check_config "$ENVSETUP_USER_CONFIG" "$ENVSETUP_USER_CONFIG has an error. Select Edit config to fix it:"
+	envsetup::check_config "$ENVSETUP_USER_CONFIG" "$ENVSETUP_USER_CONFIG has an error. Run envsetup config, or select Edit config, to fix it:"
 	envsetup::show_changes "$before" "$(envsetup::settings_of "$ENVSETUP_USER_CONFIG")"
 }
 
@@ -412,7 +412,7 @@ envsetup::add_config() {
 	printf '%s\n' "$text" >"$ENVSETUP_TMP/add.sh"
 	envsetup::check_config "$ENVSETUP_TMP/add.sh" "The text has an error, so envsetup saved nothing:"
 	if [[ -f "$ENVSETUP_USER_CONFIG" ]]; then
-		envsetup::check_config "$ENVSETUP_USER_CONFIG" "config.sh already has an error, so envsetup saved nothing. Select Edit config to fix it:"
+		envsetup::check_config "$ENVSETUP_USER_CONFIG" "config.sh already has an error, so envsetup saved nothing. Run envsetup config, or select Edit config, to fix it:"
 	fi
 	: >"$new"
 	if [[ -f "$ENVSETUP_USER_CONFIG" ]]; then cat "$ENVSETUP_USER_CONFIG" >"$new"; fi

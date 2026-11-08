@@ -40,6 +40,11 @@ EOF
 		# An interactive shell has no pipefail, so `curl | bash` would hide a failed download.
 		script=$(curl -fsSL "$url") || {
 			echo "envsetup: could not download $url" >&2
+			if [[ ${1:-} == --edit-config ]]; then
+				echo "envsetup: opening config.sh without the checks of Edit config" >&2
+				# eval splits $EDITOR into words in bash and zsh, for example EDITOR="code --wait".
+				eval "${EDITOR:-vi} \"\$ENVSETUP_STATE/config.sh\""
+			fi
 			return 1
 		}
 		# config.sh may set ENVSETUP_REPO_URL without export, so pass it on here.

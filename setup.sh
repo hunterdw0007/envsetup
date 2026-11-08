@@ -153,6 +153,10 @@ if ((UNINSTALL)) && [[ -n "$CONFIG_FILE" ]]; then
 	printf 'setup.sh: --config and --uninstall do not work together\n' >&2
 	exit 2
 fi
+if ((EDIT_CONFIG)) && { ((UNINSTALL)) || [[ -n "$CONFIG_FILE" ]]; }; then
+	printf 'setup.sh: --edit-config does not work with --config or --uninstall\n' >&2
+	exit 2
+fi
 
 # This run's temporary folder.
 # Installers run in their own processes and share it.
@@ -470,7 +474,8 @@ if ((UNINSTALL)); then
 	exit 0
 fi
 if ((EDIT_CONFIG)); then
-	envsetup::load_config "$(envsetup::read_state profile)" "$(envsetup::read_state mode full)"
+	# Only settings_of loads config.sh, in a subshell, so an exit in config.sh cannot end setup.sh before the editor opens.
+	ENVSETUP_PROFILE=$(envsetup::read_state profile) ENVSETUP_MODE=$(envsetup::read_state mode full)
 	envsetup::edit_config
 	exit 0
 fi

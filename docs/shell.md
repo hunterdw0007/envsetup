@@ -110,6 +110,7 @@ You can set `ENVSETUP_REPO_URL` in `config.sh`.
 They download that release and run its `setup.sh`.
 `envsetup status` checks this machine against that release's packages and pins.
 Without that file, both commands use the newest release.
+If the download fails, `envsetup config` still opens `config.sh`, but it checks nothing.
 `ENVSETUP_VERSION` selects another release.
 
 Every command except `version` needs a terminal.

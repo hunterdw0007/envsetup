@@ -20,12 +20,16 @@ dnf)
 	*)
 		# RHEL-like systems ship podman, not docker.
 		# So this uses Docker CE's own repo.
+		# This script writes the repo file, so nothing unchecked runs as root.
+		# dnf checks each package against Docker's key in docker.asc.
+		# Docker publishes the key's fingerprint at https://docs.docker.com/engine/install/rhel/:
+		# 060A 61C5 1B55 8A7F 742B 77AA C52F EB6B 621E 9F35
 		repo=centos
 		[[ "$id" == rhel ]] && repo=rhel
-		tmp="$(mktemp -d)"
-		trap 'rm -rf "$tmp"' EXIT
-		curl -fsSL -o "$tmp/docker-ce.repo" "https://download.docker.com/linux/$repo/docker-ce.repo"
-		envsetup::as_root install -m 0644 "$tmp/docker-ce.repo" /etc/yum.repos.d/docker-ce.repo
+		envsetup::as_root rpm --import "$ENVSETUP_ROOT/installers/home/docker.asc"
+		# shellcheck disable=SC2016 # dnf, not bash, expands $basearch and $releasever
+		printf '[docker-ce-stable]\nname=Docker CE Stable - $basearch\nbaseurl=https://download.docker.com/linux/%s/$releasever/$basearch/stable\nenabled=1\ngpgcheck=1\n' "$repo" |
+			envsetup::as_root tee /etc/yum.repos.d/docker-ce.repo >/dev/null
 		pkgs=(docker-ce docker-ce-cli containerd.io)
 		;;
 	esac

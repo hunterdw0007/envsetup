@@ -275,9 +275,11 @@ envsetup::enable_epel() {
 	version=$(envsetup::os_release VERSION_ID)
 	version=${version%%.*}
 	[[ "$id" == ol ]] && pkg=oracle-epel-release-el$version
-	if ! envsetup::as_root dnf install -y "$pkg" &&
-		! envsetup::as_root dnf install -y "https://dl.fedoraproject.org/pub/epel/epel-release-latest-$version.noarch.rpm"; then
-		gum style --foreground 3 "Couldn't turn on EPEL. envsetup installs what the repos of $id have."
+	# RHEL's own repos have no epel-release.
+	# envsetup does not install it from a URL, because the URL names no version.
+	if ! envsetup::as_root dnf install -y "$pkg"; then
+		gum style --foreground 3 "Couldn't turn on EPEL. envsetup installs what the repos of $id have." \
+			"To turn on EPEL yourself, see https://docs.fedoraproject.org/en-US/epel/getting-started/"
 		return 0
 	fi
 	# Some EPEL packages need the CodeReady Builder repo.

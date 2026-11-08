@@ -130,7 +130,7 @@ It uses the package manager that the machine has.
 |---|---|---|
 | Ubuntu, Debian, Mint, Pop!_OS, WSL | `apt` | |
 | Fedora | `dnf` | |
-| RHEL, Rocky, Alma, CentOS Stream, Oracle Linux | `dnf` | Asks to turn on EPEL. See [EPEL](docs/systems.md#epel). |
+| RHEL, Rocky, Alma, CentOS Stream, Oracle Linux | `dnf` | Asks to turn on EPEL. On RHEL, turn on EPEL yourself. See [EPEL](docs/systems.md#epel). |
 | Amazon Linux 2023 | `dnf` | Has no EPEL. See [EPEL](docs/systems.md#epel). |
 | Arch, CachyOS, EndeavourOS, Manjaro | `pacman` | |
 | openSUSE Tumbleweed and Leap | `zypper` | Leap 16.0 does not package `nmap`. For `work`, add it to `ENVSETUP_SKIP`. |

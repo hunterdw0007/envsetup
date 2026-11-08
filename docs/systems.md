@@ -21,7 +21,13 @@ If the machine has Homebrew, envsetup uses Homebrew.
 On RHEL and similar systems, about 15 packages come from EPEL.
 These packages include fzf, ripgrep, bat, htop and neovim.
 EPEL 9 does not have direnv.
+On Rocky, Alma, CentOS Stream and Oracle Linux, envsetup asks to turn on EPEL.
+RHEL's own repos do not have EPEL's package.
+So on RHEL, turn on EPEL yourself before you run envsetup.
+[Fedora's EPEL guide](https://docs.fedoraproject.org/en-US/epel/getting-started/) shows how.
 Docker comes from Docker CE's own package repo.
+envsetup writes that repo's file itself.
+dnf checks each Docker package against Docker's key in `installers/home/docker.asc`.
 
 Amazon Linux 2023 has no EPEL.
 On Amazon Linux, envsetup cannot install fzf, ripgrep, bat and some other packages.

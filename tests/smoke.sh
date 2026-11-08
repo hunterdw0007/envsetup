@@ -414,6 +414,8 @@ check "a non-interactive bash (ssh host cmd) runs the rc block" [ "$(not_interac
 check "  ...but gets no functions" [ "$(not_interactive "$h" 'type -t fetchAll || echo none')" = none ]
 check "  ...no aliases" [ "$(not_interactive "$h" 'alias ll >/dev/null 2>&1 || echo none')" = none ]
 check "  ...but the exports (ssh host git commit gets EDITOR)" [ "$(PATH=$HOOKS:$PATH not_interactive "$h" 'printf %s "${EDITOR:-}"')" = vim ]
+# The next check needs an image without vim, so a vim in a later image fails here with a clear name.
+check "  ...(the test image has no vim)" [ -z "$(command -v vim)" ]
 check "  ...but no EDITOR on a machine without vim (#156)" [ "$(not_interactive "$h" 'printf %s "${EDITOR:-none}"')" = none ]
 check "  ...and prints nothing of its own (scp needs a silent shell)" [ "$(not_interactive "$h" 'echo marker')" = marker ]
 check "values set before envsetup's block stay" [ "$(EDITOR=nano XDG_CONFIG_HOME=$h/mine MANPAGER=most in_shell "$h" bash 'printf %s "$EDITOR|$XDG_CONFIG_HOME|$MANPAGER"')" = "nano|$h/mine|most" ]

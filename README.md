@@ -111,8 +111,8 @@ Work lite skips **Install packages** and **Run installers**.
 
 ### What your shell gets
 
-Every profile gets a prompt, aliases and hooks for some tools.
-Every profile except work lite also gets environment variables and shell functions.
+Every profile gets a prompt, aliases, shell functions and hooks for some tools.
+Every profile except work lite also gets environment variables.
 [docs/shell.md](docs/shell.md) lists all of them.
 
 **Configure git** changes some of git's defaults.

@@ -510,7 +510,7 @@ check "no package installs" [ "$(count 'apt-get' "$SMOKE_LOG")" = 0 ]
 check "no installers run" [ "$(count 'Running ' "$SMOKE_LOG")" = 0 ]
 check "bash loads the aliases" [ "$(in_shell "$h" bash 'alias ll')" = "alias ll='ls -alh'" ]
 check "bash skips exports" [ -z "$(in_shell "$h" bash 'printf %s "${EDITOR:-}"')" ]
-check "bash skips functions" [ -z "$(in_shell "$h" bash 'type -t fetchAll')" ]
+check "bash gets the functions" [ "$(in_shell "$h" bash 'type -t fetchAll')" = function ]
 check "bash still gets the envsetup command" [ "$(in_shell "$h" bash 'type -t envsetup')" = function ]
 check "bash still gets the prompt" has_prompt "$h"
 

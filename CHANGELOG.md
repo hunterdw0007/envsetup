@@ -4,6 +4,12 @@ Every release of envsetup, newest first, with what changed in it. CI writes each
 from the commits on `main` when it releases them (see "Releases" in AGENTS.md), so
 don't edit this file by hand.
 
+## v0.15.3 (2026-11-12)
+
+### Fixes
+
+- **shell**: make envsetup config run the checks of Edit config (#165)
+
 ## v0.15.2 (2026-11-12)
 
 ### Fixes

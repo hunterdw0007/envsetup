@@ -73,10 +73,14 @@ curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.
 
 A dry run opens the real menu.
 Each action then describes its changes but does not make them.
-You can still select profiles, and paste or edit `config.sh`.
+You can still select profiles and edit `config.sh`.
 envsetup forgets those changes when you quit.
 A dry run still loads `config.sh` to read its settings.
-So the shell code that you paste or edit in a dry run runs.
+So the shell code that you edit in a dry run runs.
+A dry run of **Paste config** checks only the syntax of the text.
+It does not run the text.
+It saves the text nowhere, not even for the session.
+With `--dry-run`, `--config <file>` also checks only the syntax of the file.
 
 The menu needs gum.
 If the machine does not have gum, the dry run asks before it installs gum.

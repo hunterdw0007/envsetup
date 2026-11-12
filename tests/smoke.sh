@@ -846,10 +846,11 @@ SMOKE_WRITE='mine+=x' SMOKE_INPUT=../x.sh run_menu "$h" "Paste config" shell Qui
 check "a name with a / is rejected" grep -qF '"../x.sh" is not a file name' "$SMOKE_LOG"
 check "  ...and nothing is saved outside shell.d" none_exist "$h/.config/envsetup/x.sh"
 SETUP_ARGS=(--dry-run)
-SMOKE_WRITE='mine+=x' SMOKE_INPUT=80-dry.sh run_menu "$h" "Paste config" shell Quit || true
+SMOKE_WRITE=$'mine+=x\ntouch ~/dry-run-was-here' SMOKE_INPUT=80-dry.sh run_menu "$h" "Paste config" shell Quit || true
 SETUP_ARGS=()
 check "a dry-run paste says it would save the shell file" grep -qF "would save the text as $d/80-dry.sh" "$SMOKE_LOG"
 check "  ...and saves nothing" none_exist "$d/80-dry.sh"
+check "  ...and does not run the text" none_exist "$h/dry-run-was-here"
 before=$(snapshot "$d")
 SHELL=/usr/bin/zsh check "Link shell config again: exited 0" run_menu "$h" "Link shell config" Quit
 check "  ...and left shell.d unchanged" [ "$(snapshot "$d")" = "$before" ]
@@ -945,10 +946,11 @@ check "  ...and names the line in config.sh" grep -qF 'config.sh already has an 
 printf '%s\n' "$want" >"$c"
 before=$(snapshot "$h")
 SETUP_ARGS=(--dry-run)
-SMOKE_WRITE='ENVSETUP_SKIP+=(btop)' run_menu "$h" "Paste config" settings Quit || true
+SMOKE_WRITE=$'ENVSETUP_SKIP+=(btop)\ntouch ~/dry-run-was-here' run_menu "$h" "Paste config" settings Quit || true
 SETUP_ARGS=()
-check "a dry-run paste shows the changes" grep -qxF 'gum style Skip: +btop' "$SMOKE_LOG"
-check "  ...and saves nothing" [ "$(snapshot "$h")" = "$before" ]
+check "a dry-run paste says it would add the text" grep -qF 'would add the text to the end of config.sh' "$SMOKE_LOG"
+check "  ...and that a real run checks the rest" grep -qF 'A real run also checks that config.sh runs to its end.' "$SMOKE_LOG"
+check "  ...and neither runs the text nor saves it" [ "$(snapshot "$h")" = "$before" ]
 mkdir -p $W/nano
 printf '#!/bin/sh\necho "nano $*" >>"$SMOKE_LOG"\necho ENVSETUP_XDG_NINJA=1 >>"$1"\n' >$W/nano/nano
 chmod +x $W/nano/nano
@@ -1278,10 +1280,6 @@ git -C "$st/repo" checkout -q -- config.sh
 check "(and the clone is clean again)" not dirty
 SETUP_ARGS=(--dry-run)
 EDITOR=$W/edit-append check "--dry-run Edit config with a linked config.sh: exited 0" run_menu "$h" "Edit config" Quit
-SETUP_ARGS=()
-check "  ...left the clone clean" not dirty
-SETUP_ARGS=(--dry-run)
-SMOKE_WRITE='# smoke paste' check "--dry-run Paste config with a linked config.sh: exited 0" run_menu "$h" "Paste config" settings Quit
 SETUP_ARGS=()
 check "  ...left the clone clean" not dirty
 SMOKE_WRITE='# smoke paste' check "Paste config with a linked config.sh: exited 0" run_menu "$h" "Paste config" settings Quit

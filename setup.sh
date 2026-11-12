@@ -97,6 +97,9 @@ Options:
                    the SSH signing settings; ask before removing anything that
                    may be yours, such as your SSH key; keep packages and tools;
                    add --dry-run to see the changes first
+      --edit-config
+                   open config.sh in $EDITOR, like "Edit config", then exit;
+                   exit 1 if the file has a syntax error
       --status     check what envsetup set up on this machine; print one "ok"
                    or "missing" line for each part, and change nothing; exit 1
                    if any part is missing
@@ -107,6 +110,7 @@ EOF
 
 ENVSETUP_DRY_RUN=0
 UNINSTALL=0
+EDIT_CONFIG=0
 CONFIG_FILE=
 while (($#)); do
 	case $1 in
@@ -124,6 +128,7 @@ while (($#)); do
 		;;
 	-n | --dry-run) ENVSETUP_DRY_RUN=1 ;;
 	--uninstall) UNINSTALL=1 ;;
+	--edit-config) EDIT_CONFIG=1 ;;
 	--config)
 		if [[ -n "$CONFIG_FILE" ]]; then
 			printf 'setup.sh: use --config only once\n' >&2
@@ -146,6 +151,10 @@ while (($#)); do
 done
 if ((UNINSTALL)) && [[ -n "$CONFIG_FILE" ]]; then
 	printf 'setup.sh: --config and --uninstall do not work together\n' >&2
+	exit 2
+fi
+if ((EDIT_CONFIG)) && { ((UNINSTALL)) || [[ -n "$CONFIG_FILE" ]]; }; then
+	printf 'setup.sh: --edit-config does not work with --config or --uninstall\n' >&2
 	exit 2
 fi
 
@@ -462,6 +471,12 @@ if ((UNINSTALL)); then
 	# Uninstall needs the config to know which shell envsetup set up for your profile.
 	envsetup::load_config "$(envsetup::read_state profile)" "$(envsetup::read_state mode full)"
 	envsetup::uninstall || (($? == 2)) # a cancelled uninstall is not an error
+	exit 0
+fi
+if ((EDIT_CONFIG)); then
+	# Only settings_of loads config.sh, in a subshell, so an exit in config.sh cannot end setup.sh before the editor opens.
+	ENVSETUP_PROFILE=$(envsetup::read_state profile) ENVSETUP_MODE=$(envsetup::read_state mode full)
+	envsetup::edit_config
 	exit 0
 fi
 # run_step keeps a failure here from stopping setup before the menu.

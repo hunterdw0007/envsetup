@@ -189,6 +189,7 @@ Without `$EDITOR`, it uses `nano` if the machine has it, and `vi` otherwise.
 The new `config.sh` is a copy of [`config.example.sh`](config.example.sh).
 That copy lists every setting, all commented out.
 After the editor closes, **Edit config** runs the same check and shows the changes.
+`./setup.sh --edit-config` and `envsetup config` run **Edit config** without the menu.
 
 </details>
 

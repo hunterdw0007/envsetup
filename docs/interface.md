@@ -57,6 +57,7 @@ The command passes its options to `setup.sh`, for example `bash -s -- --dry-run`
 | --- | --- |
 | `-n`, `--dry-run` | Opens the menu, but changes nothing. |
 | `--config <file>` | Adds the file's text to the end of `config.sh`, then opens the menu. |
+| `--edit-config` | Opens `config.sh` in `$EDITOR` and checks it, like **Edit config**, then exits. Exits 1 on a syntax error. |
 | `--uninstall` | Removes what envsetup added. |
 | `--status` | Checks what envsetup set up, and changes nothing. Exits 1 if any part is missing. |
 | `--version` | Shows the release. |

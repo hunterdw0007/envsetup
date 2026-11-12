@@ -4,6 +4,14 @@ Every release of envsetup, newest first, with what changed in it. CI writes each
 from the commits on `main` when it releases them (see "Releases" in AGENTS.md), so
 don't edit this file by hand.
 
+## v0.15.4 (2026-11-12)
+
+### Fixes
+
+- install no system package in a dry run (#163)
+- run no pasted text in a dry run of Paste config (#164)
+- **installers**: drop the two unchecked root downloads (#166)
+
 ## v0.15.3 (2026-11-12)
 
 ### Fixes

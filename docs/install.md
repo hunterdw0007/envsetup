@@ -85,6 +85,10 @@ With `--dry-run`, `--config <file>` also checks only the syntax of the file.
 The menu needs gum.
 If the machine does not have gum, the dry run asks before it installs gum.
 A dry run makes no other change.
+gum's download needs curl, tar and gzip.
+If one of them is missing, the dry run names it and stops.
+Install the missing tools first.
+Then start the dry run again.
 
 The **Preview everything** action is the same as a dry run of **Run everything**.
 

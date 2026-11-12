@@ -322,7 +322,7 @@ envsetup::gum_release() {
 # ensure_gum uses Homebrew if the machine has it.
 # It uses Go only if the other ways fail.
 envsetup::ensure_gum() {
-	local bin=$HOME/.local/bin manager need=()
+	local bin=$HOME/.local/bin manager need=() list
 	[[ ":$PATH:" == *":$bin:"* || ! -x "$bin/gum" ]] || PATH=$bin:$PATH
 	envsetup::has_cmd gum && return 0
 	echo "gum is not installed. Installing gum..." >&2
@@ -336,6 +336,13 @@ envsetup::ensure_gum() {
 		envsetup::has_cmd tar || need+=(tar)
 		envsetup::has_cmd gzip || need+=(gzip)
 		if ((${#need[@]})); then
+			# setup.sh's dry-run question promises no change besides gum.
+			# So a dry run installs no system package (#155).
+			if envsetup::dry_run; then
+				printf -v list '%s, ' "${need[@]}"
+				echo "gum's download needs these tools: ${list%, }. A dry run installs no system package. Install them, then start the dry run again." >&2
+				return 1
+			fi
 			manager=$(envsetup::pkg_manager)
 			if [[ -n "$manager" ]]; then envsetup::pkg_install "$manager" "${need[@]}"; fi
 		fi

@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# Every machine except work lite loads these shell functions.
+# Every machine loads these shell functions, work lite too.
 # They use bash arrays, so they work only in bash, and zsh skips them.
 
 [[ -n "${BASH_VERSION:-}" ]] || return 0

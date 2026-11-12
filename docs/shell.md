@@ -44,8 +44,8 @@ To control the order, start each name with a number, for example `10-aliases.sh`
 ## Which shells get what
 
 Interactive shells get the most.
-Every profile gets the prompt, the aliases, the `envsetup` command and the tool hooks.
-Every profile except work lite also gets the environment variables and the functions.
+Every profile gets the prompt, the aliases, the functions, the `envsetup` command and the tool hooks.
+Every profile except work lite also gets the environment variables.
 
 A non-interactive shell gets less.
 Examples are `ssh host cmd`, `scp`, `rsync` and scripts.

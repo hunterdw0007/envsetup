@@ -263,10 +263,16 @@ envsetup::pkg_name() {
 # fzf, ripgrep, bat, htop, neovim and about ten more listed packages come from EPEL.
 # enable_epel asks before it adds EPEL.
 envsetup::enable_epel() {
-	local id version pkg=epel-release
+	local id version pkg=epel-release guide="To turn on EPEL yourself, see https://docs.fedoraproject.org/en-US/epel/getting-started/"
 	id=$(envsetup::os_release ID)
 	[[ "$id" =~ ^(rhel|ol)$ || " $(envsetup::os_release ID_LIKE) " == *" rhel "* ]] || return 0
 	rpm -q epel-release oracle-epel-release-el{8,9,10} &>/dev/null && return 0
+	# RHEL's own repos have no epel-release.
+	# envsetup does not install it from a URL, because the URL names no version.
+	if [[ "$id" == rhel ]]; then
+		gum style --foreground 3 "EPEL is off. envsetup installs what the repos of RHEL have." "$guide"
+		return 0
+	fi
 	if envsetup::dry_run; then
 		envsetup::would "ask to turn on EPEL, Fedora's extra packages for $id. About a third of the packages come from EPEL"
 		return 0
@@ -275,9 +281,8 @@ envsetup::enable_epel() {
 	version=$(envsetup::os_release VERSION_ID)
 	version=${version%%.*}
 	[[ "$id" == ol ]] && pkg=oracle-epel-release-el$version
-	if ! envsetup::as_root dnf install -y "$pkg" &&
-		! envsetup::as_root dnf install -y "https://dl.fedoraproject.org/pub/epel/epel-release-latest-$version.noarch.rpm"; then
-		gum style --foreground 3 "Couldn't turn on EPEL. envsetup installs what the repos of $id have."
+	if ! envsetup::as_root dnf install -y "$pkg"; then
+		gum style --foreground 3 "Couldn't turn on EPEL. envsetup installs what the repos of $id have." "$guide"
 		return 0
 	fi
 	# Some EPEL packages need the CodeReady Builder repo.

@@ -38,16 +38,16 @@ The changelog lists those changes first, under "Breaking changes".
 
 ## Select a release
 
-Each release has a number, for example `v0.2.0`.
+Each release has a number, for example `v1.0.0`.
 [`CHANGELOG.md`](../CHANGELOG.md) lists the changes in each release.
 The [releases page](https://github.com/hunterdw0007/envsetup/releases) lists them too.
 To install a specific release, set `ENVSETUP_VERSION`:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | ENVSETUP_VERSION=v0.2.0 bash
+curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | ENVSETUP_VERSION=v1.0.0 bash
 ```
 
-- `ENVSETUP_VERSION` also accepts `0.2.0`, a branch name or a commit.
+- `ENVSETUP_VERSION` also accepts `1.0.0`, a branch name or a commit.
 - `ENVSETUP_VERSION=main` gives you changes that are not in a release yet.
 - An unknown value shows the list of releases.
 - A run without `ENVSETUP_VERSION` selects the newest release again.
@@ -102,7 +102,7 @@ cd ~/envsetup
 ```
 
 This method uses the newest commit on `main`.
-To use a release, run `git checkout v0.2.0` first.
+To use a release, run `git checkout v1.0.0` first.
 `git tag` lists the releases.
 envsetup never deletes this folder.
 New shells load the copy of `shell/` that **Link shell config** makes.

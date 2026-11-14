@@ -39,8 +39,7 @@ CI also checks the PR title.
   A change is breaking when it changes envsetup's API in a way that is not backwards compatible.
   [`CONTRIBUTING.md`](CONTRIBUTING.md#breaking-changes) defines the API and gives examples.
   [`docs/interface.md`](docs/interface.md) lists each part of the API.
-  A breaking change raises the major version.
-  While the version is 0.x, it raises the minor version instead (see Releases).
+  A breaking change raises the major version (see Releases).
   The release notes list it under "Breaking changes".
 - GitHub squash-merges PRs, so the PR title becomes the commit on `main`.
   The release job picks the version from that commit.
@@ -72,12 +71,12 @@ The `release` job in `.github/workflows/ci.yml` releases each push to `main` tha
 It runs after CI passes, and it runs `.github/scripts/release.sh`.
 commitizen (`.cz.toml`) reads the commits since the last release:
 
-| Commits since the last release | Next version, while on 0.x | From 1.0.0 on |
-| --- | --- | --- |
-| any with `!` (or a `BREAKING CHANGE:` footer) | minor: `v0.4.2` → `v0.5.0` | major: `v1.4.2` → `v2.0.0` |
-| `feat` | minor: `v0.4.2` → `v0.5.0` | minor: `v1.4.2` → `v1.5.0` |
-| `fix`, `refactor`, `perf` | patch: `v0.4.2` → `v0.4.3` | patch: `v1.4.2` → `v1.4.3` |
-| only `docs`, `ci`, `test`, `chore`, `style`, `build` | no release | no release |
+| Commits since the last release | Next version |
+| --- | --- |
+| any with `!` (or a `BREAKING CHANGE:` footer) | major: `v1.4.2` → `v2.0.0` |
+| `feat` | minor: `v1.4.2` → `v1.5.0` |
+| `fix`, `refactor`, `perf` | patch: `v1.4.2` → `v1.4.3` |
+| only `docs`, `ci`, `test`, `chore`, `style`, `build` | no release |
 
 A release has three parts:
 
@@ -108,9 +107,10 @@ The file `version` next to the copy records the release.
   You can still see what a merge would release.
   Put the PR's commits on top of an up-to-date `main`.
   Then run `cz bump --get-next`.
-- Leaving 0.x takes its own PR.
-  That PR sets `major_version_zero = false` in `.cz.toml`.
-  It is a breaking change (`chore!: ...`), and its release is `v1.0.0`.
+- envsetup left 0.x with `v1.0.0`.
+  `.cz.toml` sets `major_version_zero = false` for that reason.
+  Do not set it back to `true`.
+  On 0.x, a breaking change raised only the minor version.
 - If the `release` job fails, run it again.
   If the commit already has a release, the job only creates the missing GitHub release.
   `main` may get a new commit while the job runs.
@@ -132,11 +132,15 @@ The file `version` next to the copy records the release.
   It covers a first release, a second run, a run with nothing to release, a race and a refused push.
   CI runs it on every push and PR, and the release job waits for it.
   Add to it whenever you change the release flow.
-- The job pushes with `GITHUB_TOKEN`.
-  That works while `main` has no branch protection.
-  If `main` gets protection or a ruleset, add a `RELEASE_TOKEN` secret.
-  Use a fine-grained token or a GitHub App token that can bypass the protection.
-  It needs contents: write.
+- Two rulesets protect the repo.
+  The `main` ruleset requires a PR, a squash merge and three checks.
+  The checks are `shell-checks`, `smoke` and `conventional-commits`.
+  The `v*` ruleset protects the release tags.
+  Only admins can bypass either ruleset.
+- So the job pushes with the `RELEASE_TOKEN` secret, not with `GITHUB_TOKEN`.
+  The token must belong to an admin, and it needs contents: write.
+  Without the secret, the job falls back to `GITHUB_TOKEN`.
+  The rulesets then refuse the push.
 
 ## Shell script standards
 

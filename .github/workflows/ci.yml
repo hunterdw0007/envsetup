@@ -143,8 +143,8 @@ jobs:
 
       - name: Push and release
         env:
-          # GITHUB_TOKEN can push while main has no branch protection.
-          # If main gets protection, set a RELEASE_TOKEN secret that can bypass it.
+          # Rulesets protect main and the v* tags, and only admins can bypass them.
+          # So RELEASE_TOKEN must be an admin's token. GITHUB_TOKEN cannot push.
           PUSH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
           GH_TOKEN: ${{ github.token }}
         run: .github/scripts/release.sh publish

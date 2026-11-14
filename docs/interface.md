@@ -8,7 +8,7 @@ The API is the set of parts that users rely on.
 The API is everything that a user directly uses while using envsetup.
 A change to the API that is not backwards compatible is a breaking change.
 A breaking change needs a new major version.
-From 1.0.0 on, a 1.x release never breaks a setup that an older 1.x release made.
+From 1.0.0 on, a release never breaks a setup that an older release with the same major version made.
 
 [CONTRIBUTING.md](../CONTRIBUTING.md#breaking-changes) gives examples of breaking changes.
 

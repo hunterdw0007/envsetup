@@ -62,7 +62,7 @@ To remove what envsetup added, use --uninstall, or "Uninstall" in the menu.
 To update, run the curl command from the README again.
 Or run envsetup in a new shell, which runs the curl command for you.
 That command downloads the newest release into a temporary folder.
-To get another release, set ENVSETUP_VERSION (for example ENVSETUP_VERSION=v0.2.0).
+To get another release, set ENVSETUP_VERSION (for example ENVSETUP_VERSION=v1.0.0).
 The command runs this menu from that folder and deletes the folder afterwards.
 
 "Link shell config" copies shell/ to ~/.local/share/envsetup.

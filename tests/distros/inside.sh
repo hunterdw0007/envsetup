@@ -25,7 +25,8 @@ apt-get)
 	;;
 dnf) dnf install -y -q bash sudo shadow-utils >/dev/null ;;
 zypper) zypper -n -q install bash sudo shadow >/dev/null ;;
-pacman) pacman -Sy --noconfirm --needed bash sudo >/dev/null ;;
+# Arch needs -u with -y, or an image older than the repos fails to install.
+pacman) pacman -Syu --noconfirm --needed bash sudo >/dev/null ;;
 apk) apk add -q bash sudo shadow ;;
 *)
 	echo "no supported package manager in this image" >&2

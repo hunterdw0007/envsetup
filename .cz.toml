@@ -13,10 +13,9 @@ version_scheme = "semver2"
 tag_format = "v$version"
 annotated_tag = true
 update_changelog_on_bump = true
-# On 0.x, a breaking change raises the minor version, not the major version.
-# A move to 1.0.0 takes its own PR, which sets this to false.
-# That PR is a breaking change itself (see AGENTS.md).
-major_version_zero = true
+# From 1.0.0 on, a breaking change raises the major version.
+# The PR that released 1.0.0 set this to false (see AGENTS.md).
+major_version_zero = false
 # The entries follow commitizen's default changelog.
 # They add one "Breaking changes" section for every kind of breaking commit.
 # The default spreads those commits across sections or does not mark them.

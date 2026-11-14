@@ -41,7 +41,7 @@ Run the command at the top of this page, then:
 The command deletes its download when you quit.
 Only your shell config, `config.sh` and the files that envsetup made stay.
 To update, run the command again, or run `envsetup` in a new shell.
-envsetup is still at 0.x, so a release can change something you use every day.
+Only a new major version, such as 2.0.0, can break something you use ([docs/interface.md](docs/interface.md)).
 envsetup runs its root steps with `sudo` or `doas`.
 
 These variables change what the command does:

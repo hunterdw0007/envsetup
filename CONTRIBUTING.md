@@ -148,10 +148,9 @@ If one script fails, the other scripts still run.
 Commit messages follow [Conventional Commits](https://www.conventionalcommits.org).
 The commit types decide the next release number:
 
-- `fix` adds a patch release, for example `v0.4.2` to `v0.4.3`.
-- `feat` adds a minor release, for example `v0.4.2` to `v0.5.0`.
-- A breaking change, for example `feat!:`, also adds a minor release before 1.0.0.
-- From 1.0.0 on, a breaking change adds a major release.
+- `fix` adds a patch release, for example `v1.4.2` to `v1.4.3`.
+- `feat` adds a minor release, for example `v1.4.2` to `v1.5.0`.
+- A breaking change, for example `feat!:`, adds a major release, for example `v1.4.2` to `v2.0.0`.
 - `docs`, `ci`, `test` and `chore` do not add a release.
 
 ### Breaking changes

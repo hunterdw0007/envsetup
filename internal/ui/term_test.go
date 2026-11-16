@@ -69,6 +69,17 @@ func TestPrintColor(t *testing.T) {
 // keys returns a term that reads the given keys and draws nowhere.
 func keys(s string) term { return term{in: strings.NewReader(s), out: io.Discard} }
 
+// TestDumbTerminal checks that TERM=dumb still gets the same keys as gum, and no plain-text questions.
+func TestDumbTerminal(t *testing.T) {
+	t.Setenv("TERM", "dumb")
+	if got, ok := keys("j\r").Choose("Pick", "a", "b"); !ok || got != "b" {
+		t.Errorf("Choose: got (%q, %v), want (b, true)", got, ok)
+	}
+	if _, ok := keys("\x1b").Choose("Pick", "a", "b"); ok {
+		t.Error("Esc did not cancel")
+	}
+}
+
 func TestChoose(t *testing.T) {
 	opts := []string{"a", "b", "c"}
 	for _, tc := range []struct {

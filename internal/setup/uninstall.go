@@ -22,14 +22,8 @@ var gitRESpecial = regexp.MustCompile(`[\]\[\\.*^$+?(){}|]`)
 // escapeGitRE escapes a path, so --unset-all's regular expression matches only that path.
 func escapeGitRE(p string) string { return gitRESpecial.ReplaceAllString(p, `\$0`) }
 
-// isLink is [[ -L p ]].
-func isLink(p string) bool {
-	fi, err := os.Lstat(p)
-	return err == nil && fi.Mode()&os.ModeSymlink != 0
-}
-
-// hasLine is grep -qxF: some line of the file equals line.
-func hasLine(file, line string) bool {
+// fileHasLine is grep -qxF: some line of the file equals line.
+func fileHasLine(file, line string) bool {
 	data, err := os.ReadFile(file)
 	if err != nil {
 		return false
@@ -62,7 +56,7 @@ func (s *Setup) Uninstall() error {
 	chshByUs := isFile(s.ChshMarker) // read this before the state folder is deleted
 	keyByUs := isFile(s.SSHMarker)
 	for _, rc := range []string{s.Home + "/.bashrc", s.Home + "/.zshrc"} {
-		if !isFile(rc) || !hasLine(rc, RCBegin) {
+		if !isFile(rc) || !fileHasLine(rc, RCBegin) {
 			continue
 		}
 		if s.DryRun {

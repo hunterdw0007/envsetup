@@ -78,7 +78,10 @@ func (t term) run(field huh.Field) bool {
 		// Without it, huh gets a width of 0, and an input with a placeholder panics.
 		// WithProgramOptions replaces all options, so it comes before WithOutput and WithInput.
 		WithProgramOptions(tea.WithWindowSize(80, 24)).
-		WithKeyMap(keyMap()).WithShowHelp(true).WithOutput(t.out)
+		WithKeyMap(keyMap()).WithShowHelp(true).WithOutput(t.out).
+		// gum never asks in plain text, and huh v2.0.3 panics there on some input.
+		// huh would switch to it for TERM=dumb.
+		WithAccessible(false)
 	if t.in != nil {
 		f = f.WithInput(t.in)
 	}

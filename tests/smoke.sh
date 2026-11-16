@@ -21,6 +21,9 @@ STUBS=$W/stubs     # fake gum and sudo, on PATH for every run
 OFFLINE=$W/offline # fake package manager, curl, chsh, and vendor tools that count as installed
 HOOKS=$W/hooks     # fake direnv and zoxide that print a marker function as their hook, and a fake vim
 export SMOKE_LOG=$W/calls.log SMOKE_CHOICES=$W/choices SMOKE_CONFIRMS=$W/confirms
+# The container has no Go, so CI builds envsetup outside and mounts it (see the smoke job in ci.yml).
+# setup.sh and install.sh run this binary instead of building one.
+export ENVSETUP_BIN=${ENVSETUP_BIN:-/envsetup-bin/envsetup}
 failures=0
 
 pass() { printf '  ok    %s\n' "$1"; }
@@ -127,12 +130,77 @@ chmod +x "$STUBS"/* "$OFFLINE"/* "$HOOKS"/*
 # SETUP=curl_bash runs setup.sh through install.sh instead, as `curl ... | bash` does.
 SETUP_ARGS=() CONFIRMS=()
 run_menu() {
-	local home=$1
+	local home=$1 rc=0 ref_rc=0
 	shift
+	# The parity check below runs the bash version first, from the same start.
+	if [[ -z "${SETUP:-}" && -d "$REF" && -z "${NO_PARITY:-}" ]]; then
+		parity_save "$home"
+		run_once "$REF/setup.sh" "$home" "$@" || ref_rc=$?
+		parity_keep "$home"
+	fi
+	run_once "${SETUP:-$CLONE/setup.sh}" "$home" "$@" || rc=$?
+	if [[ -z "${SETUP:-}" && -d "$REF" && -z "${NO_PARITY:-}" ]]; then parity_check "$home" "$ref_rc" "$rc"; fi
+	return "$rc"
+}
+run_once() {
+	local setup=$1 home=$2
+	shift 2
 	printf '%s\n' "$@" >"$SMOKE_CHOICES"
 	printf '%s\n' "${CONFIRMS[@]}" >"$SMOKE_CONFIRMS"
 	: >"$SMOKE_LOG"
-	HOME=$home PATH="$OFFLINE:$STUBS:$PATH" "${SETUP:-$CLONE/setup.sh}" "${SETUP_ARGS[@]}" >"$home/setup.out" 2>&1 </dev/tty
+	HOME=$home PATH="$OFFLINE:$STUBS:$PATH" "$setup" "${SETUP_ARGS[@]}" >"$home/setup.out" 2>&1 </dev/tty
+}
+
+# The parity check proves that the Go version does what the bash version did (#175).
+# REF is a clone at the last bash release.
+# Each run_menu runs REF's setup.sh, then the Go version, from the same $HOME and /usr/local/bin.
+# It compares each file with its mode, the log of the fakes, the screen output and the exit code.
+# Any difference is a failure.
+# The bash version used gum, and the Go version logs the same "gum ..." lines (internal/ui/script.go).
+# NO_PARITY=1 skips the check for a scenario where the two versions differ on purpose.
+REF=$W/ref
+REF_VERSION=v1.0.0
+PARITY=$W/parity
+parity_save() {
+	rm -rf "$PARITY" && mkdir -p "$PARITY"
+	cp -a "$1" "$PARITY/home.pre"
+	cp -a /usr/local/bin "$PARITY/bin.pre"
+}
+parity_keep() {
+	mv "$1" "$PARITY/home.ref"
+	cp "$SMOKE_LOG" "$PARITY/log.ref"
+	cp -a "$PARITY/home.pre" "$1"
+	rm -rf /usr/local/bin && cp -a "$PARITY/bin.pre" /usr/local/bin
+}
+# parity_norm replaces the two versions and the two clones with one name each, so they compare equal.
+parity_norm() {
+	local go_version
+	go_version=$(git -C "$CLONE" describe --tags --match 'v[0-9]*' --always --dirty)
+	sed -e "s|$REF/|$CLONE/|g" -e "s|$go_version|VERSION|g" -e "s|$REF_VERSION|VERSION|g"
+}
+# parity_tree prints each path under a home with its type, its mode, its link target and a hash of its text.
+parity_tree() {
+	(
+		cd "$1" || exit 1
+		find . ! -name setup.out ! -name 'shell.*' -printf '%p %y %m %l\n' | sort
+		# git's index and logs hold timestamps, so only their paths count.
+		find . -type f ! -name setup.out ! -name 'shell.*' ! -path '*/.git/index' ! -path '*/.git/logs/*' -print0 | sort -z |
+			while IFS= read -r -d '' f; do printf '%s %s\n' "$f" "$(parity_norm <"$f" | md5sum)"; done
+	)
+}
+parity_check() {
+	local home=$1 what
+	for what in exit log screen files; do
+		case $what in
+		exit) diff <(echo "exit $2") <(echo "exit $3") ;;
+		log) diff <(parity_norm <"$PARITY/log.ref") <(parity_norm <"$SMOKE_LOG") ;;
+		screen) diff <(parity_norm <"$PARITY/home.ref/setup.out") <(parity_norm <"$home/setup.out") ;;
+		files) diff <(parity_tree "$PARITY/home.ref") <(parity_tree "$home") ;;
+		esac >"$PARITY/$what.diff" || {
+			fail "parity: the Go version's $what differs from $REF_VERSION's (< bash, > Go)"
+			head -n 40 "$PARITY/$what.diff" | show /dev/stdin
+		}
+	done
 }
 # install.sh downloads into TMP (mktemp -d).
 # TMP must be empty after install.sh ends.
@@ -294,6 +362,10 @@ check "  ...which is gone" left_nothing
 git clone -q "$SRC" "$CLONE"
 git -C "$CLONE" checkout -q --detach "$(git -C "$SRC" rev-parse HEAD)"
 check "(the checkout is at the commit under test)" same_commit "$SRC" "$CLONE"
+# The parity check runs the last bash release from its own clone.
+git clone -q "$SRC" "$REF"
+git -C "$REF" checkout -q --detach "$REF_VERSION"
+check "(the parity check has the bash version)" [ -f "$REF/lib/zsh.sh" ]
 mac_setup() { OSTYPE=darwin24 "$CLONE/setup.sh" --help >$W/mac-setup.out 2>&1; }
 check "setup.sh in a clone on macOS: exited non-zero" not mac_setup
 check "  ...and named the last release for macOS" grep -qF 'git checkout v0.3.0 && ./setup.sh --uninstall' $W/mac-setup.out

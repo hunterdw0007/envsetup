@@ -296,68 +296,6 @@ envsetup::fetch() {
 	if envsetup::has_cmd curl; then curl -fsSL -o "$2" "$1"; else wget -qO "$2" "$1"; fi
 }
 
-# gum_release <dir> installs gum's pinned release binary into <dir>.
-# It checks the checksum first.
-envsetup::gum_release() {
-	local arch asset version sha tmp rc=1
-	[[ "$OSTYPE" == linux* ]] || return 1
-	case $HOSTTYPE in x86_64) arch=$HOSTTYPE ;; aarch64) arch=arm64 ;; armv7*) arch=armv7 ;; *) return 1 ;; esac
-	version=$(envsetup::pin gum) && sha=$(envsetup::pin gum "linux-${arch/x86_64/amd64}") || return 1
-	# versions.txt calls gum's Linux_x86_64 build linux-amd64.
-	asset=gum_${version}_Linux_$arch.tar.gz
-	tmp=$(mktemp -d)
-	if envsetup::fetch "https://github.com/charmbracelet/gum/releases/download/v$version/$asset" "$tmp/$asset" &&
-		echo "$sha  $tmp/$asset" | sha256sum -c >/dev/null &&
-		tar -xzf "$tmp/$asset" -C "$tmp" && mkdir -p "$1" &&
-		install -m 0755 "$tmp/${asset%.tar.gz}/gum" "$1/gum"; then
-		echo "Installed gum $version to $1" >&2
-		rc=0
-	fi
-	rm -rf "$tmp"
-	return "$rc"
-}
-
-# ensure_gum installs gum, because the menu needs it.
-# The release binary in ~/.local/bin needs no sudo and works on any distro.
-# ensure_gum uses Homebrew if the machine has it.
-# It uses Go only if the other ways fail.
-envsetup::ensure_gum() {
-	local bin=$HOME/.local/bin manager need=() list
-	[[ ":$PATH:" == *":$bin:"* || ! -x "$bin/gum" ]] || PATH=$bin:$PATH
-	envsetup::has_cmd gum && return 0
-	echo "gum is not installed. Installing gum..." >&2
-	if envsetup::has_cmd brew; then
-		brew install gum
-	else
-		# Minimal images (Amazon Linux, Leap) can miss tar or gzip.
-		# tar needs gzip to unpack a .tar.gz.
-		# Some images have neither curl nor wget.
-		envsetup::has_cmd curl || envsetup::has_cmd wget || need+=(curl)
-		envsetup::has_cmd tar || need+=(tar)
-		envsetup::has_cmd gzip || need+=(gzip)
-		if ((${#need[@]})); then
-			# setup.sh's dry-run question promises no change besides gum.
-			# So a dry run installs no system package (#155).
-			if envsetup::dry_run; then
-				printf -v list '%s, ' "${need[@]}"
-				echo "gum's download needs these tools: ${list%, }. A dry run installs no system package. Install them, then start the dry run again." >&2
-				return 1
-			fi
-			manager=$(envsetup::pkg_manager)
-			if [[ -n "$manager" ]]; then envsetup::pkg_install "$manager" "${need[@]}"; fi
-		fi
-		if envsetup::gum_release "$bin"; then
-			PATH=$bin:$PATH
-		elif envsetup::has_cmd go; then
-			go install "github.com/charmbracelet/gum@v$(envsetup::pin gum)"
-			PATH="$(go env GOPATH)/bin:$PATH"
-		fi
-	fi
-	envsetup::has_cmd gum && return 0
-	echo "Couldn't install gum. See https://github.com/charmbracelet/gum#installation" >&2
-	return 1
-}
-
 # pkg_install <manager> <package>... installs packages by their names in packages/*.txt.
 # pkg_name translates each name for the manager.
 envsetup::pkg_install() {

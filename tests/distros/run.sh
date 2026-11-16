@@ -17,6 +17,7 @@
 #   DISTROS_PREHOOK  a sh script that every container sources first (proxy, CA, mirrors);
 #                    it can export DISTROS_KEEP_ENV="VAR ..." so sudo keeps those variables
 #   DISTROS_DOCKER_ARGS  extra `docker run` arguments, e.g. "--network host"
+#   ENVSETUP_BIN     an envsetup binary to test; without it, the script builds one with Go
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -38,6 +39,15 @@ mkdir -p "$out"
 read -ra docker_args <<<"${DISTROS_DOCKER_ARGS:-}"
 prehook=()
 [[ -n "${DISTROS_PREHOOK:-}" ]] && prehook=(-v "$(realpath "$DISTROS_PREHOOK"):/prehook.sh:ro")
+# The images have no Go, so the host builds envsetup once and mounts it in each container.
+bin=${ENVSETUP_BIN:-}
+if [[ -z "$bin" ]]; then
+	build=$(mktemp -d)
+	trap 'rm -rf "$build"' EXIT
+	bin=$build/envsetup
+	(cd "$root" && CGO_ENABLED=0 go build -trimpath -o "$bin" ./cmd/envsetup)
+fi
+bin=$(realpath "$bin")
 
 run_one() {
 	local image=$1 slug=${1//[\/:]/-} rc=0 err
@@ -64,7 +74,7 @@ run_one() {
 	echo "started  $image"
 	timeout "${DISTROS_TIMEOUT:-3600}" docker run --rm -t "${docker_args[@]}" "${prehook[@]}" \
 		-e "DISTRO_SLUG=$slug" -e "DISTROS_SKIP=${DISTROS_SKIP:-}" \
-		-v "$root:/src:ro" -v "$out:/report" \
+		-v "$root:/src:ro" -v "$out:/report" -v "$bin:/envsetup-bin/envsetup:ro" \
 		"$image" sh /src/tests/distros/inside.sh >"$out/$slug/container.log" 2>&1 || rc=$?
 	# With rootful Docker, root owns summary.tsv, so the host writes its own rows to host.tsv.
 	if [[ ! -s "$out/$slug/summary.tsv" ]]; then
@@ -87,7 +97,7 @@ done
 for pid in "${pids[@]}"; do wait "$pid" || bad=1; done
 
 # Each distro gets one column for each phase.
-cols=(bootstrap gum home work-full work-lite)
+cols=(bootstrap home work-full work-lite)
 # rows <slug> prints the rows of one distro: the container's, then the host's.
 rows() { cat "$out/$1/summary.tsv" "$out/$1/host.tsv" 2>/dev/null || true; }
 # in_col <phase> <col> tells whether a row of that phase counts in that column.

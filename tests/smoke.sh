@@ -110,6 +110,13 @@ OMZ
 		printf '#!/bin/sh\necho smoke-kubectl\n' >"$2"
 		;;
 	*/hunterdw0007/envsetup/main/install.sh) cat /src/install.sh ;;
+	# The fake release server holds the binaries for install.sh, in /tmp/smoke/dl (DL below).
+	# A file that is not there fails, as curl -f does on a 404.
+	*https://releases.smoke.invalid/*)
+		for url; do :; done
+		while [ "$1" != -o ]; do shift; done
+		cp "/tmp/smoke/dl/${url#https://releases.smoke.invalid/}" "$2" 2>/dev/null || exit 22
+		;;
 	*) echo "smoke: unexpected download: curl $*" >&2; exit 1 ;;
 esac
 EOF
@@ -942,7 +949,7 @@ check "  ...and the state folder" [ ! -e "$h/.config/envsetup" ]
 
 echo "== explaining itself"
 h=$(new_home)
-check "--help works before gum is installed" help_ok "$h"
+check "--help works with only /usr/bin and /bin on PATH" help_ok "$h"
 check "an unknown option is rejected, not ignored" rejects_unknown "$h"
 check "  ...without writing anything" [ ! -e "$h/.config" ]
 run_menu "$h" Quit
@@ -978,19 +985,6 @@ check "left \$HOME exactly as it was" [ "$(snapshot "$h")" = "$before" ]
 touch "$h/.bashrc"
 echo "# control" >>"$h/.bashrc"
 check "  ...(control: the snapshot does notice a change)" [ "$(snapshot "$h")" != "$before" ]
-((failures)) && show "$h/setup.out"
-
-echo "== --dry-run without gum or tar installs no system package (#155)"
-# PATH holds a copy of /usr/bin without tar, and no gum.
-mkdir "$W/notar"
-for f in /usr/bin/*; do [ "${f##*/}" = tar ] || ln -s "$f" "$W/notar/"; done
-h=$(new_home)
-: >"$SMOKE_LOG"
-# The answer "y" goes to the question "Install gum?".
-no_tar() { HOME=$h PATH="$OFFLINE:$W/notar" "$CLONE/setup.sh" --dry-run <<<y >"$h/setup.out" 2>&1; }
-check "exited 1" not no_tar
-check "  ...ran no package manager" not_grep '^apt-get ' "$SMOKE_LOG"
-check "  ...and named tar" grep -qF "gum's download needs these tools: tar. A dry run" "$h/setup.out"
 ((failures)) && show "$h/setup.out"
 
 echo "== --dry-run: config edits last only for the session"
@@ -1119,9 +1113,11 @@ release() {
 	if [ -n "${2:-}" ]; then rel tag -a "$2" -m "$2"; fi
 }
 # install_version <ENVSETUP_VERSION> runs install.sh from that origin, then setup.sh --version.
-# gum is not on PATH, because --version must work before gum is installed.
+# FROM names another origin.
+# gum is not on PATH, because the bash releases' --version works before gum is installed.
+# PATH has the fake curl for the release binaries.
 install_version() {
-	ENVSETUP_VERSION=$1 ENVSETUP_REPO_URL=$R TMPDIR=$TMP PATH=/usr/bin:/bin \
+	ENVSETUP_VERSION=$1 ENVSETUP_REPO_URL=${FROM:-$R} TMPDIR=$TMP PATH="$OFFLINE:/usr/bin:/bin" \
 		bash "$SRC/install.sh" --version >$W/version.out 2>&1
 }
 reports() { [ "$(tail -n 1 $W/version.out)" = "$1" ]; }
@@ -1140,6 +1136,55 @@ check "ENVSETUP_VERSION=main exits 0" install_version main
 check "  ...and runs the branch's newest commit" reports v1.2.0-rc.1
 check "an unknown version fails" fails install_version 9.9.9
 check "  ...listing the releases" grep -qF '  v1.1.0' $W/version.out
+check "  ...and deletes its download" left_nothing
+((failures)) && show $W/version.out
+
+echo "== install.sh: a release downloads its envsetup binary and checks its sha256"
+# Each release folder on the fake release server holds the binary under test for both architectures.
+# v1.0.0's binary has one more byte than its SHA256SUMS says, as after a broken download.
+DL=$W/dl
+for v in v1.1.0 v1.0.0; do
+	mkdir -p "$DL/$v"
+	cp "$ENVSETUP_BIN" "$DL/$v/envsetup-linux-amd64"
+	cp "$ENVSETUP_BIN" "$DL/$v/envsetup-linux-arm64"
+	(cd "$DL/$v" && sha256sum envsetup-linux-* >SHA256SUMS)
+done
+echo >>"$DL/v1.0.0/envsetup-linux-amd64"
+echo >>"$DL/v1.0.0/envsetup-linux-arm64"
+# downloads <cmd> runs <cmd> without ENVSETUP_BIN, so install.sh downloads the binary as for a real user.
+# The origin is a local folder, not GitHub, so install.sh needs ENVSETUP_DOWNLOAD_URL.
+downloads() {
+	: >"$SMOKE_LOG"
+	(
+		unset ENVSETUP_BIN
+		ENVSETUP_DOWNLOAD_URL=${URL-https://releases.smoke.invalid} "$@"
+	)
+}
+exits_1() {
+	local rc=0
+	"$@" || rc=$?
+	[ "$rc" = 1 ]
+}
+check "a good download exits 0" downloads install_version 1.1.0
+check "  ...fetched the binary for this machine" grep -qE '^curl .*releases.smoke.invalid/v1.1.0/envsetup-linux-(amd|arm)64$' "$SMOKE_LOG"
+check "  ...and its SHA256SUMS" grep -qE '^curl .*releases.smoke.invalid/v1.1.0/SHA256SUMS$' "$SMOKE_LOG"
+check "  ...ran it" reports v1.1.0
+check "  ...and deletes its download" left_nothing
+((failures)) && show $W/version.out
+check "a download that does not match SHA256SUMS exits 1" exits_1 downloads install_version 1.0.0
+check "  ...and says so" grep -qF 'does not match its sha256 in SHA256SUMS' $W/version.out
+check "  ...did not run it" not reports v1.0.0
+check "  ...and deletes its download" left_nothing
+URL=https://releases.smoke.invalid/none check "a failed download exits 1" exits_1 downloads install_version 1.1.0
+check "  ...and says so" grep -qF 'envsetup could not download https://releases.smoke.invalid/none/v1.1.0/' $W/version.out
+check "  ...and deletes its download" left_nothing
+URL='' check "an origin that is not on GitHub, without ENVSETUP_DOWNLOAD_URL, exits 1" exits_1 downloads install_version 1.1.0
+check "  ...and says to set it" grep -qF 'Set ENVSETUP_DOWNLOAD_URL' $W/version.out
+check "  ...and deletes its download" left_nothing
+# The last bash release has no binary, so install.sh runs its setup.sh as before.
+FROM=$SRC check "ENVSETUP_VERSION=v1.0.0 from before Go exits 0" downloads install_version v1.0.0
+check "  ...runs its setup.sh" reports v1.0.0
+check "  ...and downloads no binary" not_grep '^curl ' "$SMOKE_LOG"
 check "  ...and deletes its download" left_nothing
 ((failures)) && show $W/version.out
 # The copy of shell/ matches the release that linked it last.

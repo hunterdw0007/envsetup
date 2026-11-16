@@ -10,7 +10,6 @@
 # Then it writes this file again, and the change goes through a PR.
 # envsetup checks awscli against AWS's signing key instead, so awscli has no hashes.
 # For ohmyzsh, the version is the commit of ohmyzsh/ohmyzsh whose tools/install.sh runs.
-gum 2.0.2 linux-amd64=d842e06d93dbed90af48cb8dd10698db6f22e331fc40346bb37bbc753109edc2 linux-arm64=8ebf8b54ec1e8c81f2bb58b59ff9b70998186a4d11375f0cf357b80e0ccfa1d5 linux-armv7=a7ee9b68052e401c47335982fec7fc1d246868abfe6b542654432ee2df7a8141
 ohmyzsh c0140703a53eb0d22be44f7bac318d0baacc927c
 awscli 2.40.3
 gh 2.104.0 linux-amd64=98cb101ad87dbbd3f6b2f2bfcbd43197ccd07643140121d8a9cfaa91eadbc24e linux-arm64=cb34cefc6f4e77b90731374a2b737516bb8f3033c6ca46aa949e5344f68069e3

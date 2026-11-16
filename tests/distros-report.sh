@@ -56,7 +56,7 @@ while (($#)); do
 done
 d=$out/$slug
 mkdir -p "$d"
-all() { for p in bootstrap gum home work-full work-lite; do printf '%s\t%s\tPASS\tok\n' "$slug" "$p"; done; }
+all() { for p in bootstrap home work-full work-lite; do printf '%s\t%s\tPASS\tok\n' "$slug" "$p"; done; }
 case $FAKE_RUN in
 pass | half-pull) all >"$d/summary.tsv" ;;
 fail) all >"$d/summary.tsv" && exit 1 ;;
@@ -85,6 +85,8 @@ EOF
 # run.sh waits 30 seconds between pulls, and the fake sleep skips that wait.
 printf '#!/bin/sh\n' >"$T/bin/sleep"
 chmod +x "$T/bin/docker" "$T/bin/sleep"
+# The fake container never runs envsetup, so any file stands in for the binary, and run.sh builds none.
+export ENVSETUP_BIN=$T/bin/sleep
 
 # scenario <fake> [<out>] runs run.sh for ubuntu:24.04 with that fake container.
 # <out> names the report folder, so two scenarios can share one.
@@ -132,7 +134,7 @@ check "the report names the unreadable file" problem "**container** (FAIL): coul
 
 scenario bootstrap
 check "a container that skips phases fails the run" test "$rc" -ne 0
-check "the report names a missing phase" problem "**gum** (FAIL): no result"
+check "the report names a missing phase" problem "**home** (FAIL): no result"
 check "the report names the last phase too" problem "**work-lite** (FAIL): no result"
 
 scenario no-pull

@@ -67,7 +67,11 @@ func Main(args []string, version string) int {
 			fmt.Println(s.Version)
 			return 0
 		case "--status":
-			if s.Status() > 0 {
+			missing, err := s.Status()
+			if err != nil {
+				return exitOf(err)
+			}
+			if missing > 0 {
 				return 1
 			}
 			return 0
@@ -239,7 +243,8 @@ func (s *Setup) RunStep(step func() error) {
 		return
 	}
 	var ee *exec.ExitError
-	if !errors.Is(err, ErrFailed) && !errors.As(err, &ee) {
+	var ce *ExitError
+	if !errors.Is(err, ErrFailed) && !errors.As(err, &ee) && !errors.As(err, &ce) {
 		// bash showed the error of a failed command itself, such as mkdir's.
 		fmt.Fprintln(os.Stderr, err)
 	}

@@ -85,7 +85,7 @@ func (s *Setup) MainMenu() {
 			}
 			s.RunEverything()
 		case choice == "Check status":
-			s.RunStep(func() error { s.Status(); return nil })
+			s.RunStep(func() error { _, err := s.Status(); return err })
 		case choice == "Uninstall":
 			// After a real uninstall, the menu has nothing left to work on.
 			if s.Uninstall() == nil && !s.DryRun {

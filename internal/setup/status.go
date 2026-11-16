@@ -26,7 +26,9 @@ func (l *statusLines) line(kind, text string) {
 
 // Status prints one line for each part of the setup (envsetup::status).
 // It returns the number of missing lines.
-func (s *Setup) Status() int {
+// It returns an *ExitError when config.sh runs exit.
+// That ended setup.sh for --status, and only the step in the menu.
+func (s *Setup) Status() (int, error) {
 	var l statusLines
 
 	newest := s.newestRelease()
@@ -43,8 +45,7 @@ func (s *Setup) Status() int {
 	profile, mode := s.ReadState("profile", ""), s.ReadState("mode", "full")
 	cfg, err := s.Load(profile, mode, s.UserConfig, true)
 	if err != nil {
-		// config.sh ran exit, which ended setup.sh in the bash version.
-		s.Exit(exitOf(err))
+		return 0, err
 	}
 	// The bash version loaded the config into its own shell, like LoadConfig.
 	s.Cfg = cfg
@@ -90,7 +91,7 @@ func (s *Setup) Status() int {
 	default:
 		l.line("ok", "no "+s.UserConfig+", so envsetup uses its defaults")
 	}
-	return l.missing
+	return l.missing, nil
 }
 
 func (s *Setup) statusPackages(l *statusLines) {

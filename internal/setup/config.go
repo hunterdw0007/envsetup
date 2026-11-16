@@ -22,6 +22,8 @@ type Config struct {
 	Shell         string   // ENVSETUP_SHELL
 	XDGNinja      string   // ENVSETUP_XDG_NINJA
 	Renamed       []string // ENVSETUP_RENAMED, as old=new
+	// RepoURL is ENVSETUP_REPO_URL, also when config.sh sets it without export.
+	RepoURL string
 
 	// Packages is what envsetup::resolved_packages prints.
 	ResolvedPackages []string
@@ -55,7 +57,7 @@ readarray -t RESOLVED_INSTALLERS < <(envsetup::resolved_installers 2>/dev/null)
 INSTALLERS_ERR=$(envsetup::resolved_installers 2>&1 >/dev/null)
 for _envsetup_name in ENVSETUP_PACKAGES ENVSETUP_GIT_CONFIG ENVSETUP_INSTALLER_DIRS ENVSETUP_EXTRAS ENVSETUP_SKIP \
 	ENVSETUP_SHELL ENVSETUP_XDG_NINJA ENVSETUP_RENAMED ENVSETUP_CONFIG_WARNED RESOLVED_PACKAGES RESOLVED_INSTALLERS \
-	INSTALLERS_ERR _ENV_BEFORE _ENV_AFTER; do
+	INSTALLERS_ERR ENVSETUP_REPO_URL _ENV_BEFORE _ENV_AFTER; do
 	_envsetup_dump "$_envsetup_name"
 done
 `
@@ -105,6 +107,7 @@ func (s *Setup) Load(profile, mode, file string, quiet bool) (*Config, error) {
 		Packages: vals["ENVSETUP_PACKAGES"], GitConfig: vals["ENVSETUP_GIT_CONFIG"],
 		InstallerDirs: vals["ENVSETUP_INSTALLER_DIRS"], Extras: vals["ENVSETUP_EXTRAS"], Skip: vals["ENVSETUP_SKIP"],
 		Shell: first("ENVSETUP_SHELL"), XDGNinja: first("ENVSETUP_XDG_NINJA"), Renamed: vals["ENVSETUP_RENAMED"],
+		RepoURL:          first("ENVSETUP_REPO_URL"),
 		ResolvedPackages: nonEmpty(vals["RESOLVED_PACKAGES"]), ResolvedInstallers: nonEmpty(vals["RESOLVED_INSTALLERS"]),
 		InstallersErr: first("INSTALLERS_ERR"), Warning: first("ENVSETUP_CONFIG_WARNED"),
 		env: envDiff(vals["_ENV_BEFORE"], vals["_ENV_AFTER"]),

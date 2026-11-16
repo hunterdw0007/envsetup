@@ -54,24 +54,11 @@ func TestXDGTarget(t *testing.T) {
 		{"no path", fence(`export A="$XDG_CONFIG_HOME"`), "", "", false},
 		{"unclosed fence", "```\nexport A=$XDG_CONFIG_HOME/a", "/h/.config/a", "A", true},
 	}
-	_, bashErr := exec.LookPath("bash")
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			target, variable, ok := xdgTarget(tt.help)
 			if target != tt.target || variable != tt.variable || ok != tt.ok {
 				t.Errorf("xdgTarget = %q, %q, %v; want %q, %q, %v", target, variable, ok, tt.target, tt.variable, tt.ok)
-			}
-			if bashErr != nil {
-				return
-			}
-			// The bash version is the spec, so compare with it too.
-			out, err := exec.Command("bash", "-c", `source ../../lib/xdg.sh && envsetup::xdg_target "$1"`, "bash", tt.help).Output()
-			want := ""
-			if ok {
-				want = target + "\t" + variable + "\n"
-			}
-			if (err == nil) != ok || string(out) != want {
-				t.Errorf("bash printed %q (err %v); Go gave %q", out, err, want)
 			}
 		})
 	}

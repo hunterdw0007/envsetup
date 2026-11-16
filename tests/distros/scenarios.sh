@@ -59,10 +59,7 @@ answers() {
 }
 
 # envsetup answers its own questions from the lists above, because SMOKE_CHOICES is set.
-# The bash helpers in lib/common.sh still call gum, for example envsetup::would and envsetup::enable_epel.
-# The fake gum answers them from the same lists.
 mkdir -p "$stubs"
-install -m 755 /src/tests/gum.sh "$stubs/gum"
 # A real ssh-keygen would wait for a passphrase.
 # The test checks the real ssh from openssh-client below.
 install -m 755 /src/tests/ssh-keygen.sh "$stubs/ssh-keygen"

@@ -21,7 +21,7 @@ ENVSETUP_PROFILE="" ENVSETUP_MODE=full
 # So commands over ssh stay fast, and scp's silent remote shell stays silent.
 # shellcheck source=shell/shared/exports.sh
 [[ "$ENVSETUP_MODE" == lite ]] || source "$ENVSETUP_ROOT/shell/shared/exports.sh"
-# shellcheck source=/dev/null # lib/xdg.sh generates this file
+# shellcheck source=/dev/null # "Move dotfiles to XDG dirs" generates this file
 [[ -f "$ENVSETUP_STATE/xdg.sh" ]] && source "$ENVSETUP_STATE/xdg.sh"
 
 # The rest is only for interactive shells.

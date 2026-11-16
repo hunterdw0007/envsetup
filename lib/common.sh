@@ -9,27 +9,12 @@ ENVSETUP_RC_END="# <<< envsetup <<<"
 ENVSETUP_CHSH_MARKER="$ENVSETUP_STATE/chsh"       # exists after envsetup changes your login shell to zsh
 ENVSETUP_SSH_KEY_MARKER="$ENVSETUP_STATE/ssh-key" # exists after envsetup creates ~/.ssh/id_ed25519
 ENVSETUP_SHELL_D="$ENVSETUP_STATE/shell.d"        # your own shell files, which shell/init.sh loads
-# New shells load this copy of shell/ (see envsetup::copy_shell).
+# New shells load this copy of shell/ (see copyShell in internal/setup/link.go).
 # The copy's release is recorded next to it.
 ENVSETUP_DATA=$HOME/.local/share/envsetup
 if [[ "${XDG_DATA_HOME:-}" == /* ]]; then ENVSETUP_DATA=$XDG_DATA_HOME/envsetup; fi
 
-# A dry run comes from --dry-run or "Preview everything".
-# Every step that changes the machine checks this first.
-# In a dry run, the step describes the change and does not make it.
-envsetup::dry_run() { [[ "${ENVSETUP_DRY_RUN:-0}" == 1 ]]; }
-envsetup::would() { gum style --foreground 6 "  would $*"; }
 envsetup::has_cmd() { command -v "$1" &>/dev/null; }
-
-# version prints the checked-out release, for example v1.2.0.
-# Three commits after that release, it prints "v1.2.0-3-gabc1234".
-# Before the first release, it prints only the commit.
-# It adds "-dirty" when tracked files have edits.
-# Outside a checkout, it prints the release that envsetup::copy_shell recorded.
-envsetup::version() {
-	git -C "$ENVSETUP_ROOT" describe --tags --match 'v[0-9]*' --always --dirty 2>/dev/null ||
-		cat "$ENVSETUP_DATA/version" 2>/dev/null || echo unknown
-}
 
 # as_root runs a command as root.
 # If the user is already root, it runs the command directly (containers, WSL).
@@ -259,37 +244,6 @@ envsetup::pkg_name() {
 	esac
 }
 
-# RHEL and similar systems ship fewer packages.
-# fzf, ripgrep, bat, htop, neovim and about ten more listed packages come from EPEL.
-# enable_epel asks before it adds EPEL.
-envsetup::enable_epel() {
-	local id version pkg=epel-release guide="To turn on EPEL yourself, see https://docs.fedoraproject.org/en-US/epel/getting-started/"
-	id=$(envsetup::os_release ID)
-	[[ "$id" =~ ^(rhel|ol)$ || " $(envsetup::os_release ID_LIKE) " == *" rhel "* ]] || return 0
-	rpm -q epel-release oracle-epel-release-el{8,9,10} &>/dev/null && return 0
-	# RHEL's own repos have no epel-release.
-	# envsetup does not install it from a URL, because the URL names no version.
-	if [[ "$id" == rhel ]]; then
-		gum style --foreground 3 "EPEL is off. envsetup installs what the repos of RHEL have." "$guide"
-		return 0
-	fi
-	if envsetup::dry_run; then
-		envsetup::would "ask to turn on EPEL, Fedora's extra packages for $id. About a third of the packages come from EPEL"
-		return 0
-	fi
-	gum confirm "Turn on EPEL? EPEL is Fedora's extra package repo for $id. About a third of the packages come from it." || return 0
-	version=$(envsetup::os_release VERSION_ID)
-	version=${version%%.*}
-	[[ "$id" == ol ]] && pkg=oracle-epel-release-el$version
-	if ! envsetup::as_root dnf install -y "$pkg"; then
-		gum style --foreground 3 "Couldn't turn on EPEL. envsetup installs what the repos of $id have." "$guide"
-		return 0
-	fi
-	# Some EPEL packages need the CodeReady Builder repo.
-	# The epel-release package includes the helper that turns it on.
-	if envsetup::has_cmd crb; then envsetup::as_root crb enable; fi
-}
-
 # fetch <url> <file> downloads with curl or wget.
 # Ubuntu's desktop install has only wget.
 envsetup::fetch() {
@@ -305,7 +259,7 @@ envsetup::pkg_install() {
 	case "$manager" in
 	brew) install=(brew install) ;;
 	apt)
-		# This runs once in each setup.sh run.
+		# This runs once in each envsetup run.
 		# The steps and installers of one run share ENVSETUP_TMP.
 		if [[ ! -e "${ENVSETUP_TMP:-}/apt-updated" ]]; then
 			# One broken source, such as a removed PPA, makes the update exit non-zero.

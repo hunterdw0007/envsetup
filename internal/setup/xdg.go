@@ -25,7 +25,7 @@ import (
 	"strings"
 )
 
-// The patterns of lib/xdg.sh.
+// The patterns of lib/xdg.sh in v1.0.0.
 // Each uses POSIX rules (leftmost-longest), like bash's =~.
 const (
 	xdgVarRE     = `\$\{?XDG_(CONFIG|DATA|STATE|CACHE)_HOME\}?`

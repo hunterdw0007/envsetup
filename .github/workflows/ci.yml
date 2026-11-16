@@ -51,6 +51,11 @@ jobs:
       # See tests/release.sh.
       - uses: ./.github/actions/commitizen
 
+      # release.sh publish builds the binaries, so the test needs go.
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
       - name: tests/release.sh
         run: tests/release.sh
 
@@ -74,6 +79,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # every tag: the test updates from the last 0.x release, offline
+
+      # The test runs the binary at /envsetup-bin/envsetup in the container (see ENVSETUP_BIN in tests/smoke.sh).
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Build envsetup (linux/amd64)
+        run: CGO_ENABLED=0 go build -trimpath -o "$RUNNER_TEMP/envsetup-bin/envsetup" ./cmd/envsetup
 
       # Ubuntu's package servers are often slow from CI.
       # A few packages can take minutes, or the download can stop.
@@ -106,7 +119,42 @@ jobs:
       - name: smoke test (ubuntu:24.04, offline)
         run: >-
           docker run --rm -t --network none -e SMOKE_APT_CACHE=/apt-cache
-          -v "$RUNNER_TEMP/smoke-apt:/apt-cache:ro" -v "$PWD:/src:ro" ubuntu:24.04 bash /src/tests/smoke.sh
+          -v "$RUNNER_TEMP/smoke-apt:/apt-cache:ro" -v "$RUNNER_TEMP/envsetup-bin:/envsetup-bin:ro"
+          -v "$PWD:/src:ro" ubuntu:24.04 bash /src/tests/smoke.sh
+
+  go:
+    # This job checks the Go code and builds the binaries that the release attaches.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      # gofmt -l lists each file that it would change, and exits 0 either way.
+      - name: gofmt
+        run: |
+          files=$(gofmt -l .)
+          if [[ -n $files ]]; then
+            echo "::error::gofmt would change these files. Run gofmt -w on them."
+            echo "$files"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test
+        run: go test ./...
+
+      # The release builds the same way (see .github/scripts/release.sh).
+      - name: Build linux/amd64 and linux/arm64
+        run: |
+          for arch in amd64 arm64; do
+            CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath -o "$RUNNER_TEMP/envsetup-linux-$arch" ./cmd/envsetup
+          done
 
   release:
     # This job releases each push to main whose commits need a new version (feat, fix, "!", ...).
@@ -114,10 +162,10 @@ jobs:
     # A "bump:" commit on main adds the CHANGELOG.md entry.
     # A vX.Y.Z tag marks that commit, and the job publishes a GitHub release.
     # See .github/scripts/release.sh.
-    needs: [shell-checks, smoke]
+    needs: [shell-checks, smoke, go]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10 # the publish step builds two binaries without a cache
     permissions:
       contents: write # push the bump commit and tag, create the release
     concurrency:
@@ -137,6 +185,13 @@ jobs:
           persist-credentials: false
 
       - uses: ./.github/actions/commitizen
+
+      # The publish step builds the binaries from the tag and attaches them to the release.
+      # No cache, so the release builds only from go.sum-checked modules and never from an earlier run's files.
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
 
       - name: Bump (commit and tag, locally)
         run: .github/scripts/release.sh bump

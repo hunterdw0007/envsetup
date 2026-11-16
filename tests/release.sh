@@ -9,6 +9,7 @@
 #   tests/release.sh
 #
 # The test needs git and cz on PATH (pipx install commitizen, or CI's .github/actions/commitizen).
+# It also needs go on PATH, because publish builds the binaries.
 # It runs in a temporary folder and changes nothing else.
 # shellcheck disable=SC2016 # code in single quotes expands later, in the fake
 set -uo pipefail # no -e, so one failed check does not stop the rest
@@ -36,20 +37,36 @@ command -v cz >/dev/null || {
 	echo "tests/release.sh needs commitizen's cz on PATH (pipx install commitizen)." >&2
 	exit 2
 }
+command -v go >/dev/null || {
+	echo "tests/release.sh needs go on PATH, because publish builds the binaries." >&2
+	exit 2
+}
 
 # The fake gh keeps each release that it creates.
-# It saves the notes in $GH_STATE/<tag>.
+# It saves the notes in $GH_STATE/<tag>, and the release's files in $GH_STATE/<tag>.files/.
+# The log names each file by its base name, because the paths are temporary.
 export GH_LOG=$T/gh.log GH_STATE=$T/releases
 mkdir -p "$T/bin" "$T/nocz" "$GH_STATE"
 cat >"$T/bin/gh" <<'EOF'
 #!/usr/bin/env bash
-echo "gh $*" >>"$GH_LOG"
-case "$1 $2" in
-"release view") [[ -f "$GH_STATE/$3" ]] ;;
-"release create")
-	tag=$3
+args=()
+for a in "$@"; do [[ -f $a ]] && args+=("${a##*/}") || args+=("$a"); done
+echo "gh ${args[*]}" >>"$GH_LOG"
+cmd="$1 $2" tag=$3
+shift 3
+case $cmd in
+"release view")
+	[[ -f "$GH_STATE/$tag" ]] || exit 1
+	if [[ " $* " == *" --json assets "* ]]; then ls "$GH_STATE/$tag.files"; fi ;;
+"release create" | "release upload")
+	mkdir -p "$GH_STATE/$tag.files"
 	while (($#)); do
-		if [[ $1 == --notes-file ]]; then cp "$2" "$GH_STATE/$tag"; fi
+		case $1 in
+		--notes-file) cp "$2" "$GH_STATE/$tag"; shift ;;
+		--repo | --title) shift ;;
+		--*) ;;
+		*) cp "$1" "$GH_STATE/$tag.files/" ;;
+		esac
 		shift
 	done ;;
 *) exit 1 ;;
@@ -99,7 +116,32 @@ tags() { [ "$(git -C "$O" tag --sort=v:refname | tr '\n' ' ')" = "$1" ]; }
 main_is() { [ "$(git -C "$O" rev-parse main)" = "$1" ]; }
 main_subject() { [ "$(git -C "$O" log -1 --format=%s main)" = "$1" ]; }
 created() { [ "$(grep -c "^gh release create $1 " "$GH_LOG")" = 1 ]; }
-none_created() { ! grep -q '^gh release create' "$GH_LOG"; }
+none_created() { ! grep -qE '^gh release (create|upload)' "$GH_LOG"; }
+uploaded() { [ "$(grep '^gh release upload' "$GH_LOG")" = "gh release upload $1 --repo owner/envsetup $2" ]; }
+# files_are <tag> passes when the release has exactly the binaries and SHA256SUMS.
+files_are() {
+	local f=("$GH_STATE/$1.files"/*)
+	[ "$(printf '%s\n' "${f[@]##*/}" | LC_ALL=C sort | tr '\n' ' ')" = "SHA256SUMS envsetup-linux-amd64 envsetup-linux-arm64 " ]
+}
+# sums_match <tag> passes when SHA256SUMS lists both binaries, and they match it.
+sums_match() {
+	[ "$(cut -d' ' -f3 "$GH_STATE/$1.files/SHA256SUMS" | tr '\n' ' ')" = "envsetup-linux-amd64 envsetup-linux-arm64 " ] &&
+		(cd "$GH_STATE/$1.files" && sha256sum --check --strict --quiet SHA256SUMS)
+}
+# built_for <tag> <arch> passes when the binary's build settings name the arch, no cgo and -trimpath.
+built_for() {
+	local info
+	info=$(go version -m "$GH_STATE/$1.files/envsetup-linux-$2") &&
+		[[ "$info" == *$'\tGOARCH='"$2"$'\n'* && "$info" == *$'\tCGO_ENABLED=0\n'* && "$info" == *$'\t-trimpath=true\n'* ]]
+}
+# has_version <tag> passes when the amd64 binary equals a build of the tag's files with that version.
+# go leaves -ldflags out of the build settings under -trimpath, so the test builds the binary again.
+has_version() {
+	rm -rf "${T:?}/ref" && mkdir "$T/ref"
+	git -C "$O" archive "$1" | tar -x -C "$T/ref"
+	(cd "$T/ref" && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-X main.version=$1" -o envsetup ./cmd/envsetup) &&
+		cmp -s "$T/ref/envsetup" "$GH_STATE/$1.files/envsetup-linux-amd64"
+}
 notes_have() { grep -qxF -- "$2" "$GH_STATE/$1"; }
 # notes_are_entry <tag> passes when CHANGELOG.md has the notes exactly, up to the install steps.
 notes_are_entry() {
@@ -132,13 +174,27 @@ check "  ...and the rest by type" [ "$(section v1.0.0 Fixes)" = "- **home**: a f
 check "  ...with a blank line before the install instructions" [ -z "$(grep -B1 '^### Install this version$' "$GH_STATE/v1.0.0" | head -n 1)" ]
 check "  ...which pin this version" notes_have v1.0.0 "curl -fsSL https://raw.githubusercontent.com/owner/envsetup/main/install.sh | ENVSETUP_VERSION=v1.0.0 bash"
 check "the notes are the CHANGELOG.md entry" notes_are_entry v1.0.0
+check "the release has the binaries and SHA256SUMS" files_are v1.0.0
+check "  ...which match SHA256SUMS" sums_match v1.0.0
+check "  ...built for amd64" built_for v1.0.0 amd64
+check "  ...and for arm64" built_for v1.0.0 arm64
+check "  ...from the tag's files, with its version" has_version v1.0.0
 ((failures)) && show "$T/out"
 bumped=$(git -C "$O" rev-parse main)
 
 echo "== re-running the same commit"
-rm "$GH_STATE/v1.0.0"
+cp "$GH_STATE/v1.0.0.files/envsetup-linux-amd64" "$T/amd64"
+rm -r "$GH_STATE/v1.0.0" "$GH_STATE/v1.0.0.files"
 check "with its release missing: exits 0" release "$first"
 check "  ...creates just the release" created v1.0.0
+check "  ...with all its files" files_are v1.0.0
+check "  ...built the same way again" cmp -s "$T/amd64" "$GH_STATE/v1.0.0.files/envsetup-linux-amd64"
+rm "$GH_STATE/v1.0.0.files/envsetup-linux-arm64" "$GH_STATE/v1.0.0.files/SHA256SUMS"
+check "with two of its files missing: exits 0" release "$first"
+check "  ...uploads just those, SHA256SUMS last" uploaded v1.0.0 "envsetup-linux-arm64 SHA256SUMS"
+check "  ...without another release" fails grep -q '^gh release create' "$GH_LOG"
+check "  ...so it has all its files" files_are v1.0.0
+check "  ...which match SHA256SUMS" sums_match v1.0.0
 check "  ...without another tag or commit" tags "v1.0.0 "
 check "  ...or moving main" main_is "$bumped"
 check "with its release there: exits 0" release "$first"

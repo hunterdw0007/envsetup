@@ -13,12 +13,15 @@
 #                       publishes a GitHub release with the entry as its notes.
 #                       Needs PUSH_TOKEN, unless the remote needs no token.
 #                       Needs gh with GH_TOKEN. Never runs cz.
+#                       It builds the binaries from the tag with go before the push.
+#                       It attaches them and SHA256SUMS to the release.
 #
 # CI (.github/workflows/ci.yml) runs this script after the checks on main pass.
 # It runs from a checkout of the pushed commit ($GITHUB_SHA), with the full history and tags.
 # tests/release.sh runs it the same way.
 # You can run it again safely.
 # If the commit already has a release, publish only creates the missing GitHub release.
+# It also uploads any of the release's missing files.
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)" # cz reads .cz.toml and the template from here
@@ -53,6 +56,25 @@ envsetup::notes() {
 	printf '%s' "$notes"
 }
 
+# The GitHub release has these files, in this order.
+# SHA256SUMS goes last, so it appears only after both binaries.
+assets=(envsetup-linux-amd64 envsetup-linux-arm64 SHA256SUMS)
+
+# envsetup::build <tag> <dir> builds the binaries from the tag's files into <dir>.
+# It also writes their checksums to <dir>/SHA256SUMS, in sha256sum format.
+# The tag's files may differ from HEAD, when a newer commit's release includes HEAD.
+# The build needs no token, so it runs without them.
+envsetup::build() {
+	local arch src=$2/src
+	mkdir "$src"
+	git archive "$1" | tar -x -C "$src"
+	for arch in amd64 arm64; do
+		(cd "$src" && env -u PUSH_TOKEN -u GH_TOKEN CGO_ENABLED=0 GOOS=linux GOARCH="$arch" \
+			go build -trimpath -ldflags "-X main.version=$1" -o "$2/envsetup-linux-$arch" ./cmd/envsetup)
+	done
+	(cd "$2" && sha256sum envsetup-linux-amd64 envsetup-linux-arm64 >SHA256SUMS)
+}
+
 envsetup::bump() {
 	local rc=0 tag
 	tag=$(envsetup::release_tag)
@@ -72,13 +94,17 @@ envsetup::bump() {
 }
 
 envsetup::publish() {
-	local tag prev
+	local tag prev name have missing=()
 	tag=$(envsetup::release_tag)
 	if [[ -z "$tag" ]]; then
 		echo "Nothing to release."
 		return 0
 	fi
+	dist=$(mktemp -d)
+	trap 'rm -rf "$dist"' EXIT
 	if [[ "$(git rev-parse HEAD)" != "$base" ]]; then # bump made a commit, so push it
+		# The build runs first, so a failed build pushes nothing.
+		envsetup::build "$tag" "$dist"
 		# The git config goes through the environment, so the token is in no file and no argument.
 		# Hooks are off, so a hook left in .git/hooks does not run with the token.
 		# This adds a layer of protection, as above.
@@ -100,12 +126,23 @@ envsetup::publish() {
 		echo "Pushed $tag."
 	fi
 
-	if gh release view "$tag" --repo "$repo" >/dev/null 2>&1; then
-		echo "$tag is already released."
+	if have=$(gh release view "$tag" --repo "$repo" --json assets --jq '.assets[].name' 2>/dev/null); then
+		for name in "${assets[@]}"; do
+			[[ $'\n'"$have"$'\n' == *$'\n'"$name"$'\n'* ]] || missing+=("$dist/$name")
+		done
+		if ((${#missing[@]} == 0)); then
+			echo "$tag is already released."
+			return 0
+		fi
+		# This step uploads only the missing files.
+		# So a file that users already downloaded never changes.
+		[[ -f "$dist/SHA256SUMS" ]] || envsetup::build "$tag" "$dist"
+		gh release upload "$tag" --repo "$repo" "${missing[@]}"
+		echo "Uploaded ${#missing[@]} missing file(s) to $tag."
 		return 0
 	fi
-	body=$(mktemp)
-	trap 'rm -f "$body"' EXIT
+	[[ -f "$dist/SHA256SUMS" ]] || envsetup::build "$tag" "$dist"
+	body=$dist/notes
 	{
 		envsetup::notes "$tag"
 		cat <<NOTES
@@ -122,7 +159,7 @@ NOTES
 			printf '\n**Full diff**: %s/%s/compare/%s...%s\n' "$server" "$repo" "$prev" "$tag"
 		fi
 	} >"$body"
-	gh release create "$tag" --repo "$repo" --verify-tag --title "$tag" --notes-file "$body"
+	gh release create "$tag" "${assets[@]/#/$dist/}" --repo "$repo" --verify-tag --title "$tag" --notes-file "$body"
 }
 
 case ${1:-} in

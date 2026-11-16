@@ -2,7 +2,6 @@ package setup
 
 import (
 	"bytes"
-	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -39,7 +38,8 @@ type Config struct {
 	env []string
 }
 
-// loadScript loads the config and writes each value to fd 3.
+// loadScript loads the config and writes each value to the file in $4.
+// A file, not a pipe: a background job of config.sh would hold a pipe open, and Go would wait for that job.
 // config.sh's own output still goes to stdout and stderr.
 // Each value is "<name>\0<count>\0<item>\0...".
 const loadScript = `
@@ -48,7 +48,8 @@ source "$ENVSETUP_ROOT/lib/config.sh" || exit 1
 envsetup::config_warning() { ENVSETUP_CONFIG_WARNED=$1; }
 ENVSETUP_CONFIG_WARNED=
 ENVSETUP_USER_CONFIG=$3
-_envsetup_dump() { local -n _envsetup_v=$1; printf '%s\0' "$1" "${#_envsetup_v[@]}" "${_envsetup_v[@]}" >&3; }
+_ENVSETUP_DUMP=$4
+_envsetup_dump() { local -n _envsetup_v=$1; printf '%s\0' "$1" "${#_envsetup_v[@]}" "${_envsetup_v[@]}" >>"$_ENVSETUP_DUMP"; }
 readarray -d '' _ENV_BEFORE < <(env -0)
 envsetup::load_config "$1" "$2"
 readarray -d '' _ENV_AFTER < <(env -0)
@@ -71,30 +72,22 @@ func (e *ExitError) Error() string { return "config.sh exited with " + strconv.I
 // Load runs envsetup::load_config with that file as config.sh.
 // quiet drops config.sh's own output, like `load_config >/dev/null 2>&1`.
 func (s *Setup) Load(profile, mode, file string, quiet bool) (*Config, error) {
-	r, w, err := os.Pipe()
+	dump, err := os.CreateTemp("", "envsetup-config.")
 	if err != nil {
 		return nil, err
 	}
-	defer r.Close()
-	c := s.Cmd("bash", "-c", loadScript, "envsetup", profile, mode, file)
-	c.ExtraFiles = []*os.File{w}
+	dump.Close()
+	defer os.Remove(dump.Name())
+	c := s.Cmd("bash", "-c", loadScript, "envsetup", profile, mode, file, dump.Name())
 	if quiet {
 		c.Stdin, c.Stdout, c.Stderr = nil, nil, nil
 	}
-	if err := c.Start(); err != nil {
-		w.Close()
-		return nil, err
-	}
-	w.Close()
-	data, _ := io.ReadAll(r)
-	err = c.Wait()
+	err = c.Run()
+	data, _ := os.ReadFile(dump.Name())
 	vals := parseDump(data)
 	if _, done := vals["_ENV_AFTER"]; !done {
-		code := exitCode(err)
-		if code == 0 {
-			code = 1
-		}
-		return nil, &ExitError{code}
+		// config.sh ran exit, also `exit 0`, which ended setup.sh with that code.
+		return nil, &ExitError{exitCode(err)}
 	}
 	first := func(name string) string {
 		if v := vals[name]; len(v) > 0 {

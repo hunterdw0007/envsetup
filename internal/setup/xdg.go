@@ -237,7 +237,7 @@ func (s *Setup) xdgFetch() bool {
 		return false
 	default:
 		url := envOr("ENVSETUP_XDG_NINJA_URL", "https://github.com/b3nj5m1n/xdg-ninja")
-		_ = os.MkdirAll(s.CacheDir(), 0o755)
+		_ = os.MkdirAll(s.CacheDir(), 0o777)
 		if s.Run("git", "clone", "-q", "--depth", "1", url, cache) != nil {
 			s.Color(1, "Couldn't download xdg-ninja's notes from "+url)
 			return false
@@ -259,7 +259,7 @@ func (s *Setup) xdgWriteEnv() error {
 			b.WriteString("export " + variable + "=" + Quote(new) + "\n")
 		}
 	}
-	return os.WriteFile(s.xdgEnv(), []byte(b.String()), 0o644)
+	return os.WriteFile(s.xdgEnv(), []byte(b.String()), 0o666)
 }
 
 // splitMove splits a line of the list of moves, like read -r old new var with IFS=$'\t'.
@@ -314,16 +314,20 @@ func (s *Setup) XDGTidy() error {
 		return nil
 	}
 
-	_ = os.MkdirAll(filepath.Dir(s.xdgMoves()), 0o755)
-	list, err := os.OpenFile(s.xdgMoves(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	_ = os.MkdirAll(filepath.Dir(s.xdgMoves()), 0o777)
+	list, err := os.OpenFile(s.xdgMoves(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o666)
 	if err != nil {
 		return err
 	}
 	defer list.Close()
 	failed := false
 	for _, it := range moves {
-		if os.MkdirAll(filepath.Dir(it.new), 0o755) == nil && s.Run("mv", "-n", it.old, it.new) == nil && !statOK(it.old) {
-			fmt.Fprintf(list, "%s\t%s\t%s\n", it.old, it.new, it.variable)
+		if os.MkdirAll(filepath.Dir(it.new), 0o777) == nil && s.Run("mv", "-n", it.old, it.new) == nil && !statOK(it.old) {
+			// Uninstall moves a dotfile back only from this list, so a failed write ends the step, as set -e did.
+			if _, err := fmt.Fprintf(list, "%s\t%s\t%s\n", it.old, it.new, it.variable); err != nil {
+				list.Close()
+				return err
+			}
 		} else {
 			s.Color(1, "Couldn't move "+it.old)
 			failed = true
@@ -381,7 +385,7 @@ func (s *Setup) xdgRestore() error {
 	if len(kept) == 0 {
 		files = append(files, s.xdgMoves(), s.xdgEnv())
 	} else if !s.DryRun {
-		if err := os.WriteFile(s.xdgMoves(), []byte(strings.Join(kept, "\n")+"\n"), 0o644); err == nil {
+		if err := os.WriteFile(s.xdgMoves(), []byte(strings.Join(kept, "\n")+"\n"), 0o666); err == nil {
 			_ = s.xdgWriteEnv()
 		}
 		failed = true

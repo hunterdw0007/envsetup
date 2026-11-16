@@ -159,8 +159,9 @@ envsetup::download_release() {
 	x86_64 | amd64) arch=amd64 ;;
 	aarch64 | arm64) arch=arm64 ;;
 	*)
-		echo "envsetup has release binaries for amd64 and arm64 only. This machine is $(uname -m)." >&2
-		exit 1
+		# setup.sh then builds envsetup with Go, or says how to get Go.
+		echo "envsetup has release binaries for amd64 and arm64 only. This machine is $(uname -m), so setup.sh builds envsetup with Go." >&2
+		return 0
 		;;
 	esac
 	base=${ENVSETUP_DOWNLOAD_URL:-}

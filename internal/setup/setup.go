@@ -202,7 +202,7 @@ func (s *Setup) ReadState(name, def string) string {
 // SaveState saves a choice (envsetup::save_state).
 // An empty value deletes the choice.
 func (s *Setup) SaveState(name, value string) error {
-	if err := os.MkdirAll(s.StateDir, 0o755); err != nil {
+	if err := os.MkdirAll(s.StateDir, 0o777); err != nil {
 		return err
 	}
 	if value == "" {
@@ -212,7 +212,7 @@ func (s *Setup) SaveState(name, value string) error {
 		}
 		return err
 	}
-	return os.WriteFile(filepath.Join(s.StateDir, name), []byte(value+"\n"), 0o644)
+	return os.WriteFile(filepath.Join(s.StateDir, name), []byte(value+"\n"), 0o666)
 }
 
 // Lite reports whether this is work in lite mode (envsetup::lite).

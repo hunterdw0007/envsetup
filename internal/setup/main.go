@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/hunterdw0007/envsetup/internal/ui"
@@ -18,7 +19,17 @@ import (
 var usage string
 
 // cleanup holds the folders that every exit deletes, like setup.sh's EXIT trap.
-var cleanup []string
+// The signal handler reads it from another goroutine, so cleanupMu guards it.
+var (
+	cleanup   []string
+	cleanupMu sync.Mutex
+)
+
+func addCleanup(dir string) {
+	cleanupMu.Lock()
+	defer cleanupMu.Unlock()
+	cleanup = append(cleanup, dir)
+}
 
 // Exit deletes the temporary folders and ends envsetup with the code.
 func (s *Setup) Exit(code int) {
@@ -27,6 +38,8 @@ func (s *Setup) Exit(code int) {
 }
 
 func removeTemp() {
+	cleanupMu.Lock()
+	defer cleanupMu.Unlock()
 	for _, d := range cleanup {
 		os.RemoveAll(d)
 	}
@@ -117,14 +130,14 @@ func Main(args []string, version string) int {
 		fmt.Fprintln(os.Stderr, "envsetup:", err)
 		return 1
 	}
-	cleanup = append(cleanup, s.Tmp)
+	addCleanup(s.Tmp)
 
 	if s.DryRun {
 		// Profile choices and config edits go to a temporary copy.
 		// So the menu works as usual, and ~/.config/envsetup does not change.
 		// The copy follows links, so a dry-run edit never reaches the config repo.
 		s.StateDir = s.Tmp + "/state"
-		if err := os.Mkdir(s.StateDir, 0o755); err != nil {
+		if err := os.Mkdir(s.StateDir, 0o777); err != nil {
 			fmt.Fprintln(os.Stderr, "envsetup:", err)
 			return 1
 		}
@@ -147,8 +160,9 @@ func Main(args []string, version string) int {
 	}
 	if editConfig {
 		s.Cfg = &Config{Profile: s.ReadState("profile", ""), Mode: s.ReadState("mode", "full")}
+		// Under set -e, a failed editor ended setup.sh with the editor's own code.
 		if err := s.EditConfig(); err != nil {
-			return 1
+			return stepCode(err)
 		}
 		return 0
 	}
@@ -159,7 +173,7 @@ func Main(args []string, version string) int {
 	if configFile != "" {
 		s.LoadConfig(s.ReadState("profile", ""), s.ReadState("mode", "full"))
 		if err := s.AddConfig(configFile); err != nil {
-			return 1
+			return stepCode(err)
 		}
 	}
 	s.MainMenu()
@@ -252,3 +266,13 @@ func (s *Setup) RunStep(step func() error) {
 }
 
 var styleWarn = ui.Style{ui.Fg(3)}
+
+// stepCode is the exit code that a failed top-level step gave setup.sh under set -e.
+// A failed command gave its own code, and every other failure gave 1.
+func stepCode(err error) int {
+	var ee *exec.ExitError
+	if errors.As(err, &ee) {
+		return exitCode(err)
+	}
+	return exitOf(err)
+}

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 )
 
 // sandbox gives a test its own HOME and no XDG or ENVSETUP variables.
@@ -141,6 +142,19 @@ func TestLoad(t *testing.T) {
 	write("ENVSETUP_SHELL=zsh\nfi\n")
 	if cfg, _ = s.Load("home", "full", s.UserConfig, true); cfg.Warning == "" {
 		t.Error("no warning for a syntax error")
+	}
+	// A background job of config.sh must not hold up the menu (review finding).
+	write("sleep 5 &\nENVSETUP_SHELL=zsh\n")
+	start := time.Now()
+	if cfg, err = s.Load("home", "full", s.UserConfig, true); err != nil || cfg.Shell != "zsh" {
+		t.Errorf("background job: %v, %+v", err, cfg)
+	}
+	if d := time.Since(start); d > 3*time.Second {
+		t.Errorf("Load waited %v for a background job of config.sh", d)
+	}
+	write("exit 0\n")
+	if _, err = s.Load("home", "full", s.UserConfig, true); err == nil || exitOf(err) != 0 {
+		t.Errorf("exit 0: %v", err)
 	}
 	write("exit 7\n")
 	if _, err = s.Load("home", "full", s.UserConfig, true); exitOf(err) != 7 {

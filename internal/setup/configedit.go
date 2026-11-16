@@ -225,7 +225,7 @@ func renameWords(text string, items []string) string {
 // writeThrough writes the file like `printf ... >file`.
 // It keeps the mode of a file that exists, and writes through a link.
 func writeThrough(file, text string) error {
-	f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+	f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o666)
 	if err != nil {
 		return err
 	}
@@ -262,7 +262,7 @@ func (s *Setup) EditConfig() error {
 		}
 	}
 	if !isFile(file) {
-		if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(file), 0o777); err != nil {
 			return err
 		}
 		if err := copyFile(s.Root+"/config.example.sh", file); err != nil {
@@ -352,7 +352,7 @@ func (s *Setup) addShellFile(text string) error {
 		return nil
 	}
 	add := s.Tmp + "/add.sh"
-	if err := os.WriteFile(add, []byte(text+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(add, []byte(text+"\n"), 0o666); err != nil {
 		return err
 	}
 	name, ok := s.UI.Input("aliases.sh", "File name. New bash and zsh shells load .sh files. Only bash loads .bash, and only zsh loads .zsh.")
@@ -421,14 +421,14 @@ func (s *Setup) addShellFile(text string) error {
 		s.Would("save the text as " + file)
 		return nil
 	}
-	if err := os.MkdirAll(s.ShellD, 0o755); err != nil {
+	if err := os.MkdirAll(s.ShellD, 0o777); err != nil {
 		return err
 	}
 	// Replace a link itself, not the file that it points to.
 	if err := os.Remove(file); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return err
 	}
-	if err := os.WriteFile(file, []byte(text+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(file, []byte(text+"\n"), 0o666); err != nil {
 		return err
 	}
 	s.Color(2, "Saved "+file+". New interactive shells load it.")
@@ -456,7 +456,7 @@ func (s *Setup) addConfig(text string) error {
 		return nil
 	}
 	add, newFile := s.Tmp+"/add.sh", s.Tmp+"/config.new"
-	if err := os.WriteFile(add, []byte(text+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(add, []byte(text+"\n"), 0o666); err != nil {
 		return err
 	}
 	if !s.checkConfig(add, "The text has an error, so envsetup saved nothing:", "bash") {
@@ -478,7 +478,7 @@ func (s *Setup) addConfig(text string) error {
 		content += "\n"
 	}
 	content += text + "\n"
-	if err := os.WriteFile(newFile, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(newFile, []byte(content), 0o666); err != nil {
 		return err
 	}
 	if !s.checkConfig(newFile, "config.sh with the text at its end has an error, so envsetup saved nothing:", "bash") {
@@ -498,7 +498,7 @@ func (s *Setup) addConfig(text string) error {
 			"A new shell would then close. So envsetup saved nothing.")
 		return ErrFailed
 	}
-	if err := os.MkdirAll(filepath.Dir(s.UserConfig), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(s.UserConfig), 0o777); err != nil {
 		return err
 	}
 	// Like `cat new >file`: keep the mode and write through a link.

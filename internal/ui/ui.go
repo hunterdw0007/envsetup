@@ -14,7 +14,6 @@ import (
 // Opt is one flag of `gum style`, such as --foreground 2 or --bold.
 type Opt struct {
 	flags []string
-	fg    int
 	bold  bool
 	// border is "normal" or "rounded".
 	border string
@@ -26,7 +25,7 @@ type Opt struct {
 type Style []Opt
 
 // Fg sets the color, as an ANSI color number from 0 to 15.
-func Fg(n int) Opt { return Opt{flags: []string{"--foreground", strconv.Itoa(n)}, fg: n} }
+func Fg(n int) Opt { return Opt{flags: []string{"--foreground", strconv.Itoa(n)}} }
 
 // Bold makes the text bold.
 var Bold = Opt{flags: []string{"--bold"}, bold: true}

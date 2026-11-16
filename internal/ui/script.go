@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"syscall"
@@ -15,7 +16,7 @@ import (
 // Only "yes" accepts, and no answer left declines.
 // $SMOKE_INPUT and $SMOKE_WRITE answer input and write.
 // It logs each call to $SMOKE_LOG as "gum <args>", the line that the fake gum wrote.
-// Print shows only the last line, as the fake gum did.
+// Print and Eprint show only the last argument, as the fake gum did.
 // So the tests can compare the bash version and this one line for line.
 type script struct{}
 
@@ -41,19 +42,15 @@ func pop(path string) string {
 	return first
 }
 
-func (s script) Print(st Style, lines ...string) {
-	s.log([]string{"style"}, st.flags(), lines)
-	if len(lines) > 0 {
-		fmt.Println(lines[len(lines)-1])
-	}
+// style logs a `gum style` call and prints what the fake gum printed: its last argument.
+func (s script) style(w io.Writer, st Style, lines []string) {
+	args := append(append([]string{"style"}, st.flags()...), lines...)
+	s.log(args)
+	fmt.Fprintln(w, args[len(args)-1])
 }
 
-func (s script) Eprint(st Style, lines ...string) {
-	s.log([]string{"style"}, st.flags(), lines)
-	if len(lines) > 0 {
-		fmt.Println(lines[len(lines)-1]) // the fake gum wrote to stdout, and bash sent stdout to stderr
-	}
-}
+func (s script) Print(st Style, lines ...string)  { s.style(os.Stdout, st, lines) }
+func (s script) Eprint(st Style, lines ...string) { s.style(os.Stderr, st, lines) }
 
 func (s script) Choose(header string, options ...string) (string, bool) {
 	args := []string{"choose"}
@@ -65,9 +62,9 @@ func (s script) Choose(header string, options ...string) (string, bool) {
 	if answer == "" || answer == "ESC" {
 		return "", false
 	}
-	if sig, ok := strings.CutPrefix(answer, "SIG"); ok {
-		n := map[string]syscall.Signal{"INT": syscall.SIGINT, "TERM": syscall.SIGTERM, "HUP": syscall.SIGHUP}[sig]
-		_ = syscall.Kill(0, n)
+	// The fake gum's kill failed on an unknown signal, and then it printed the answer.
+	if sig, ok := map[string]syscall.Signal{"SIGINT": syscall.SIGINT, "SIGTERM": syscall.SIGTERM, "SIGHUP": syscall.SIGHUP}[answer]; ok {
+		_ = syscall.Kill(0, sig)
 		select {} // the signal handler ends the process
 	}
 	return answer, true
@@ -93,7 +90,7 @@ func (s script) Input(placeholder, header string) (string, bool) {
 	case set && v == "ESC":
 		return "", false
 	case set:
-		return v, true
+		return strings.TrimRight(v, "\n"), true // $(gum input) dropped the trailing newlines
 	case strings.Contains(strings.Join(args, " "), "@"):
 		return "smoke@example.com", true
 	default:

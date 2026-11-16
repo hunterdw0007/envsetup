@@ -14,8 +14,8 @@ To break a requirement, first change it in its own PR.
    envsetup supports the Linux systems in the README table, including WSL.
 2. **Nothing to install first.**
    A machine with bash, curl and git can run envsetup.
-   gum is the only exception.
-   envsetup installs gum, and tar and gzip if gum needs them, before the menu opens.
+   `install.sh` downloads the envsetup binary of a release and checks its sha256.
+   Only a branch or a commit needs Go, because it has no binary.
 3. **Same release, same result.**
    A second run of the same release with the same `config.sh` changes nothing.
 4. **No change without a choice.**
@@ -74,9 +74,12 @@ New work moves envsetup toward these goals.
 ## Layout
 
 ```
-install.sh           # the script that the curl command runs: downloads a release, runs setup.sh, deletes the download
-setup.sh             # the gum menu: profile and mode, linking, package installs
-lib/                 # the menu's actions; lib/config.sh loads the defaults, then the user's config.sh
+install.sh           # the script that the curl command runs: downloads a release and its binary, runs setup.sh, deletes the download
+setup.sh             # runs the envsetup binary from this clone; builds it with Go when Go is installed
+cmd/envsetup/        # the binary's main package
+internal/setup/      # the menu, its actions and the options (Go)
+internal/ui/         # the menu and questions on BubbleTea (huh), and the scripted answers for the tests
+lib/                 # bash: common.sh holds the installer helpers; config.sh loads the defaults, then the user's config.sh
 config.example.sh    # template for ~/.config/envsetup/config.sh
 AGENTS.md            # the rules for this repo
 CHANGELOG.md         # the changes in each release (CI writes it)
@@ -198,12 +201,12 @@ It takes too long for CI, so you run it yourself.
 Each distro runs in a new container.
 The distros are Ubuntu, Debian, Mint, Fedora, Alma, Rocky, Amazon Linux, Arch, openSUSE and Alpine.
 
-The test replaces only gum's menu with a script.
+The test answers the menu from a script.
 It installs real packages and downloads real tools.
 It runs as a user with sudo, not as root.
 It checks these things:
 
-- `install.sh` on a machine without git, and the gum install
+- `install.sh` on a machine without git
 - **Run everything** for home, work full and work lite
 - which commands each run installed
 - whether bash and zsh start without errors

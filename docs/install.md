@@ -12,6 +12,8 @@ Then it stops.
 The command does three things:
 
 1. It downloads the newest release into a temporary folder.
+   That includes the envsetup binary for your machine (amd64 or arm64).
+   The command checks the binary's sha256 against the release's `SHA256SUMS` before it runs it.
 2. It opens the menu.
 3. When you quit the menu, it deletes the temporary folder.
    It also deletes the folder after an error or Ctrl-C.
@@ -83,14 +85,6 @@ It does not run the text.
 It saves the text nowhere, not even for the session.
 With `--dry-run`, `--config <file>` also checks only the syntax of the file.
 
-The menu needs gum.
-If the machine does not have gum, the dry run asks before it installs gum.
-A dry run makes no other change.
-gum's download needs curl, tar and gzip.
-If one of them is missing, the dry run names it and stops.
-Install the missing tools first.
-Then start the dry run again.
-
 The **Preview everything** action is the same as a dry run of **Run everything**.
 
 ## Install without curl
@@ -102,6 +96,9 @@ cd ~/envsetup
 ```
 
 This method uses the newest commit on `main`.
+A commit has no built binary, so `setup.sh` builds one with [Go](https://go.dev/doc/install).
+Install Go first.
+`ENVSETUP_VERSION` with a branch or a commit needs Go for the same reason.
 To use a release, run `git checkout v1.0.0` first.
 `git tag` lists the releases.
 envsetup never deletes this folder.

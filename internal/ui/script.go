@@ -9,7 +9,7 @@ import (
 )
 
 // script answers like the fake gum in tests/gum.sh did.
-// It is a test adapter: it turns each call into the gum call that the bash version (v1.0.1) made.
+// It is a test adapter: it turns each call into the gum call that the last bash release made.
 // It reads the answers to choose from $SMOKE_CHOICES, one per line.
 // "ESC", or no answer left, cancels.
 // "SIGINT" or "SIGTERM" sends that signal to the process group, like Ctrl-C or a kill.

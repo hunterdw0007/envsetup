@@ -14,7 +14,7 @@ import (
 // Each installer is a separate bash script that is safe to run more than once.
 func (s *Setup) RunInstallers() error {
 	if s.Lite() {
-		s.Color(3, "work (lite) does not assume sudo, so it runs no installers.")
+		s.Warn("work (lite) does not assume sudo, so it runs no installers.")
 		return nil
 	}
 	if s.Cfg.InstallersErr != "" {
@@ -23,7 +23,7 @@ func (s *Setup) RunInstallers() error {
 	scripts := s.Cfg.ResolvedInstallers
 	names := installerNames(scripts)
 	if len(scripts) == 0 {
-		s.Color(3, "No installers for "+s.Cfg.Profile+".")
+		s.Warn("No installers for " + s.Cfg.Profile + ".")
 		return nil
 	}
 	// An update replaces a tool that envsetup installed at another version than the pin.
@@ -51,17 +51,17 @@ func (s *Setup) RunInstallers() error {
 		for _, u := range updates {
 			lines = append(lines, "  "+u)
 		}
-		s.Color(6, lines...)
+		s.Note(lines...)
 	}
 	var failed []string
 	for _, script := range scripts {
-		s.UI.Print(ui.Style{ui.Bold, ui.Fg(4)}, "Running "+filepath.Base(script)+"...")
+		s.UI.Print(ui.Step, "Running "+filepath.Base(script)+"...")
 		if s.Run("bash", script) != nil {
 			failed = append(failed, filepath.Base(script))
 		}
 	}
 	if len(failed) > 0 {
-		s.Color(1, "Installers failed: "+strings.Join(failed, " "))
+		s.Fail("Installers failed: " + strings.Join(failed, " "))
 		return ErrFailed
 	}
 	return nil

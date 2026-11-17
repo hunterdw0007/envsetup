@@ -11,12 +11,12 @@ import (
 // InstallPackages installs the resolved packages with the package manager (envsetup::install_packages).
 func (s *Setup) InstallPackages() error {
 	if s.Lite() {
-		s.Color(3, "work (lite) does not assume sudo, so it installs no packages.")
+		s.Warn("work (lite) does not assume sudo, so it installs no packages.")
 		return nil
 	}
 	manager := s.PkgManager()
 	if manager == "" {
-		s.Color(1, "No supported package manager found.")
+		s.Fail("No supported package manager found.")
 		return ErrFailed
 	}
 	var names []string
@@ -26,7 +26,7 @@ func (s *Setup) InstallPackages() error {
 		}
 	}
 	if len(names) == 0 {
-		s.Color(3, "No packages listed for "+s.Cfg.Profile+".")
+		s.Warn("No packages listed for " + s.Cfg.Profile + ".")
 		return nil
 	}
 	if manager == "dnf" {
@@ -42,7 +42,7 @@ func (s *Setup) InstallPackages() error {
 		s.Would(fmt.Sprintf("install %d packages with %s, and skip the ones already installed: %s", len(names), how, strings.Join(names, " ")))
 		return nil
 	}
-	s.UI.Print(ui.Style{ui.Bold, ui.Fg(4)}, "Installing with "+manager+": "+strings.Join(names, " "))
+	s.UI.Print(ui.Step, "Installing with "+manager+": "+strings.Join(names, " "))
 	return s.PkgInstall(manager, s.Cfg.ResolvedPackages...)
 }
 
@@ -65,7 +65,7 @@ func (s *Setup) enableEPEL() error {
 	// RHEL's own repos have no epel-release.
 	// envsetup does not install it from a URL, because the URL names no version.
 	if id == "rhel" {
-		s.Color(3, "EPEL is off. envsetup installs what the repos of RHEL have.", guide)
+		s.Warn("EPEL is off. envsetup installs what the repos of RHEL have.", guide)
 		return nil
 	}
 	if s.DryRun {
@@ -82,7 +82,7 @@ func (s *Setup) enableEPEL() error {
 		pkg = "oracle-epel-release-el" + version
 	}
 	if s.AsRoot("dnf", "install", "-y", pkg) != nil {
-		s.Color(3, "Couldn't turn on EPEL. envsetup installs what the repos of "+id+" have.", guide)
+		s.Warn("Couldn't turn on EPEL. envsetup installs what the repos of "+id+" have.", guide)
 		return nil
 	}
 	// Some EPEL packages need the CodeReady Builder repo.

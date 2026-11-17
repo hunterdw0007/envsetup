@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/hunterdw0007/envsetup/internal/ui"
 )
 
 // This file holds the actions that change config.sh, from lib/config.sh of the bash version.
@@ -34,7 +36,7 @@ func (s *Setup) SyncConfigRepo() error {
 			if from == "" {
 				from = "an unknown URL"
 			}
-			s.Color(3, "ENVSETUP_CONFIG_REPO is "+url+", but "+repo+" comes from "+from+". envsetup keeps using "+repo+".")
+			s.Warn("ENVSETUP_CONFIG_REPO is " + url + ", but " + repo + " comes from " + from + ". envsetup keeps using " + repo + ".")
 		}
 		// The user kept their own config.sh, so the clone does not matter to this run.
 		if exists(link) && readlink(link) != repo+"/config.sh" {
@@ -44,7 +46,7 @@ func (s *Setup) SyncConfigRepo() error {
 			s.Would("ask to pull " + repo)
 		} else if yes, _ := s.UI.Confirm("Pull your config repo ("+repo+") before the menu opens?", false); yes {
 			if s.Run("git", "-C", repo, "pull", "-q", "--ff-only") != nil {
-				s.Color(3, "Couldn't pull "+repo+". Commit and push your edits there, or undo them. envsetup uses the config.sh that it has.")
+				s.Warn("Couldn't pull " + repo + ". Commit and push your edits there, or undo them. envsetup uses the config.sh that it has.")
 			}
 		}
 	case url != "":
@@ -54,16 +56,16 @@ func (s *Setup) SyncConfigRepo() error {
 			return nil
 		}
 		if s.Run("git", "clone", "-q", "--", url, repo) != nil {
-			s.Color(3, "Couldn't clone "+url+". Check ENVSETUP_CONFIG_REPO, then run setup again. The menu opens without your repo.")
+			s.Warn("Couldn't clone " + url + ". Check ENVSETUP_CONFIG_REPO, then run setup again. The menu opens without your repo.")
 			return nil
 		}
-		s.Color(2, "Cloned "+url+" into "+repo)
+		s.Success("Cloned " + url + " into " + repo)
 	default:
 		return nil
 	}
 
 	if !isFile(repo + "/config.sh") {
-		s.Color(3, repo+" has no config.sh, so envsetup links none.")
+		s.Warn(repo + " has no config.sh, so envsetup links none.")
 		return nil
 	}
 	if readlink(link) == repo+"/config.sh" {
@@ -77,13 +79,13 @@ func (s *Setup) SyncConfigRepo() error {
 			return nil
 		}
 		if exists(link + ".bak") {
-			s.Color(3, link+".bak already exists, so envsetup keeps "+link+" as it is.")
+			s.Warn(link + ".bak already exists, so envsetup keeps " + link + " as it is.")
 			return nil
 		}
 		if err := os.Rename(link, link+".bak"); err != nil {
 			return err
 		}
-		s.Color(2, "Moved your old config.sh to "+link+".bak")
+		s.Success("Moved your old config.sh to " + link + ".bak")
 	}
 	if s.DryRun {
 		s.Would("link " + link + " to " + repo + "/config.sh")
@@ -96,7 +98,7 @@ func (s *Setup) SyncConfigRepo() error {
 	if err := os.Symlink(repo+"/config.sh", link); err != nil {
 		return err
 	}
-	s.Color(2, "Linked "+link+" to "+repo+"/config.sh")
+	s.Success("Linked " + link + " to " + repo + "/config.sh")
 	return nil
 }
 
@@ -184,13 +186,13 @@ func (s *Setup) MigrateConfig() error {
 	}
 	// The old names still work after a "no", so "no" is the safe default.
 	if yes, _ := s.UI.Confirm("Some settings in "+file+" have a new name:"+list+". Rename them in "+file+"?", true); !yes {
-		s.Color(3, "envsetup keeps "+file+" as it is and reads the old names. The next run asks again.")
+		s.Warn("envsetup keeps " + file + " as it is and reads the old names. The next run asks again.")
 		return nil
 	}
 	if err := writeThrough(file, renameWords(string(data), found)); err != nil {
 		return err
 	}
-	s.Color(2, "Renamed the settings in "+file+":"+list)
+	s.Success("Renamed the settings in " + file + ":" + list)
 	s.warnConfigRepo()
 	return nil
 }
@@ -240,7 +242,7 @@ func writeThrough(file, text string) error {
 // A dry run edits a plain copy, so it gets no warning.
 func (s *Setup) warnConfigRepo() {
 	if isLink(s.UserConfig) {
-		s.Color(3, "This config.sh is in your config repo. Commit and push your edits there, or a later pull fails.")
+		s.Warn("This config.sh is in your config repo. Commit and push your edits there, or a later pull fails.")
 	}
 }
 
@@ -256,7 +258,7 @@ func (s *Setup) EditConfig() error {
 	file := s.UserConfig
 	// A link to a file that is gone would make the copy below write into the clone.
 	if _, err := os.Stat(file); err != nil && isLink(file) {
-		s.Color(3, file+" linked to a file that is gone. Edit config replaces the link with a new config.sh.")
+		s.Warn(file + " linked to a file that is gone. Edit config replaces the link with a new config.sh.")
 		if err := os.Remove(file); err != nil {
 			return err
 		}
@@ -312,18 +314,18 @@ func copyFile(src, dst string) error {
 // PasteConfig saves the text that the user pastes (envsetup::paste_config).
 // It asks where the text goes: the end of config.sh, or a new file in shell.d.
 func (s *Setup) PasteConfig() error {
-	// gum shows its own keys to save and to cancel under the box.
+	// The box shows its own keys to save and to cancel.
 	text, ok := s.UI.Write("Paste your settings or shell code.")
 	if !ok {
 		return nil
 	}
 	choice, ok := s.UI.Choose("Where does the text go?",
-		"settings  the end of config.sh",
-		"shell  a new file in shell.d, next to config.sh")
+		ui.Option{Value: "settings", Desc: "the end of config.sh"},
+		ui.Option{Value: "shell", Desc: "a new file in shell.d, next to config.sh"})
 	if !ok {
 		return nil
 	}
-	if first, _, _ := strings.Cut(choice, " "); first == "shell" {
+	if choice == "shell" {
 		return s.addShellFile(text)
 	}
 	return s.addConfig(text)
@@ -348,7 +350,7 @@ var shellFileName = regexp.MustCompile(`^[[:alnum:]_][[:alnum:]._-]*$`)
 func (s *Setup) addShellFile(text string) error {
 	text = cleanText(text)
 	if blank(text) {
-		s.Color(3, "The text is empty, so envsetup saved nothing.")
+		s.Warn("The text is empty, so envsetup saved nothing.")
 		return nil
 	}
 	add := s.Tmp + "/add.sh"
@@ -361,7 +363,7 @@ func (s *Setup) addShellFile(text string) error {
 	}
 	// The action shows its own message, so a bad name is not a failed step.
 	if !shellFileName.MatchString(name) {
-		s.Color(3, `"`+name+`" is not a file name, so envsetup saved nothing. Use letters, digits, dots, dashes and underscores.`)
+		s.Warn(`"` + name + `" is not a file name, so envsetup saved nothing. Use letters, digits, dots, dashes and underscores.`)
 		return nil
 	}
 	// shell/init.sh skips a file without one of these endings.
@@ -377,7 +379,7 @@ func (s *Setup) addShellFile(text string) error {
 		shells = append(shells, "zsh")
 	}
 	if len(shells) == 0 {
-		s.Color(3, "zsh is not installed, so envsetup cannot check "+name+".")
+		s.Warn("zsh is not installed, so envsetup cannot check " + name + ".")
 	}
 	for _, sh := range shells {
 		if !s.checkConfig(add, "The text has an error in "+sh+", so envsetup saved nothing:", sh) {
@@ -397,13 +399,13 @@ func (s *Setup) addShellFile(text string) error {
 		c := s.Cmd(sh, opt, `. "$1" >/dev/null 2>&1; echo envsetup-ok`, "sh", add)
 		c.Stdin, c.Stdout, c.Stderr = nil, nil, nil
 		if out, _ := c.Output(); strings.TrimRight(string(out), "\n") != "envsetup-ok" {
-			s.Color(1, "The text stops before its end in "+sh+", for example at an exit.",
+			s.Fail("The text stops before its end in "+sh+", for example at an exit.",
 				"Every new shell would then close. So envsetup saved nothing.")
 			return ErrFailed
 		}
 	}
 	if s.DryRun {
-		s.Color(3, "A dry run does not run the text. It checks only the syntax.",
+		s.Warn("A dry run does not run the text. It checks only the syntax.",
 			"A real run also checks that the text runs to its end.")
 	}
 	file := s.ShellD + "/" + name
@@ -431,7 +433,7 @@ func (s *Setup) addShellFile(text string) error {
 	if err := os.WriteFile(file, []byte(text+"\n"), 0o666); err != nil {
 		return err
 	}
-	s.Color(2, "Saved "+file+". New interactive shells load it.")
+	s.Success("Saved " + file + ". New interactive shells load it.")
 	return nil
 }
 
@@ -452,7 +454,7 @@ func (s *Setup) AddConfig(file string) error {
 func (s *Setup) addConfig(text string) error {
 	text = cleanText(text)
 	if blank(text) {
-		s.Color(3, "The text is empty, so envsetup saved nothing.")
+		s.Warn("The text is empty, so envsetup saved nothing.")
 		return nil
 	}
 	add, newFile := s.Tmp+"/add.sh", s.Tmp+"/config.new"
@@ -487,14 +489,14 @@ func (s *Setup) addConfig(text string) error {
 	// settings_of runs config.sh and the text, so a dry run stops here.
 	if s.DryRun {
 		s.Would("add the text to the end of config.sh")
-		s.Color(3, "A dry run does not run the text. It checks only the syntax.",
+		s.Warn("A dry run does not run the text. It checks only the syntax.",
 			"A real run also checks that config.sh runs to its end.", "Then it shows the changed settings.")
 		return nil
 	}
 	before := s.SettingsOf(s.UserConfig)
 	after := s.SettingsOf(newFile)
 	if after == "" {
-		s.Color(1, "config.sh with the text would stop before its end, for example at an exit.",
+		s.Fail("config.sh with the text would stop before its end, for example at an exit.",
 			"A new shell would then close. So envsetup saved nothing.")
 		return ErrFailed
 	}
@@ -505,7 +507,7 @@ func (s *Setup) addConfig(text string) error {
 	if err := writeThrough(s.UserConfig, content); err != nil {
 		return err
 	}
-	s.Color(2, "Added the text to the end of "+s.UserConfig)
+	s.Success("Added the text to the end of " + s.UserConfig)
 	s.showChanges(before, after)
 	s.warnConfigRepo()
 	return nil
@@ -520,7 +522,7 @@ func (s *Setup) checkConfig(file, msg, shell string) bool {
 	if err == nil {
 		return true
 	}
-	s.Color(1, msg, syntaxError(strings.TrimRight(string(out), "\n"), file))
+	s.Fail(msg, syntaxError(strings.TrimRight(string(out), "\n"), file))
 	return false
 }
 
@@ -538,7 +540,7 @@ var settingLabels = []string{"Packages", "Extras", "Skip", "Shell", "XDG ninja",
 // It shows each setting that changed, for example "Packages: +neovim +zoxide".
 func (s *Setup) showChanges(before, after string) {
 	if after == "" {
-		s.Color(3, "config.sh stops before its end, for example at an exit. So envsetup cannot show the changed settings.")
+		s.Warn("config.sh stops before its end, for example at an exit. So envsetup cannot show the changed settings.")
 		return
 	}
 	lines := changes(before, after)

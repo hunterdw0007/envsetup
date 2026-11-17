@@ -206,13 +206,16 @@ envsetup is a Go program: `cmd/envsetup`, `internal/setup` and `internal/ui`.
 - Add a dependency only when the standard library or an installed module cannot do the job.
   The menu uses huh, BubbleTea and lipgloss.
 - `internal/ui` draws every menu, question and message.
-  Each `UI` method matches one gum call of the last bash release, with the same flags in the same order.
+  A caller names what a message means, such as `ui.Warn` or `ui.Step`, and `term.go` picks the look.
+  Change the look in the theme in `term.go`, never at a call site.
   With `SMOKE_CHOICES` set, the scripted UI answers from the test's lists and logs each call (see Testing).
+  It is the only code that knows gum's flags, because the parity check compares its log with v1.0.0's.
 - Each item in a picker says what it does.
   Build that text from the resolved config: `Config.ResolvedPackages` and `Config.ResolvedInstallers`.
   The actions use the same values.
   Never write a count by hand, because it can get out of date.
-- Picker lines are `"<value>  <description>"`, and the caller keeps the value with `first`.
+- A list item is a `ui.Option`.
+  `Choose` returns its `Value`, so a caller never parses the label.
 - A step changes the machine when it writes a file, installs, runs sudo or chsh, or uses the network.
   Every such step checks `s.DryRun` *before its first write*.
   In a dry run, it describes the change with `s.Would` instead.

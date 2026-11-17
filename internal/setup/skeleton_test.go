@@ -184,11 +184,3 @@ func TestMainOptions(t *testing.T) {
 		}
 	}
 }
-
-func TestFirst(t *testing.T) {
-	for in, want := range map[string]string{"work  bash · 3": "work", "home": "home", "": ""} {
-		if got := first(in); got != want {
-			t.Errorf("first(%q) = %q", in, got)
-		}
-	}
-}

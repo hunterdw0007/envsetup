@@ -18,7 +18,7 @@ var actions = []string{"Paste config", "Edit config", "Link shell config",
 // MainMenu shows the menu until the user quits (envsetup::main_menu).
 func (s *Setup) MainMenu() {
 	if s.ReadState("profile", "") == "" {
-		s.UI.Print(ui.Style{ui.Border("normal"), ui.Padding(0, 1)},
+		s.UI.Print(ui.Welcome,
 			"Welcome to envsetup. Nothing changes until you select an action.",
 			"1. Select profile tells envsetup what kind of machine this is. You can change it at any time.",
 			"2. Preview everything shows the changes. It does not make them.",
@@ -35,28 +35,29 @@ func (s *Setup) MainMenu() {
 		if profile == "work" {
 			label += " (" + s.Cfg.Mode + ")"
 		}
-		choice, ok := s.UI.Choose("", append([]string{"Select profile (current: " + label + ")"}, actions...)...)
+		pick := ui.Option{Value: "Select profile", Label: "Select profile (current: " + label + ")"}
+		choice, ok := s.UI.Choose("", append([]ui.Option{pick}, ui.Options(actions...)...)...)
 		if !ok { // Esc or Ctrl-C
 			return
 		}
 		switch choice {
 		case "Install packages", "Run installers", "Preview everything", "Run everything":
 			if profile == "" {
-				s.Color(1, "Select a profile first.")
+				s.Fail("Select a profile first.")
 				continue
 			}
 		}
 		switch {
-		case strings.HasPrefix(choice, "Select profile"):
+		case choice == "Select profile":
 			s.RunStep(s.PickProfile)
 		case choice == "Paste config":
 			if s.DryRun {
-				s.Color(6, "Dry run: Paste config checks only the syntax of the text. It saves the text nowhere.")
+				s.Note("Dry run: Paste config checks only the syntax of the text. It saves the text nowhere.")
 			}
 			s.RunStep(s.PasteConfig)
 		case choice == "Edit config":
 			if s.DryRun {
-				s.Color(6, "Dry run: you are editing a copy of your config. Your changes last until you quit.")
+				s.Note("Dry run: you are editing a copy of your config. Your changes last until you quit.")
 			}
 			s.RunStep(s.EditConfig)
 		case choice == "Link shell config":
@@ -74,14 +75,14 @@ func (s *Setup) MainMenu() {
 		case choice == "Move dotfiles to XDG dirs":
 			s.RunStep(s.XDGTidy)
 		case choice == "Preview everything":
-			s.UI.Print(ui.Style{ui.Bold}, "What Run everything would do for "+label+". Nothing changes:")
+			s.UI.Print(ui.Heading, "What Run everything would do for "+label+". Nothing changes:")
 			dry := s.DryRun
 			s.DryRun = true
 			s.RunEverything()
 			s.DryRun = dry
 		case choice == "Run everything":
 			if s.DryRun {
-				s.UI.Print(ui.Style{ui.Bold}, "Dry run: what Run everything would do for "+label+":")
+				s.UI.Print(ui.Heading, "Dry run: what Run everything would do for "+label+":")
 			}
 			s.RunEverything()
 		case choice == "Check status":
@@ -112,35 +113,29 @@ func (s *Setup) RunEverything() {
 // PickProfile asks for the profile, and for work also the mode (envsetup::pick_profile).
 // It saves nothing until both choices are made, so a cancel changes nothing.
 func (s *Setup) PickProfile() error {
-	s.Color(4, "What kind of machine is this?")
+	s.UI.Print(ui.Ask, "What kind of machine is this?")
 	profile, ok := s.UI.Choose("", s.profileLabel("work"), s.profileLabel("home"))
 	if !ok {
 		return nil
 	}
 	mode := ""
-	if first(profile) == "work" {
-		s.Color(4, "Do you have sudo on this machine?")
+	if profile == "work" {
+		s.UI.Print(ui.Ask, "Do you have sudo on this machine?")
 		if mode, ok = s.UI.Choose("", s.modeLabels()...); !ok {
 			return nil
 		}
 	}
-	if err := s.SaveState("mode", first(mode)); err != nil {
+	if err := s.SaveState("mode", mode); err != nil {
 		return err
 	}
-	return s.SaveState("profile", first(profile))
-}
-
-// first keeps the value of a picker line "<value>  <description>", like ${choice%% *}.
-func first(line string) string {
-	v, _, _ := strings.Cut(line, " ")
-	return v
+	return s.SaveState("profile", profile)
 }
 
 // profileLabel describes a profile from its resolved config (envsetup::profile_label).
-func (s *Setup) profileLabel(profile string) string {
+func (s *Setup) profileLabel(profile string) ui.Option {
 	cfg, err := s.Load(profile, "full", s.UserConfig, true)
 	if err != nil {
-		return profile + "  "
+		return ui.Option{Value: profile}
 	}
 	if cfg.InstallersErr != "" {
 		fmt.Fprintln(os.Stderr, cfg.InstallersErr)
@@ -159,11 +154,11 @@ func (s *Setup) profileLabel(profile string) string {
 	default:
 		summary += fmt.Sprintf("%d installers (%s)", len(names), strings.Join(names, ", "))
 	}
-	return profile + "  " + summary
+	return ui.Option{Value: profile, Desc: summary}
 }
 
 // modeLabels describes the modes of work (envsetup::mode_labels).
-func (s *Setup) modeLabels() []string {
+func (s *Setup) modeLabels() []ui.Option {
 	pkgs, scripts := 0, 0
 	if cfg, err := s.Load("work", "full", s.UserConfig, true); err == nil {
 		if cfg.InstallersErr != "" {
@@ -171,9 +166,9 @@ func (s *Setup) modeLabels() []string {
 		}
 		pkgs, scripts = len(cfg.ResolvedPackages), len(cfg.ResolvedInstallers)
 	}
-	return []string{
-		fmt.Sprintf("full  uses sudo: installs %d packages and runs %d installers", pkgs, scripts),
-		"lite  no sudo: only the prompt, aliases, git config and SSH key; installs nothing",
+	return []ui.Option{
+		{Value: "full", Desc: fmt.Sprintf("uses sudo: installs %d packages and runs %d installers", pkgs, scripts)},
+		{Value: "lite", Desc: "no sudo: only the prompt, aliases, git config and SSH key; installs nothing"},
 	}
 }
 

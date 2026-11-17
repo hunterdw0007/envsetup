@@ -230,7 +230,7 @@ func (s *Setup) xdgFetch() bool {
 			return true
 		}
 		if s.Run("git", "-C", cache, "pull", "-q", "--ff-only") != nil {
-			s.Color(3, "Couldn't update xdg-ninja's notes. Using the copy from last time.")
+			s.Warn("Couldn't update xdg-ninja's notes. Using the copy from last time.")
 		}
 	case s.DryRun:
 		s.Would("download xdg-ninja's notes into " + cache + ", then look for dotfiles to move")
@@ -239,7 +239,7 @@ func (s *Setup) xdgFetch() bool {
 		url := envOr("ENVSETUP_XDG_NINJA_URL", "https://github.com/b3nj5m1n/xdg-ninja")
 		_ = os.MkdirAll(s.CacheDir(), 0o777)
 		if s.Run("git", "clone", "-q", "--depth", "1", url, cache) != nil {
-			s.Color(1, "Couldn't download xdg-ninja's notes from "+url)
+			s.Fail("Couldn't download xdg-ninja's notes from " + url)
 			return false
 		}
 	}
@@ -282,7 +282,7 @@ func (s *Setup) tilde(p string) string {
 // XDGTidy moves dotfiles into the XDG folders (envsetup::xdg_tidy).
 func (s *Setup) XDGTidy() error {
 	if !HasCmd("jq") || !HasCmd("git") {
-		s.Color(3, "Moving dotfiles needs jq and git. packages/common.txt includes both. Skipping this step.")
+		s.Warn("Moving dotfiles needs jq and git. packages/common.txt includes both. Skipping this step.")
 		return nil
 	}
 	if !s.xdgFetch() {
@@ -290,7 +290,7 @@ func (s *Setup) XDGTidy() error {
 	}
 	skips, moves := s.xdgPlan()
 	for _, it := range skips {
-		s.Color(3, "  leaving "+s.tilde(it.old)+" ("+it.name+"): "+strings.ReplaceAll(it.reason, s.Home, "~"))
+		s.Warn("  leaving " + s.tilde(it.old) + " (" + it.name + "): " + strings.ReplaceAll(it.reason, s.Home, "~"))
 	}
 	if len(moves) == 0 {
 		s.Say("No dotfiles to move.")
@@ -329,14 +329,14 @@ func (s *Setup) XDGTidy() error {
 				return err
 			}
 		} else {
-			s.Color(1, "Couldn't move "+it.old)
+			s.Fail("Couldn't move " + it.old)
 			failed = true
 		}
 	}
 	if err := s.xdgWriteEnv(); err != nil {
 		return err
 	}
-	s.Color(2, "Moved. New shells get the exports. Programs that are already running still use the old paths.")
+	s.Success("Moved. New shells get the exports. Programs that are already running still use the old paths.")
 	if failed {
 		return ErrFailed
 	}
@@ -377,7 +377,7 @@ func (s *Setup) xdgRestore() error {
 			default:
 				reason = "couldn't move it"
 			}
-			s.Color(1, "Leaving "+new+" where it is: "+reason+". Fix that, then uninstall again.")
+			s.Fail("Leaving " + new + " where it is: " + reason + ". Fix that, then uninstall again.")
 			kept = append([]string{lines[i]}, kept...)
 		}
 	}

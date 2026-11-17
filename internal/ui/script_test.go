@@ -54,32 +54,32 @@ func TestScriptMatchesFakeGum(t *testing.T) {
 		{
 			name: "choose with a header", choices: "two words\nb\n",
 			args: []string{"choose", "--header", "Pick one", "two words", "b"},
-			call: func(_ *testing.T, u UI) result { return pick(u.Choose("Pick one", "two words", "b")) },
+			call: func(_ *testing.T, u UI) result { return pick(u.Choose("Pick one", Options("two words", "b")...)) },
 		},
 		{
 			name: "choose without a header", choices: "b\n",
 			args: []string{"choose", "a", "b"},
-			call: func(_ *testing.T, u UI) result { return pick(u.Choose("", "a", "b")) },
+			call: func(_ *testing.T, u UI) result { return pick(u.Choose("", Options("a", "b")...)) },
 		},
 		{
 			name: "choose ESC", choices: "ESC\nb\n",
 			args: []string{"choose", "a", "b"},
-			call: func(_ *testing.T, u UI) result { return pick(u.Choose("", "a", "b")) },
+			call: func(_ *testing.T, u UI) result { return pick(u.Choose("", Options("a", "b")...)) },
 		},
 		{
 			name: "choose with no answer left",
 			args: []string{"choose", "a"},
-			call: func(_ *testing.T, u UI) result { return pick(u.Choose("", "a")) },
+			call: func(_ *testing.T, u UI) result { return pick(u.Choose("", Options("a")...)) },
 		},
 		{
 			name: "choose with an empty answer", choices: "\na\n",
 			args: []string{"choose", "a"},
-			call: func(_ *testing.T, u UI) result { return pick(u.Choose("", "a")) },
+			call: func(_ *testing.T, u UI) result { return pick(u.Choose("", Options("a")...)) },
 		},
 		{
 			name: "choose with an unknown signal", choices: "SIGFOO\n",
 			args: []string{"choose", "a"},
-			call: func(_ *testing.T, u UI) result { return pick(u.Choose("", "a")) },
+			call: func(_ *testing.T, u UI) result { return pick(u.Choose("", Options("a")...)) },
 		},
 		{
 			name: "confirm yes", confirms: "yes\n",
@@ -148,23 +148,23 @@ func TestScriptMatchesFakeGum(t *testing.T) {
 		},
 		{
 			name: "style on stdout",
-			args: []string{"style", "--foreground", "2", "--bold", "first", "last line"},
+			args: []string{"style", "--bold", "--foreground", "4", "first", "last line"},
 			call: func(t *testing.T, u UI) result {
-				return printed(capture(t, &os.Stdout, func() { u.Print(Style{Fg(2), Bold}, "first", "last line") }))
+				return printed(capture(t, &os.Stdout, func() { u.Print(Step, "first", "last line") }))
 			},
 		},
 		{
 			name: "style on stderr",
-			args: []string{"style", "--border", "rounded", "--padding", "1 2", "only"},
+			args: []string{"style", "--border", "rounded", "--padding", "1 2", "--bold", "only"},
 			call: func(t *testing.T, u UI) result {
-				return printed(capture(t, &os.Stderr, func() { u.Eprint(Style{Border("rounded"), Padding(1, 2)}, "only") }))
+				return printed(capture(t, &os.Stderr, func() { u.Eprint(Title, "only") }))
 			},
 		},
 		{
 			name: "style without text",
 			args: []string{"style", "--bold"},
 			call: func(t *testing.T, u UI) result {
-				return printed(capture(t, &os.Stdout, func() { u.Print(Style{Bold}) }))
+				return printed(capture(t, &os.Stdout, func() { u.Print(Heading) }))
 			},
 		},
 	} {
@@ -233,4 +233,36 @@ func read(t *testing.T, path string) string {
 		t.Fatal(err)
 	}
 	return string(data)
+}
+
+// TestPickValue checks that an answer finds its option the way the bash version read gum's answer.
+func TestPickValue(t *testing.T) {
+	opts := []Option{
+		{Value: "Select profile", Label: "Select profile (current: home)"},
+		{Value: "work", Desc: "bash · 3 packages"},
+		{Value: "Paste config"},
+	}
+	for answer, want := range map[string]string{
+		"work":                           "work",
+		"work  bash · 3 packages":        "work",
+		"work  (as gum returns it)":      "work",
+		"Select profile":                 "Select profile",
+		"Select profile (current: home)": "Select profile",
+		"Paste config":                   "Paste config",
+		"Paste":                          "Paste", // bash matched menu items exactly
+		"Quit":                           "Quit",
+	} {
+		if got := pickValue(answer, opts); got != want {
+			t.Errorf("pickValue(%q) = %q, want %q", answer, got, want)
+		}
+	}
+}
+
+// TestGumFlagsCoverEveryKind checks that each kind of message logs the flags of a bash gum call.
+func TestGumFlagsCoverEveryKind(t *testing.T) {
+	for k := Plain + 1; k <= Welcome; k++ {
+		if len(gumFlags[k]) == 0 {
+			t.Errorf("kind %d has no gum flags", k)
+		}
+	}
 }

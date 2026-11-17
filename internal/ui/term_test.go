@@ -3,52 +3,42 @@ package ui
 import (
 	"bytes"
 	"io"
+	"os"
+	"regexp"
 	"strings"
 	"testing"
 )
 
-// The expected texts come from gum v2.0.2 with CLICOLOR_FORCE=1 and TERM=xterm-256color.
-func TestStyleRender(t *testing.T) {
-	for _, tc := range []struct {
-		name  string
-		style Style
-		lines []string
-		want  string
-	}{
-		{"plain", nil, []string{"hi"}, "hi"},
-		{"bright color", Style{Fg(12)}, []string{"hi"}, "\x1b[94mhi\x1b[m"},
-		{
-			"color and bold pad each line", Style{Fg(2), Bold}, []string{"Hello", "wide line"},
-			"\x1b[1;32mHello\x1b[m    \n\x1b[1;32mwide line\x1b[m",
-		},
-		{
-			"rounded border with padding", Style{Border("rounded"), Padding(1, 2), Fg(1)}, []string{"a", "bb"},
-			"╭──────╮\n│      │\n│  \x1b[31ma\x1b[m   │\n│  \x1b[31mbb\x1b[m  │\n│      │\n╰──────╯",
-		},
-		{
-			"normal border", Style{Border("normal"), Padding(0, 1)}, []string{"x", "yy"},
-			"┌────┐\n│ x  │\n│ yy │\n└────┘",
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			got := tc.style.lipgloss().Render(strings.Join(tc.lines, "\n"))
-			if got != tc.want {
-				t.Errorf("got %q, want %q", got, tc.want)
-			}
-		})
+// ansi matches the escape codes of colors and text styles.
+var ansi = regexp.MustCompile("\x1b\\[[0-9;]*m")
+
+// TestTheme checks that every kind of message keeps its text, and that each kind looks different from plain text.
+func TestTheme(t *testing.T) {
+	t.Setenv("TTY_FORCE", "1")
+	t.Setenv("TERM", "xterm-256color")
+	t.Setenv("NO_COLOR", "")
+	for k := Plain; k <= Welcome; k++ {
+		var buf bytes.Buffer
+		term{}.print(&buf, k, []string{"first", "second"})
+		out := buf.String()
+		if plain := ansi.ReplaceAllString(out, ""); !strings.Contains(plain, "first") || !strings.Contains(plain, "second") {
+			t.Errorf("kind %d lost its text: %q", k, out)
+		}
+		if k != Plain && out == "first\nsecond\n" {
+			t.Errorf("kind %d has no look of its own", k)
+		}
 	}
 }
 
 func TestPrintColor(t *testing.T) {
-	st := Style{Fg(12), Bold}
 	for _, tc := range []struct {
-		name string
-		env  map[string]string
-		want string
+		name      string
+		env       map[string]string
+		wantColor bool
 	}{
-		{"not a terminal", nil, "hi\n"},
-		{"NO_COLOR keeps bold", map[string]string{"TTY_FORCE": "1", "TERM": "xterm-256color", "NO_COLOR": "1"}, "\x1b[1mhi\x1b[m\n"},
-		{"terminal", map[string]string{"TTY_FORCE": "1", "TERM": "xterm-256color"}, "\x1b[1;94mhi\x1b[m\n"},
+		{"not a terminal", nil, false},
+		{"NO_COLOR", map[string]string{"TTY_FORCE": "1", "TERM": "xterm-256color", "NO_COLOR": "1"}, false},
+		{"terminal", map[string]string{"TTY_FORCE": "1", "TERM": "xterm-256color"}, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv("NO_COLOR", "")
@@ -58,9 +48,10 @@ func TestPrintColor(t *testing.T) {
 				t.Setenv(k, v)
 			}
 			var buf bytes.Buffer
-			term{}.print(&buf, st, []string{"hi"})
-			if buf.String() != tc.want {
-				t.Errorf("got %q, want %q", buf.String(), tc.want)
+			term{}.print(&buf, Success, []string{"hi"})
+			hasColor := strings.Contains(buf.String(), "38;")
+			if hasColor != tc.wantColor || ansi.ReplaceAllString(buf.String(), "") != "hi\n" {
+				t.Errorf("got %q, want color %v", buf.String(), tc.wantColor)
 			}
 		})
 	}
@@ -69,19 +60,27 @@ func TestPrintColor(t *testing.T) {
 // keys returns a term that reads the given keys and draws nowhere.
 func keys(s string) term { return term{in: strings.NewReader(s), out: io.Discard} }
 
-// TestDumbTerminal checks that TERM=dumb still gets the same keys as gum, and no plain-text questions.
+// TestMain gives the form tests a full terminal type.
+// TestDumbTerminal covers TERM=dumb, where huh asks in plain text.
+func TestMain(m *testing.M) {
+	os.Setenv("TERM", "xterm-256color")
+	os.Exit(m.Run())
+}
+
+// TestDumbTerminal checks the plain-text questions that huh asks for TERM=dumb (accessible mode).
 func TestDumbTerminal(t *testing.T) {
 	t.Setenv("TERM", "dumb")
-	if got, ok := keys("j\r").Choose("Pick", "a", "b"); !ok || got != "b" {
-		t.Errorf("Choose: got (%q, %v), want (b, true)", got, ok)
+	if got, ok := keys("2\n").Choose("Pick", Options("a", "b")...); !ok || got != "b" {
+		t.Errorf("Choose 2: got (%q, %v), want (b, true)", got, ok)
 	}
-	if _, ok := keys("\x1b").Choose("Pick", "a", "b"); ok {
-		t.Error("Esc did not cancel")
+	// huh v2.0.3 panics here, and run turns the panic into a cancel.
+	if got, ok := keys("j\r").Choose("Pick", Options("a", "b")...); ok {
+		t.Errorf("Choose with no number before the end of input: got (%q, true), want a cancel", got)
 	}
 }
 
 func TestChoose(t *testing.T) {
-	opts := []string{"a", "b", "c"}
+	opts := Options("a", "b", "c")
 	for _, tc := range []struct {
 		keys   string
 		want   string
@@ -91,7 +90,7 @@ func TestChoose(t *testing.T) {
 		{"j\r", "b", true},
 		{"\x1b[B\x1b[B\r", "c", true}, // the down arrow
 		{"jjk\r", "b", true},
-		{"/j\r", "b", true}, // gum choose has no filter, so "/" does nothing
+		{"/j\r", "b", true}, // the filter is off, so "/" does nothing
 		{"j\x1b", "", false},
 		{"\x03", "", false}, // ctrl+c
 	} {

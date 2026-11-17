@@ -9,6 +9,7 @@ import (
 )
 
 // script answers like the fake gum in tests/gum.sh did.
+// It is a test adapter: it turns each call into the gum call that the bash version (v1.0.0) made.
 // It reads the answers to choose from $SMOKE_CHOICES, one per line.
 // "ESC", or no answer left, cancels.
 // "SIGINT" or "SIGTERM" sends that signal to the process group, like Ctrl-C or a kill.
@@ -42,22 +43,47 @@ func pop(path string) string {
 	return first
 }
 
+// gumFlags holds the `gum style` flags that the bash version used for each kind of message.
+var gumFlags = map[Kind][]string{
+	Success: {"--foreground", "2"},
+	Warn:    {"--foreground", "3"},
+	Fail:    {"--foreground", "1"},
+	Note:    {"--foreground", "6"},
+	Ask:     {"--foreground", "4"},
+	Step:    {"--bold", "--foreground", "4"},
+	Heading: {"--bold"},
+	Title:   {"--border", "rounded", "--padding", "1 2", "--bold"},
+	Welcome: {"--border", "normal", "--padding", "0 1"},
+}
+
 // style logs a `gum style` call and prints what the fake gum printed: its last argument.
-func (s script) style(w io.Writer, st Style, lines []string) {
-	args := append(append([]string{"style"}, st.flags()...), lines...)
+func (s script) style(w io.Writer, k Kind, lines []string) {
+	args := append(append([]string{"style"}, gumFlags[k]...), lines...)
 	s.log(args)
 	fmt.Fprintln(w, args[len(args)-1])
 }
 
-func (s script) Print(st Style, lines ...string)  { s.style(os.Stdout, st, lines) }
-func (s script) Eprint(st Style, lines ...string) { s.style(os.Stderr, st, lines) }
+func (s script) Print(k Kind, lines ...string)  { s.style(os.Stdout, k, lines) }
+func (s script) Eprint(k Kind, lines ...string) { s.style(os.Stderr, k, lines) }
 
-func (s script) Choose(header string, options ...string) (string, bool) {
+// gumLine is the line that the bash version passed to gum choose for an option: "<value>  <description>".
+func gumLine(o Option) string {
+	if o.Desc != "" {
+		return o.label() + "  " + o.Desc
+	}
+	return o.label()
+}
+
+func (s script) Choose(header string, options ...Option) (string, bool) {
 	args := []string{"choose"}
 	if header != "" {
 		args = append(args, "--header", header)
 	}
-	s.log(args, options)
+	lines := make([]string, len(options))
+	for i, o := range options {
+		lines[i] = gumLine(o)
+	}
+	s.log(args, lines)
 	answer := pop(os.Getenv("SMOKE_CHOICES"))
 	if answer == "" || answer == "ESC" {
 		return "", false
@@ -67,7 +93,26 @@ func (s script) Choose(header string, options ...string) (string, bool) {
 		_ = syscall.Kill(0, sig)
 		select {} // the signal handler ends the process
 	}
-	return answer, true
+	return pickValue(answer, options), true
+}
+
+// pickValue finds the option that an answer names, the way the bash version read gum's answer.
+// bash kept the first word of a line with a description (${choice%% *}).
+// It matched a menu item with a changing label by its start, such as "Select profile"*.
+// An answer that names no option comes back as it is, and the caller treats it as unknown.
+func pickValue(answer string, options []Option) string {
+	word, _, _ := strings.Cut(answer, " ")
+	for _, o := range options {
+		if answer == gumLine(o) || (o.Desc != "" && word == o.Value) {
+			return o.Value
+		}
+	}
+	for _, o := range options {
+		if o.Label != "" && strings.HasPrefix(answer, o.Value) {
+			return o.Value
+		}
+	}
+	return answer
 }
 
 func (s script) Confirm(prompt string, defaultNo bool) (bool, bool) {

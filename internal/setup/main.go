@@ -145,9 +145,9 @@ func Main(args []string, version string) int {
 		s.UserConfig = s.StateDir + "/config.sh"
 	}
 
-	s.UI.Print(ui.Style{ui.Border("rounded"), ui.Padding(1, 2), ui.Bold}, "envsetup "+s.Version)
+	s.UI.Print(ui.Title, "envsetup "+s.Version)
 	if s.DryRun {
-		s.Color(6, "Dry run: envsetup saves, installs and links nothing. Your choices and config edits last until you quit.")
+		s.Note("Dry run: envsetup saves, installs and links nothing. Your choices and config edits last until you quit.")
 	}
 	if uninstall {
 		// Uninstall needs the config to know which shell envsetup set up for your profile.
@@ -262,10 +262,8 @@ func (s *Setup) RunStep(step func() error) {
 		// bash showed the error of a failed command itself, such as mkdir's.
 		fmt.Fprintln(os.Stderr, err)
 	}
-	s.Color(1, "That step didn't finish. The error is above. Fix it and run the step again.")
+	s.Fail("That step didn't finish. The error is above. Fix it and run the step again.")
 }
-
-var styleWarn = ui.Style{ui.Fg(3)}
 
 // stepCode is the exit code that a failed top-level step gave setup.sh under set -e.
 // A failed command gave its own code, and every other failure gave 1.

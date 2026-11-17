@@ -84,12 +84,12 @@ func (s *Setup) ConfigureGit() error {
 		return err
 	}
 	if s.GitIncluded() {
-		s.Color(2, "Updated "+generated)
+		s.Success("Updated " + generated)
 	} else {
 		if err := s.Run("git", "config", "--global", "--add", "include.path", generated); err != nil {
 			return err
 		}
-		s.Color(2, "Included "+generated+" in $HOME/.gitconfig")
+		s.Success("Included " + generated + " in $HOME/.gitconfig")
 	}
 
 	// --includes is needed, because the name and email may come from config.sh through the generated file.
@@ -104,9 +104,9 @@ func (s *Setup) ConfigureGit() error {
 		value, ok := s.UI.Input(hint[key], "")
 		switch {
 		case !ok || strings.TrimSpace(value) == "":
-			s.Color(3, "Skipped user."+key+". git needs it before your first commit: git config --global user."+key+" ...")
+			s.Warn("Skipped user." + key + ". git needs it before your first commit: git config --global user." + key + " ...")
 		case key == "email" && !strings.Contains(value, "@"):
-			s.Color(3, `Skipped user.email: "`+value+`" is not an email address`)
+			s.Warn(`Skipped user.email: "` + value + `" is not an email address`)
 		default:
 			if err := s.Run("git", "config", "--global", "user."+key, value); err != nil {
 				return err

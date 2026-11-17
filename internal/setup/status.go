@@ -10,7 +10,7 @@ import (
 
 // This file holds "Check status" and setup.sh --status.
 // The check reads the machine and changes nothing.
-// So it needs no dry-run checks, and it works without gum.
+// So it needs no dry-run checks.
 // Each line starts with "ok" or "missing".
 
 // statusLines counts the missing lines (envsetup::status_line).

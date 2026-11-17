@@ -36,11 +36,11 @@ func (s *Setup) SetUpSSHKey() error {
 	}
 	comment := user + "@" + hostname()
 	if _, err := os.Stat(key); err == nil {
-		s.Color(3, "An SSH key already exists: "+key)
+		s.Warn("An SSH key already exists: " + key)
 		return nil
 	}
 	if !HasCmd("ssh-keygen") {
-		s.Color(1, "This machine has no ssh-keygen. Install openssh-client. Then run Set up SSH key again.")
+		s.Fail("This machine has no ssh-keygen. Install openssh-client. Then run Set up SSH key again.")
 		return ErrFailed
 	}
 	if s.DryRun {
@@ -79,7 +79,7 @@ func (s *Setup) SetUpSSHKey() error {
 	if err := makeMarker(s.SSHMarker); err != nil {
 		return err
 	}
-	s.Color(2, "Created the SSH key "+key)
+	s.Success("Created the SSH key " + key)
 
 	// After a no here, the step also uploads no signing key below.
 	useGH := false
@@ -89,14 +89,14 @@ func (s *Setup) SetUpSSHKey() error {
 	// gh fails when it has no login or no admin:public_key scope.
 	// The step then shows the key instead.
 	if useGH && s.Run("gh", "ssh-key", "add", key+".pub", "--title", comment) == nil {
-		s.Color(2, "Added the key to your GitHub account")
+		s.Success("Added the key to your GitHub account")
 	} else {
 		pub, _ := os.ReadFile(key + ".pub")
 		s.Say("Add this public key at "+url+":", strings.TrimRight(string(pub), "\n"))
 	}
 
 	if s.gitSigns() {
-		s.Color(3, "git already has signing settings, so envsetup leaves them as they are.")
+		s.Warn("git already has signing settings, so envsetup leaves them as they are.")
 		return nil
 	}
 	if yes, _ := s.UI.Confirm("Sign your git commits with this key?", false); !yes {
@@ -107,15 +107,15 @@ func (s *Setup) SetUpSSHKey() error {
 			return err
 		}
 	}
-	s.Color(2, "git now signs your commits with "+key)
+	s.Success("git now signs your commits with " + key)
 	// GitHub marks a signed commit "Verified" only when it has the key as a signing key.
 	// gh exits 0 when GitHub already has the key.
 	// gh fails without the admin:ssh_signing_key scope.
 	// The step then says where to add the key instead.
 	if useGH && s.Run("gh", "ssh-key", "add", key+".pub", "--type", "signing", "--title", comment+" signing") == nil {
-		s.Color(2, "Added the key to your GitHub account as a signing key")
+		s.Success("Added the key to your GitHub account as a signing key")
 	} else {
-		s.Color(3, `Add the public key as a signing key at `+url+` (key type "Signing Key")`)
+		s.Warn(`Add the public key as a signing key at ` + url + ` (key type "Signing Key")`)
 	}
 	return nil
 }

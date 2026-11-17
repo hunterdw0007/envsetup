@@ -33,7 +33,7 @@ func (s *Setup) installZsh() error {
 	}
 	list := strings.Join(missing, " ")
 	if len(missing) > 0 && s.Lite() {
-		s.Color(1, "work (lite) does not assume sudo, so it cannot install "+list+". Install it yourself, then run this again.")
+		s.Fail("work (lite) does not assume sudo, so it cannot install " + list + ". Install it yourself, then run this again.")
 		return ErrFailed
 	}
 	shell := os.Getenv("SHELL")
@@ -52,10 +52,10 @@ func (s *Setup) installZsh() error {
 	if len(missing) > 0 {
 		manager := s.PkgManager()
 		if manager == "" {
-			s.Color(1, "envsetup found no supported package manager to install "+list+".")
+			s.Fail("envsetup found no supported package manager to install " + list + ".")
 			return ErrFailed
 		}
-		s.UI.Print(ui.Style{ui.Bold}, "Installing "+list+"...")
+		s.UI.Print(ui.Heading, "Installing "+list+"...")
 		if err := s.PkgInstall(manager, missing...); err != nil {
 			return err
 		}
@@ -77,7 +77,7 @@ func (s *Setup) installZsh() error {
 	if isDir(s.Home + "/.oh-my-zsh") {
 		return nil
 	}
-	s.UI.Print(ui.Style{ui.Bold}, "Installing oh-my-zsh...")
+	s.UI.Print(ui.Heading, "Installing oh-my-zsh...")
 	// Do not run `sh -c "$(curl ...)"`.
 	// When the download fails, that command runs an empty script and still succeeds.
 	// It leaves a ~/.zshrc, and the next install keeps that file.
@@ -89,7 +89,7 @@ func (s *Setup) installZsh() error {
 		installer, err = s.Output("curl", "-fsSL", "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/"+commit+"/tools/install.sh")
 	}
 	if err != nil {
-		s.Color(1, "Couldn't download the oh-my-zsh installer.")
+		s.Fail("Couldn't download the oh-my-zsh installer.")
 		return ErrFailed
 	}
 	// CHSH=no, because the question about the login shell came above.

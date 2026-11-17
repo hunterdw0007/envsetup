@@ -5,6 +5,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/hunterdw0007/envsetup/internal/ui"
 )
 
 // Config holds the settings after config.sh ran.
@@ -130,7 +132,7 @@ func (s *Setup) LoadConfig(profile, mode string) {
 func (s *Setup) ShowWarning(w string) {
 	if w != "" && w != s.warned {
 		s.warned = w
-		s.UI.Eprint(styleWarn, w)
+		s.UI.Eprint(ui.Warn, w)
 	}
 }
 

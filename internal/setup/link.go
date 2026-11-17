@@ -23,7 +23,7 @@ func (s *Setup) LinkShellConfig() error {
 			if err := os.MkdirAll(s.ShellD, 0o777); err != nil {
 				return err
 			}
-			s.Color(2, "Created "+s.ShellD+". New shells load your own shell files from it.")
+			s.Success("Created " + s.ShellD + ". New shells load your own shell files from it.")
 		}
 	}
 	if err := s.linkRC(s.Home + "/.bashrc"); err != nil {
@@ -64,7 +64,7 @@ func (s *Setup) copyShell() error {
 	if err := os.WriteFile(s.Data+"/version", []byte(s.Version+"\n"), 0o666); err != nil {
 		return err
 	}
-	s.Color(2, "Copied shell config ("+s.Version+") to "+s.Data)
+	s.Success("Copied shell config (" + s.Version + ") to " + s.Data)
 	return nil
 }
 
@@ -109,7 +109,7 @@ func (s *Setup) linkRC(file string) error {
 	data, err := os.ReadFile(file)
 	if err == nil && isFile(file) && strings.Contains(string(data), RCBegin) {
 		if hasLine(string(data), root) {
-			s.Color(3, "Already linked in "+file)
+			s.Warn("Already linked in " + file)
 			return nil
 		}
 		old := s.oldRoot(string(data))
@@ -119,7 +119,7 @@ func (s *Setup) linkRC(file string) error {
 			if err := RemoveRCBlock(file, block); err != nil {
 				return err
 			}
-			s.Color(2, "Rewrote the envsetup block in "+file+" to load shell/ from "+s.Data)
+			s.Success("Rewrote the envsetup block in " + file + " to load shell/ from " + s.Data)
 		}
 		return s.dropCheckout(old)
 	}
@@ -138,7 +138,7 @@ func (s *Setup) linkRC(file string) error {
 	if err := f.Close(); err != nil {
 		return err
 	}
-	s.Color(2, "Linked shell config into "+file+". Open a new shell to load it.")
+	s.Success("Linked shell config into " + file + ". Open a new shell to load it.")
 	return nil
 }
 
@@ -181,6 +181,6 @@ func (s *Setup) dropCheckout(dir string) error {
 	if err := os.RemoveAll(dir); err != nil {
 		return err
 	}
-	s.Color(2, "Deleted "+dir)
+	s.Success("Deleted " + dir)
 	return nil
 }

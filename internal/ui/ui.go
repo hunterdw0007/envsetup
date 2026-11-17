@@ -1,68 +1,72 @@
 // Package ui draws envsetup's menus, questions and messages.
 //
-// The bash version called gum for each of these.
-// Each method here matches one gum call, with the same flags in the same order.
-// So the scripted UI for the tests can log the same lines that the fake gum logged.
+// Callers say what a message means (a Kind), and the terminal UI picks its look.
+// The scripted UI for the tests turns each call into the line that the fake gum logged (script.go).
+// So the parity check with the bash version does not limit how the terminal UI looks.
 package ui
 
 import (
 	"os"
-	"strconv"
 	"strings"
 )
 
-// Opt is one flag of `gum style`, such as --foreground 2 or --bold.
-type Opt struct {
-	flags []string
-	bold  bool
-	// border is "normal" or "rounded".
-	border string
-	// padding is "<vertical> <horizontal>".
-	padding [2]int
+// Kind says what a message means.
+type Kind int
+
+// The kinds of message.
+const (
+	Plain   Kind = iota
+	Success      // a change that worked
+	Warn         // something to know, such as a skipped part
+	Fail         // an error
+	Note         // a dry-run note, such as "  would ..."
+	Ask          // the question above a list
+	Step         // a step that starts, such as "Running kubectl.sh..."
+	Heading      // a heading above other output
+	Title        // the banner with the release
+	Welcome      // the box that a first run shows
+)
+
+// Option is one item of a list.
+// Choose shows Label, or Value when Label is empty, and returns Value.
+// Desc, when set, says what the item does.
+type Option struct {
+	Value, Label, Desc string
 }
 
-// Style is a list of flags, in the order that the bash version passed them to gum.
-type Style []Opt
-
-// Fg sets the color, as an ANSI color number from 0 to 15.
-func Fg(n int) Opt { return Opt{flags: []string{"--foreground", strconv.Itoa(n)}} }
-
-// Bold makes the text bold.
-var Bold = Opt{flags: []string{"--bold"}, bold: true}
-
-// Border draws a "normal" or "rounded" border around the text.
-func Border(kind string) Opt { return Opt{flags: []string{"--border", kind}, border: kind} }
-
-// Padding adds space inside the border, as "<vertical> <horizontal>".
-func Padding(v, h int) Opt {
-	return Opt{flags: []string{"--padding", strconv.Itoa(v) + " " + strconv.Itoa(h)}, padding: [2]int{v, h}}
-}
-
-func (s Style) flags() []string {
-	var out []string
-	for _, o := range s {
-		out = append(out, o.flags...)
+// Options makes one Option for each value.
+func Options(values ...string) []Option {
+	opts := make([]Option, len(values))
+	for i, v := range values {
+		opts[i] = Option{Value: v}
 	}
-	return out
+	return opts
+}
+
+func (o Option) label() string {
+	if o.Label != "" {
+		return o.Label
+	}
+	return o.Value
 }
 
 // UI is what the menu and the actions use to talk to the user.
 type UI interface {
-	// Print shows a styled message on stdout, like `gum style`.
-	Print(s Style, lines ...string)
-	// Eprint shows a styled message on stderr, like `gum style ... >&2`.
-	Eprint(s Style, lines ...string)
-	// Choose shows a list and returns the picked item, like `gum choose`.
+	// Print shows a message on stdout, one line for each item of lines.
+	Print(k Kind, lines ...string)
+	// Eprint shows a message on stderr.
+	Eprint(k Kind, lines ...string)
+	// Choose shows a list and returns the Value of the picked item.
 	// header may be empty.
 	// ok is false when the user cancels (Esc or Ctrl-C).
-	Choose(header string, options ...string) (choice string, ok bool)
-	// Confirm asks a yes or no question, like `gum confirm`.
-	// defaultNo starts on "No", like --default=false.
-	// cancelled is true for Esc or Ctrl-C, which gum told apart from a clear "No" by its exit code.
+	Choose(header string, options ...Option) (value string, ok bool)
+	// Confirm asks a yes or no question.
+	// defaultNo starts on "No".
+	// cancelled is true for Esc or Ctrl-C, which is not the same as a clear "No".
 	Confirm(prompt string, defaultNo bool) (yes, cancelled bool)
-	// Input asks for one line, like `gum input --placeholder <placeholder> [--header <header>]`.
+	// Input asks for one line. header may be empty.
 	Input(placeholder, header string) (text string, ok bool)
-	// Write asks for many lines, like `gum write`.
+	// Write asks for many lines.
 	Write(header string) (text string, ok bool)
 }
 

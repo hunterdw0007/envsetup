@@ -43,7 +43,7 @@ func (s *Setup) Uninstall() error {
 	state, gitconfig, key := s.State, s.GitFile, s.Home+"/.ssh/id_ed25519"
 	failed := false
 	var kept []string
-	s.UI.Print(ui.Style{ui.Bold}, "Uninstall removes what envsetup added.",
+	s.UI.Print(ui.Heading, "Uninstall removes what envsetup added.",
 		"That is its block in your shell startup files, the copy of its shell config,",
 		"its git include and its saved choices.",
 		"Uninstall also moves back any dotfiles that envsetup moved.",
@@ -62,9 +62,9 @@ func (s *Setup) Uninstall() error {
 		if s.DryRun {
 			s.Would("remove the envsetup block from " + rc)
 		} else if RemoveRCBlock(rc, "") == nil {
-			s.Color(2, "Removed the envsetup block from "+rc)
+			s.Success("Removed the envsetup block from " + rc)
 		} else {
-			s.Color(1, "Couldn't edit "+rc)
+			s.Fail("Couldn't edit " + rc)
 			failed = true
 		}
 	}
@@ -73,9 +73,9 @@ func (s *Setup) Uninstall() error {
 		if s.DryRun {
 			s.Would("remove the include of " + gitconfig + " from ~/.gitconfig")
 		} else if s.Run("git", "config", "--global", "--unset-all", "include.path", "^"+escapeGitRE(gitconfig)+"$") == nil {
-			s.Color(2, "Removed envsetup's include from ~/.gitconfig")
+			s.Success("Removed envsetup's include from ~/.gitconfig")
 		} else {
-			s.Color(1, "Couldn't edit ~/.gitconfig")
+			s.Fail("Couldn't edit ~/.gitconfig")
 			failed = true
 		}
 	}
@@ -95,10 +95,10 @@ func (s *Setup) Uninstall() error {
 					}
 				}
 				if signFailed {
-					s.Color(1, "Couldn't remove the settings that sign your commits from ~/.gitconfig")
+					s.Fail("Couldn't remove the settings that sign your commits from ~/.gitconfig")
 					failed = true
 				} else {
-					s.Color(2, "Removed the settings that sign your commits with "+key)
+					s.Success("Removed the settings that sign your commits with " + key)
 				}
 			}
 		}
@@ -132,7 +132,7 @@ func (s *Setup) Uninstall() error {
 			s.Run("cp", "--remove-destination", target, cfg) != nil {
 			// A config.sh that links into the clone becomes a copy, so the next question can keep it.
 			// A failed copy must stop the delete.
-			s.Color(1, "Couldn't copy "+cfg+" out of "+s.Clone+", so uninstall keeps the clone")
+			s.Fail("Couldn't copy " + cfg + " out of " + s.Clone + ", so uninstall keeps the clone")
 			failed = true
 		} else {
 			_ = os.RemoveAll(s.Clone)
@@ -194,7 +194,7 @@ func (s *Setup) Uninstall() error {
 		} else {
 			bash, _ := exec.LookPath("bash")
 			if s.Run("chsh", "-s", bash) != nil {
-				s.Color(1, "Couldn't change your login shell")
+				s.Fail("Couldn't change your login shell")
 				failed = true
 			}
 		}

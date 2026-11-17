@@ -110,13 +110,22 @@ func (s *Setup) CacheDir() string {
 }
 
 // Would describes a change that a dry run does not make (envsetup::would).
-func (s *Setup) Would(text string) { s.UI.Print(ui.Style{ui.Fg(6)}, "  would "+text) }
+func (s *Setup) Would(text string) { s.UI.Print(ui.Note, "  would "+text) }
 
-// Say shows a plain message (`gum style "..."`).
-func (s *Setup) Say(lines ...string) { s.UI.Print(nil, lines...) }
+// Say shows a plain message.
+func (s *Setup) Say(lines ...string) { s.UI.Print(ui.Plain, lines...) }
 
-// Color shows a message in one color (`gum style --foreground <n> "..."`).
-func (s *Setup) Color(fg int, lines ...string) { s.UI.Print(ui.Style{ui.Fg(fg)}, lines...) }
+// Success shows a change that worked.
+func (s *Setup) Success(lines ...string) { s.UI.Print(ui.Success, lines...) }
+
+// Warn shows something the user should know, such as a skipped part.
+func (s *Setup) Warn(lines ...string) { s.UI.Print(ui.Warn, lines...) }
+
+// Fail shows an error.
+func (s *Setup) Fail(lines ...string) { s.UI.Print(ui.Fail, lines...) }
+
+// Note shows a note, such as what a dry run does.
+func (s *Setup) Note(lines ...string) { s.UI.Print(ui.Note, lines...) }
 
 // HasCmd reports whether the command is on PATH (envsetup::has_cmd).
 func HasCmd(name string) bool {

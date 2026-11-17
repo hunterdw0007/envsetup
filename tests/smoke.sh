@@ -1365,6 +1365,35 @@ check "said the step didn't finish" grep -qF "That step didn't finish" "$SMOKE_L
 check "still ran the installers after it" grep -qF "Running kubectl.sh" "$SMOKE_LOG"
 ((failures)) && show "$h/setup.out"
 
+echo "== ENVSETUP_PACKAGES, ENVSETUP_INSTALLER_DIRS and XDG_STATE_HOME, with one action at a time"
+# The other scenarios run these actions only inside Run everything.
+# These settings replace the profile's lists, so nothing from packages/ or installers/ runs.
+# kubectl.sh records kubectl's pin, as a pinned installer does after its install.
+h=$(new_home)
+mine=$h/my-installers st=$h/state
+mkdir -p "$h/.config/envsetup" "$mine"
+printf '%s\n' 'ENVSETUP_PACKAGES=(smoke-a smoke-b smoke-c)' 'ENVSETUP_SKIP=(smoke-b)' \
+	'ENVSETUP_INSTALLER_DIRS=("$HOME/my-installers")' >"$h/.config/envsetup/config.sh"
+printf '#!/usr/bin/env bash\nexit 1\n' >"$mine/a-fails.sh"
+printf '#!/usr/bin/env bash\ntouch "$HOME/b-ran"\n' >"$mine/b-runs.sh"
+printf '#!/usr/bin/env bash\nsource "$ENVSETUP_ROOT/lib/common.sh"\nenvsetup::record_installed kubectl\n' >"$mine/kubectl.sh"
+k_pin=$(awk '$1 == "kubectl" { print $2 }' "$CLONE/installers/versions.txt")
+XDG_STATE_HOME=$st check "Install packages: exited 0" run_menu "$h" "Select profile" home "Install packages" Quit
+check "  ...installed ENVSETUP_PACKAGES without ENVSETUP_SKIP" same_list $'smoke-a\nsmoke-c' "$(installed)"
+check "  ...and ran no installer" [ "$(count 'Running ' "$SMOKE_LOG")" = 0 ]
+XDG_STATE_HOME=$st check "Run installers: exited 0, back to the menu after a failed installer" run_menu "$h" "Run installers" Quit
+check "  ...ran only the scripts in ENVSETUP_INSTALLER_DIRS" [ "$(count 'Running ' "$SMOKE_LOG")" = 3 ]
+check "  ...named the one that failed" grep -qF 'Installers failed: a-fails.sh' "$SMOKE_LOG"
+check "  ...still ran the ones after it" [ -e "$h/b-ran" ]
+check "  ...installed no package" [ "$(count 'apt-get' "$SMOKE_LOG")" = 0 ]
+check "  ...recorded kubectl in \$XDG_STATE_HOME" grep -qxF "kubectl $k_pin" "$st/envsetup/installed"
+check "  ...and not in ~/.local/state" none_exist "$h/.local/state/envsetup"
+SETUP_ARGS=(--uninstall) CONFIRMS=(yes no)
+XDG_STATE_HOME=$st check "--uninstall: exited 0" run_menu "$h"
+SETUP_ARGS=() CONFIRMS=()
+check "  ...deleted the record in \$XDG_STATE_HOME" none_exist "$st/envsetup"
+((failures)) && show "$h/setup.out"
+
 echo "== Move dotfiles to XDG dirs (ENVSETUP_XDG_NINJA=1, offline copy of xdg-ninja)"
 # These notes use xdg-ninja's real format.
 # The notes are a move with an export, a move only, and a dotfile that the user's .bashrc mentions.

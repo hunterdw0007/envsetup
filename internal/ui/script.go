@@ -14,7 +14,7 @@ import (
 // "ESC", or no answer left, cancels.
 // "SIGINT" or "SIGTERM" sends that signal to the process group, like Ctrl-C or a kill.
 // It reads the answers to confirm from $SMOKE_CONFIRMS.
-// Only "yes" accepts, and no answer left declines.
+// Only "yes" accepts, "ESC" cancels, and no answer left declines.
 // $SMOKE_INPUT and $SMOKE_WRITE answer input and write.
 // It logs each call to $SMOKE_LOG as "gum <args>", the line that the fake gum wrote.
 // Print and Eprint show only the last argument, as the fake gum did.
@@ -121,7 +121,13 @@ func (s script) Confirm(prompt string, defaultNo bool) (bool, bool) {
 		args = append(args, "--default=false")
 	}
 	s.log(args, []string{prompt})
-	return pop(os.Getenv("SMOKE_CONFIRMS")) == "yes", false
+	switch pop(os.Getenv("SMOKE_CONFIRMS")) {
+	case "yes":
+		return true, false
+	case "ESC":
+		return false, true
+	}
+	return false, false
 }
 
 func (s script) Input(placeholder, header string) (string, bool) {

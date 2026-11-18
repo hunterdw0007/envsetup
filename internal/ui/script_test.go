@@ -84,17 +84,22 @@ func TestScriptMatchesFakeGum(t *testing.T) {
 		{
 			name: "confirm yes", confirms: "yes\n",
 			args: []string{"confirm", "Sure?"},
-			call: func(t *testing.T, u UI) result { return confirm(t, u, "Sure?", false) },
+			call: func(t *testing.T, u UI) result { return confirm(t, u, "Sure?", false, false) },
 		},
 		{
 			name: "confirm no", confirms: "no\nyes\n",
 			args: []string{"confirm", "--default=false", "Sure?"},
-			call: func(t *testing.T, u UI) result { return confirm(t, u, "Sure?", true) },
+			call: func(t *testing.T, u UI) result { return confirm(t, u, "Sure?", true, false) },
 		},
 		{
 			name: "confirm with no answer left",
 			args: []string{"confirm", "Sure?"},
-			call: func(t *testing.T, u UI) result { return confirm(t, u, "Sure?", false) },
+			call: func(t *testing.T, u UI) result { return confirm(t, u, "Sure?", false, false) },
+		},
+		{
+			name: "confirm cancelled", confirms: "ESC\nyes\n",
+			args: []string{"confirm", "Sure?"},
+			call: func(t *testing.T, u UI) result { return confirm(t, u, "Sure?", false, true) },
 		},
 		{
 			name: "input name", input: unset,
@@ -208,11 +213,12 @@ func TestScriptMatchesFakeGum(t *testing.T) {
 
 func pick(text string, ok bool) result { return result{text, ok} }
 
-// confirm checks that the scripted UI never cancels, because the fake gum could not tell a cancel from a "No".
-func confirm(t *testing.T, u UI, prompt string, defaultNo bool) result {
+// confirm checks that the scripted UI cancels only on an "ESC" answer.
+// The fake gum then exits 130, and a "No" exits 1.
+func confirm(t *testing.T, u UI, prompt string, defaultNo, wantCancel bool) result {
 	yes, cancelled := u.Confirm(prompt, defaultNo)
-	if cancelled {
-		t.Error("Confirm cancelled")
+	if cancelled != wantCancel {
+		t.Errorf("Confirm cancelled: %v, want %v", cancelled, wantCancel)
 	}
 	return result{"", yes}
 }

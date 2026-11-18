@@ -1444,6 +1444,16 @@ h=$(new_home)
 st=$h/.config/envsetup
 mkdir -p "$st"
 echo 'alias mine=true' >"$st/config.sh"
+CONFIRMS=(ESC) # cancel the question
+ENVSETUP_CONFIG_REPO=$cfg check "esc on the question: exited 0" run_menu "$h" Quit
+CONFIRMS=()
+check "  ...asked first" grep -qF "gum confirm Keep your own $st/config.sh?" "$SMOKE_LOG"
+check "  ...kept config.sh" kept_mine
+check "  ...and made no config.sh.bak" [ ! -e "$st/config.sh.bak" ]
+h=$(new_home)
+st=$h/.config/envsetup
+mkdir -p "$st"
+echo 'alias mine=true' >"$st/config.sh"
 CONFIRMS=(no) # replace it
 ENVSETUP_CONFIG_REPO=$cfg check "replace it: exited 0" run_menu "$h" Quit
 check "  ...linked config.sh to the repo" [ "$(readlink "$st/config.sh")" = "$st/repo/config.sh" ]
@@ -1683,6 +1693,16 @@ check "esc on the main menu quits cleanly" run_menu "$h" ESC
 check "esc on the profile picker saves nothing" run_menu "$h" "Select profile" ESC Quit
 check "  ...and returns to the menu" [ "$(count 'gum choose Select profile' "$SMOKE_LOG")" = 2 ]
 check "  ...with no profile saved" [ ! -e "$h/.config/envsetup/profile" ]
+h=$(new_home)
+CONFIRMS=(no no) # no gh; no signing
+check "a key that envsetup created: exited 0" run_menu "$h" "Select profile" work lite "Set up SSH key" Quit
+SETUP_ARGS=(--uninstall) CONFIRMS=(yes ESC) # remove; cancel "Keep ~/.ssh/id_ed25519?"
+# v1.0.0 deleted the key on a cancel, so the two versions differ here on purpose.
+NO_PARITY=1 check "esc on Keep ~/.ssh/id_ed25519? in uninstall: exited 0" run_menu "$h"
+SETUP_ARGS=() CONFIRMS=()
+check "  ...asked about the key" grep -qF 'gum confirm Keep ~/.ssh/id_ed25519?' "$SMOKE_LOG"
+check "  ...kept it" grep -qxF smoke-private-key "$h/.ssh/id_ed25519"
+check "  ...and listed it as left in place" grep -qF "your SSH key: $h/.ssh/id_ed25519" "$h/setup.out"
 
 echo
 if ((failures)); then

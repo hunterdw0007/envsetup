@@ -5,6 +5,7 @@
 # "ESC", or no answer left, cancels.
 # It answers `confirm` from $SMOKE_CONFIRMS.
 # Only "yes" accepts, and no answer left declines.
+# "ESC" cancels, and gum exits 130, as real gum does on Ctrl-C.
 # It fills in `input` and `write`, and it logs every call to $SMOKE_LOG.
 
 echo "gum $*" >>"$SMOKE_LOG"
@@ -22,7 +23,11 @@ choose)
 	if [[ $answer == SIG* ]]; then kill -s "${answer#SIG}" 0; fi
 	echo "$answer"
 	;;
-confirm) [[ $(pop "$SMOKE_CONFIRMS") == yes ]] ;;
+confirm)
+	answer=$(pop "$SMOKE_CONFIRMS")
+	if [[ $answer == ESC ]]; then exit 130; fi
+	[[ $answer == yes ]]
+	;;
 # SMOKE_INPUT=ESC cancels, and gum exits 1.
 # Any other value is the answer.
 input)

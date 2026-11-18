@@ -171,7 +171,8 @@ func (s *Setup) dropCheckout(dir string) error {
 		s.Say("New shells no longer load " + dir + ". You can delete it after setup ends. Keep it if you work on envsetup there.")
 		return nil
 	}
-	if keep, _ := s.UI.Confirm("Keep "+dir+"? New shells and updates no longer use it.", false); keep {
+	// A cancel (Esc or Ctrl-C) keeps the checkout, like the default answer.
+	if keep, cancelled := s.UI.Confirm("Keep "+dir+"? New shells and updates no longer use it.", false); keep || cancelled {
 		return nil
 	}
 	if s.DryRun {

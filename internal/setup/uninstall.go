@@ -39,6 +39,7 @@ func fileHasLine(file, line string) bool {
 // Uninstall removes what envsetup added (envsetup::uninstall).
 // Uninstall returns ErrCancelled after a no, and ErrFailed when a step failed.
 // Like the bash version, each step reports its own failure, and the rest still runs.
+// Each "Keep …?" question keeps the item on a cancel (Esc or Ctrl-C), as on its default answer.
 func (s *Setup) Uninstall() error {
 	state, gitconfig, key := s.State, s.GitFile, s.Home+"/.ssh/id_ed25519"
 	failed := false
@@ -124,7 +125,7 @@ func (s *Setup) Uninstall() error {
 	// The repo belongs to the user, so the default answer keeps it.
 	cfg := state + "/config.sh"
 	if isDir(s.Clone) {
-		if yes, _ := s.UI.Confirm("Keep "+s.Clone+"? It is the clone of your own config repo.", false); yes {
+		if yes, cancelled := s.UI.Confirm("Keep "+s.Clone+"? It is the clone of your own config repo.", false); yes || cancelled {
 			kept = append(kept, "your config repo: "+s.Clone)
 		} else if s.DryRun {
 			s.Would("delete " + s.Clone)
@@ -140,7 +141,7 @@ func (s *Setup) Uninstall() error {
 	}
 	// isLink also finds a link to a config.sh that is gone.
 	if isFile(cfg) || isLink(cfg) {
-		if yes, _ := s.UI.Confirm("Keep your own config ("+cfg+")?", false); yes {
+		if yes, cancelled := s.UI.Confirm("Keep your own config ("+cfg+")?", false); yes || cancelled {
 			kept = append(kept, "your config: "+cfg)
 		} else if s.DryRun {
 			s.Would("delete " + cfg)
@@ -152,7 +153,7 @@ func (s *Setup) Uninstall() error {
 	// So uninstall removes the folder only when it is empty, and asks otherwise.
 	if isDir(s.ShellD) {
 		if entries, _ := os.ReadDir(s.ShellD); len(entries) > 0 {
-			if yes, _ := s.UI.Confirm("Keep "+s.ShellD+"? It holds your own shell files.", false); yes {
+			if yes, cancelled := s.UI.Confirm("Keep "+s.ShellD+"? It holds your own shell files.", false); yes || cancelled {
 				kept = append(kept, "your shell files: "+s.ShellD)
 			} else if s.DryRun {
 				s.Would("delete " + s.ShellD)
@@ -168,7 +169,7 @@ func (s *Setup) Uninstall() error {
 	// Uninstall asks only about a key that envsetup created.
 	// The key stays unless you say no.
 	if keyByUs && statOK(key) {
-		if yes, _ := s.UI.Confirm("Keep ~/.ssh/id_ed25519? It is this machine's SSH key.", false); yes {
+		if yes, cancelled := s.UI.Confirm("Keep ~/.ssh/id_ed25519? It is this machine's SSH key.", false); yes || cancelled {
 			kept = append(kept, "your SSH key: "+key)
 		} else if s.DryRun {
 			s.Would("delete " + key + " and " + key + ".pub")
@@ -187,7 +188,7 @@ func (s *Setup) Uninstall() error {
 	// Uninstall asks only if envsetup changed your login shell to zsh.
 	// It leaves a zsh that you chose yourself alone.
 	if strings.HasSuffix(os.Getenv("SHELL"), "/zsh") && chshByUs {
-		if yes, _ := s.UI.Confirm("Keep zsh as your login shell?", false); yes {
+		if yes, cancelled := s.UI.Confirm("Keep zsh as your login shell?", false); yes || cancelled {
 			kept = append(kept, "zsh as your login shell")
 		} else if s.DryRun {
 			s.Would("change your login shell back to bash (chsh)")

@@ -62,10 +62,8 @@ func splitLines(text string) []string {
 
 // GitIncluded reports whether ~/.gitconfig includes the generated file (envsetup::git_included).
 func (s *Setup) GitIncluded() bool {
-	c := s.Cmd("git", "config", "--global", "--get-all", "include.path")
-	c.Stdout, c.Stderr = nil, nil
-	out, _ := c.Output()
-	for _, line := range splitLines(string(out)) {
+	out, _ := output(s.Cmd("git", "config", "--global", "--get-all", "include.path"), true)
+	for _, line := range splitLines(out) {
 		if line == s.GitFile {
 			return true
 		}
@@ -93,10 +91,7 @@ func (s *Setup) PkgInstall(manager string, pkgs ...string) error {
 
 // Pin prints the pinned version of a tool from installers/versions.txt (envsetup::pin).
 func (s *Setup) Pin(name string) (string, error) {
-	c := s.Lib("envsetup::pin", name)
-	c.Stdout, c.Stderr = nil, nil
-	out, err := c.Output()
-	return strings.TrimRight(string(out), "\n"), err
+	return output(s.Lib("envsetup::pin", name), true)
 }
 
 // InstalledVersion prints the version of a tool that envsetup installed, or "" (envsetup::installed_version).
@@ -108,8 +103,5 @@ func (s *Setup) InstalledVersion(name string) string {
 // libOutput runs a function of lib/common.sh and returns its stdout, like $(fn).
 // Its stderr goes to the terminal.
 func (s *Setup) libOutput(fn string, args ...string) (string, error) {
-	c := s.Lib(fn, args...)
-	c.Stdout = nil
-	out, err := c.Output()
-	return strings.TrimRight(string(out), "\n"), err
+	return output(s.Lib(fn, args...), false)
 }

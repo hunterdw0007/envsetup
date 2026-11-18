@@ -59,7 +59,7 @@ func Main(args []string, version string) int {
 	}()
 	defer removeTemp()
 
-	s := &Setup{UI: ui.New()}
+	s := &Setup{UI: ui.New(), startEnv: os.Environ()}
 	s.paths()
 	root, err := s.root()
 	if err != nil {
@@ -252,6 +252,8 @@ func copyTree(src, dst string) {
 // RunStep runs a menu action (envsetup::run_step).
 // A failure returns to the menu and does not end envsetup.
 func (s *Setup) RunStep(step func() error) {
+	// bash ran each step in a subshell, so each step started without the state of the last one.
+	s.asked = ""
 	err := step()
 	if err == nil {
 		return

@@ -163,6 +163,40 @@ func TestLoad(t *testing.T) {
 	_ = home
 }
 
+// TestSetenvDropsOldExports checks that a load drops what an earlier load of config.sh exported.
+func TestSetenvDropsOldExports(t *testing.T) {
+	sandbox(t)
+	t.Setenv("SMOKE_X", "") // restores the variable after the test
+	os.Unsetenv("SMOKE_X")
+	s := &Setup{startEnv: os.Environ()}
+	s.paths()
+	s.Root, _ = s.root()
+	if err := os.MkdirAll(s.State, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	load := func(text string) string {
+		t.Helper()
+		if err := os.WriteFile(s.UserConfig, []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		cfg, err := s.Load("home", "full", s.UserConfig, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		s.setenv(cfg)
+		if v, ok := os.LookupEnv("SMOKE_X"); ok {
+			return v
+		}
+		return "<unset>"
+	}
+	if got := load("export SMOKE_X=1\n"); got != "1" {
+		t.Errorf("after export: SMOKE_X=%s, want 1", got)
+	}
+	if got := load("true\n"); got != "<unset>" {
+		t.Errorf("after the export is gone: SMOKE_X=%s, want <unset>", got)
+	}
+}
+
 func TestMainOptions(t *testing.T) {
 	sandbox(t)
 	tests := []struct {

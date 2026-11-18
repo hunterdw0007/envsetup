@@ -49,7 +49,7 @@ func (s *Setup) Status() (int, error) {
 	}
 	// The bash version loaded the config into its own shell, like LoadConfig.
 	s.Cfg = cfg
-	cfg.setenv()
+	s.setenv(cfg)
 	s.warned = cfg.Warning
 	switch profile {
 	case "":
@@ -95,10 +95,7 @@ func (s *Setup) Status() (int, error) {
 }
 
 func (s *Setup) statusPackages(l *statusLines) {
-	c := s.Lib("envsetup::pkg_manager")
-	c.Stdout, c.Stderr = nil, nil
-	out, _ := c.Output()
-	manager := strings.TrimRight(string(out), "\n")
+	manager, _ := output(s.Lib("envsetup::pkg_manager"), true)
 	pkgs := s.Cfg.ResolvedPackages
 	before := l.missing
 	if manager == "" {
@@ -254,8 +251,15 @@ func verrevcmp(a, b string) int {
 	return 0
 }
 
-// setenv keeps the environment that config.sh exported, as sourcing it did.
-func (c *Config) setenv() {
+// setenv sets the environment that envsetup started with, plus what config.sh exported.
+func (s *Setup) setenv(c *Config) {
+	if s.startEnv != nil {
+		os.Clearenv()
+		for _, kv := range s.startEnv {
+			name, value, _ := strings.Cut(kv, "=")
+			os.Setenv(name, value)
+		}
+	}
 	for _, kv := range c.env {
 		if name, value, ok := strings.Cut(kv, "="); ok {
 			os.Setenv(name, value)

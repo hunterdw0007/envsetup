@@ -12,7 +12,6 @@ import (
 // It sets up zsh + oh-my-zsh only when ENVSETUP_SHELL=zsh opts in.
 // It also creates shell.d for the user's own shell files.
 func (s *Setup) LinkShellConfig() error {
-	s.asked = "" // bash ran each step in a subshell, so each step could ask again
 	if err := s.copyShell(); err != nil {
 		return err
 	}

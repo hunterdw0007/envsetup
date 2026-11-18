@@ -81,6 +81,9 @@ func (s *Setup) Load(profile, mode, file string, quiet bool) (*Config, error) {
 	dump.Close()
 	defer os.Remove(dump.Name())
 	c := s.Cmd("bash", "-c", loadScript, "envsetup", profile, mode, file, dump.Name())
+	if s.startEnv != nil {
+		c.Env = s.environ(s.startEnv)
+	}
 	if quiet {
 		c.Stdin, c.Stdout, c.Stderr = nil, nil, nil
 	}
@@ -111,6 +114,7 @@ func (s *Setup) Load(profile, mode, file string, quiet bool) (*Config, error) {
 
 // LoadConfig loads the config for the menu and the actions (envsetup::load_config).
 // It shows a new warning once, and keeps the environment that config.sh exported, as sourcing it did.
+// Unlike sourcing, a later load drops what an earlier load exported.
 // A config.sh that runs exit ends envsetup with that code, as it ended setup.sh.
 func (s *Setup) LoadConfig(profile, mode string) {
 	cfg, err := s.Load(profile, mode, s.UserConfig, false)
@@ -118,13 +122,7 @@ func (s *Setup) LoadConfig(profile, mode string) {
 		s.Exit(exitOf(err))
 	}
 	s.Cfg = cfg
-	for _, kv := range cfg.env {
-		if name, value, ok := strings.Cut(kv, "="); ok {
-			os.Setenv(name, value)
-		} else {
-			os.Unsetenv(name)
-		}
-	}
+	s.setenv(cfg)
 	s.ShowWarning(cfg.Warning)
 }
 

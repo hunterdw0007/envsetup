@@ -27,10 +27,7 @@ func (s *Setup) SyncConfigRepo() error {
 	repo, link := s.Clone, s.State+"/config.sh"
 	switch {
 	case isDir(repo + "/.git"):
-		c := s.Cmd("git", "-C", repo, "remote", "get-url", "origin")
-		c.Stdout, c.Stderr = nil, nil
-		out, _ := c.Output()
-		origin := strings.TrimRight(string(out), "\n")
+		origin, _ := output(s.Cmd("git", "-C", repo, "remote", "get-url", "origin"), true)
 		if url != "" && url != origin {
 			from := origin
 			if from == "" {

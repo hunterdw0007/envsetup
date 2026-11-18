@@ -25,15 +25,7 @@ func escapeGitRE(p string) string { return gitRESpecial.ReplaceAllString(p, `\$0
 // fileHasLine is grep -qxF: some line of the file equals line.
 func fileHasLine(file, line string) bool {
 	data, err := os.ReadFile(file)
-	if err != nil {
-		return false
-	}
-	for _, l := range splitLines(string(data)) {
-		if l == line {
-			return true
-		}
-	}
-	return false
+	return err == nil && hasLine(string(data), line)
 }
 
 // Uninstall removes what envsetup added (envsetup::uninstall).

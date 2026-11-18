@@ -21,13 +21,8 @@ func gitKeySet(entries []string, key string) bool {
 
 // gitGlobal prints a key of ~/.gitconfig with its includes, or "" (git config --global --includes <key>).
 func (s *Setup) gitGlobal(key string, quiet bool) string {
-	c := s.Cmd("git", "config", "--global", "--includes", key)
-	c.Stdout = nil
-	if quiet {
-		c.Stderr = nil
-	}
-	out, _ := c.Output()
-	return strings.TrimRight(string(out), "\n")
+	out, _ := output(s.Cmd("git", "config", "--global", "--includes", key), quiet)
+	return out
 }
 
 // gitUnset is for the dry run (envsetup::git_unset).

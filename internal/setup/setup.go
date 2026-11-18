@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 
@@ -56,6 +57,10 @@ type Setup struct {
 	warned string
 	// asked is the checkout that drop_checkout asked about (ENVSETUP_ASKED).
 	asked string
+	// startEnv is the environment that envsetup started with.
+	// Each load of config.sh starts from it, so a variable that config.sh no longer sets is gone.
+	// It is nil in tests, which then keep the current environment.
+	startEnv []string
 }
 
 // ErrFailed ends a step that already showed its error.
@@ -147,8 +152,16 @@ func (s *Setup) Run(name string, args ...string) error { return s.Cmd(name, args
 // Output runs a command and returns its stdout without the trailing newlines, like $(cmd).
 // Its stderr goes to the terminal.
 func (s *Setup) Output(name string, args ...string) (string, error) {
-	c := s.Cmd(name, args...)
+	return output(s.Cmd(name, args...), false)
+}
+
+// output runs c and returns its stdout without the trailing newlines, like $(cmd).
+// quiet drops its stderr, like 2>/dev/null; otherwise stderr goes to the terminal.
+func output(c *exec.Cmd, quiet bool) (string, error) {
 	c.Stdout = nil
+	if quiet {
+		c.Stderr = nil
+	}
 	out, err := c.Output()
 	return strings.TrimRight(string(out), "\n"), err
 }
@@ -163,8 +176,10 @@ func (s *Setup) Quiet(name string, args ...string) error {
 // Environ is the environment for every command.
 // The bash version exported ENVSETUP_ROOT and ENVSETUP_TMP.
 // Installers source "$ENVSETUP_ROOT/lib/common.sh".
-func (s *Setup) Environ() []string {
-	return append(os.Environ(), "ENVSETUP_ROOT="+s.Root, "ENVSETUP_TMP="+s.Tmp)
+func (s *Setup) Environ() []string { return s.environ(os.Environ()) }
+
+func (s *Setup) environ(base []string) []string {
+	return append(slices.Clip(base), "ENVSETUP_ROOT="+s.Root, "ENVSETUP_TMP="+s.Tmp)
 }
 
 // AsRoot runs a command as root (envsetup::as_root).

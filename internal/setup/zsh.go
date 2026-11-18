@@ -11,7 +11,6 @@ import (
 
 // SetUpZsh sets up zsh + oh-my-zsh and links ~/.zshrc (envsetup::set_up_zsh).
 func (s *Setup) SetUpZsh() error {
-	s.asked = "" // bash ran each step in a subshell, so each step could ask again
 	if err := s.installZsh(); err != nil {
 		return err
 	}

@@ -114,8 +114,6 @@ func (s *Setup) pkgInstalled(manager, name string) bool {
 
 // quietOutput returns a command's stdout like $(cmd 2>/dev/null), and ignores its error.
 func (s *Setup) quietOutput(name string, args ...string) string {
-	c := s.Cmd(name, args...)
-	c.Stdout, c.Stderr = nil, nil
-	out, _ := c.Output()
-	return strings.TrimRight(string(out), "\n")
+	out, _ := output(s.Cmd(name, args...), true)
+	return out
 }

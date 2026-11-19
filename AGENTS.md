@@ -93,7 +93,8 @@ The newest tag sets the current version (`version_provider = "scm"`).
 So users run a release, not `main`.
 `install.sh` clones the release into a temporary folder and downloads its binary there.
 It checks the binary's sha256 against `SHA256SUMS`, runs `setup.sh` and deletes the folder when it ends.
-A branch or a commit has no binary, so `setup.sh` builds one with Go.
+A clone, a branch or a commit has no binary, so `setup.sh` builds one with Go.
+A machine that is not amd64 or arm64 also builds one with Go.
 "Link shell config" copies `shell/` to `$XDG_DATA_HOME/envsetup`.
 New shells load that copy.
 The file `version` next to the copy records the release.
@@ -261,7 +262,7 @@ envsetup is a Go program: `cmd/envsetup`, `internal/setup` and `internal/ui`.
 - Each installer runs in its own `bash` process and is not sourced.
   To use the helpers in `lib/common.sh`, run `source "$ENVSETUP_ROOT/lib/common.sh"` in the script.
 - One failed installer must not stop the others.
-  `lib/installers.sh` already handles this.
+  **Run installers** (`internal/setup/installers.go`) already handles this.
   Do not add a workaround inside an installer that turns off `set -e`.
 - Every download that envsetup installs or runs has a pinned version.
   envsetup checks each download before it uses the file.
@@ -332,7 +333,7 @@ envsetup is a Go program: `cmd/envsetup`, `internal/setup` and `internal/ui`.
   direnv and zoxide are examples.
   The hook runs only when the tool is installed.
 - A shared git setting or alias goes in `git/gitconfig`, unless it is about identity.
-  `lib/git.sh` merges this file with the user's `ENVSETUP_GIT_CONFIG` into `~/.config/envsetup/gitconfig`.
+  **Configure git** (`internal/setup/git.go`) merges this file with the user's `ENVSETUP_GIT_CONFIG` into `~/.config/envsetup/gitconfig`.
 - Identity means `user.name` and `user.email`.
   envsetup asks for them at runtime, or the user sets them in their own `config.sh`.
   Never commit them to this repo.

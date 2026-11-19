@@ -49,6 +49,7 @@ These variables change what the command does:
 | Variable | What it does |
 | --- | --- |
 | `ENVSETUP_REPO_URL` | Sets the repo URL, for example an SSH URL. |
+| `ENVSETUP_DOWNLOAD_URL` | Sets where the release binaries are, for a repo that is not on GitHub. |
 | `ENVSETUP_VERSION` | Selects a release. See [Select a release](docs/install.md#select-a-release). |
 | `ENVSETUP_CONFIG_REPO` | Gets `config.sh` from your own git repo. See [Use config.sh on other machines](docs/customizing.md#use-configsh-on-other-machines). |
 

@@ -15,7 +15,9 @@ To break a requirement, first change it in its own PR.
 2. **Nothing to install first.**
    A machine with bash, curl and git can run envsetup.
    `install.sh` downloads the envsetup binary of a release and checks its sha256.
-   Only a branch or a commit needs Go, because it has no binary.
+   Releases have binaries for amd64 and arm64.
+   A clone, a branch or a commit has no binary, so it needs Go.
+   Another architecture, such as armv7, also needs Go.
 3. **Same release, same result.**
    A second run of the same release with the same `config.sh` changes nothing.
 4. **No change without a choice.**

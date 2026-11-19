@@ -39,6 +39,9 @@ envsetup runs root steps with `sudo`, or with `doas` if the machine has it.
 If you are already root, envsetup runs those steps directly.
 The menu itself does not need sudo.
 `install.sh` downloads the envsetup binary that matches the machine (amd64 or arm64) and checks its sha256.
+Releases have no binary for other architectures, such as armv7.
+On those machines, `setup.sh` builds envsetup with [Go](https://go.dev/doc/install).
+So install Go 1.27.4 or newer first.
 Installers download the amd64 or arm64 build that matches the machine.
 
 `installers/versions.txt` sets the version and sha256 checksum of each download.

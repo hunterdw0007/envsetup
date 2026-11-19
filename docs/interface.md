@@ -43,8 +43,9 @@ These variables change what the command does:
 
 | Variable | What it does |
 | --- | --- |
-| `ENVSETUP_VERSION` | Selects a release, a branch or a commit. |
-| `ENVSETUP_REPO_URL` | Sets the repo URL. |
+| `ENVSETUP_VERSION` | Selects a release, a branch or a commit. A branch or a commit needs Go. |
+| `ENVSETUP_REPO_URL` | Sets the repo URL. A release then downloads its binary from that repo's GitHub releases. |
+| `ENVSETUP_DOWNLOAD_URL` | Sets the URL that holds `<tag>/envsetup-linux-<arch>` and `<tag>/SHA256SUMS`. A repo that is not on GitHub needs it. |
 | `ENVSETUP_CONFIG_REPO` | Gets `config.sh` from the user's own git repo. |
 
 The command passes its options to `setup.sh`, for example `bash -s -- --dry-run`.

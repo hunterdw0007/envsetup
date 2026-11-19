@@ -166,7 +166,7 @@ run_once() {
 # The bash version used gum, and the Go version logs the same "gum ..." lines (internal/ui/script.go).
 # NO_PARITY=1 skips the check for a scenario where the two versions differ on purpose.
 REF=$W/ref
-REF_VERSION=v1.0.0
+REF_VERSION=v1.0.1
 PARITY=$W/parity
 parity_save() {
 	rm -rf "$PARITY" && mkdir -p "$PARITY"
@@ -1697,7 +1697,7 @@ h=$(new_home)
 CONFIRMS=(no no) # no gh; no signing
 check "a key that envsetup created: exited 0" run_menu "$h" "Select profile" work lite "Set up SSH key" Quit
 SETUP_ARGS=(--uninstall) CONFIRMS=(yes ESC) # remove; cancel "Keep ~/.ssh/id_ed25519?"
-# v1.0.0 deleted the key on a cancel, so the two versions differ here on purpose.
+# v1.0.1 deleted the key on a cancel, so the two versions differ here on purpose.
 NO_PARITY=1 check "esc on Keep ~/.ssh/id_ed25519? in uninstall: exited 0" run_menu "$h"
 SETUP_ARGS=() CONFIRMS=()
 check "  ...asked about the key" grep -qF 'gum confirm Keep ~/.ssh/id_ed25519?' "$SMOKE_LOG"

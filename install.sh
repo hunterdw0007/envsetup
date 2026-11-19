@@ -13,7 +13,7 @@
 # ENVSETUP_VERSION selects another release (v1.2.0 or 1.2.0), or a branch or commit.
 # A branch or a commit has no binary to download.
 # So setup.sh builds envsetup with Go, or says how to get a release.
-# Releases before Go (v1.0.0 and older) run their own setup.sh, as before.
+# Releases before Go (v1.0.1 and older) run their own setup.sh, as before.
 # ENVSETUP_DOWNLOAD_URL names where the binaries are, for a clone that is not on GitHub.
 # ENVSETUP_BIN names a binary to run instead, and install.sh then downloads none.
 set -euo pipefail

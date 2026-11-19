@@ -101,7 +101,7 @@ This method uses the newest commit on `main`.
 A clone has no built binary, so `setup.sh` builds one with [Go](https://go.dev/doc/install).
 Install Go 1.27.4 or newer first.
 A checkout of a release needs Go too.
-Only v1.0.0 and older releases need no Go, because they are bash.
+Only v1.0.1 and older releases need no Go, because they are bash.
 `ENVSETUP_VERSION` with a branch or a commit needs Go for the same reason.
 To use a release, run `git checkout <release>` first.
 `git tag` lists the releases.

@@ -1,6 +1,6 @@
 // Package setup holds envsetup's menu, its actions and its options.
 //
-// Each action matches a function of the bash version (v1.0.0).
+// Each action matches a function of the bash version (v1.0.1).
 // The same machine and the same config.sh give the same result.
 // tests/smoke.sh runs both versions and compares them (see "parity" there).
 package setup

@@ -210,7 +210,7 @@ envsetup is a Go program: `cmd/envsetup`, `internal/setup` and `internal/ui`.
   A caller names what a message means, such as `ui.Warn` or `ui.Step`, and `term.go` picks the look.
   Change the look in the theme in `term.go`, never at a call site.
   With `SMOKE_CHOICES` set, the scripted UI answers from the test's lists and logs each call (see Testing).
-  It is the only code that knows gum's flags, because the parity check compares its log with v1.0.0's.
+  It is the only code that knows gum's flags, because the parity check compares its log with v1.0.1's.
 - Each item in a picker says what it does.
   Build that text from the resolved config: `Config.ResolvedPackages` and `Config.ResolvedInstallers`.
   The actions use the same values.
@@ -391,12 +391,12 @@ On pushes to `main`, it also runs `release` after those jobs pass (see Releases)
   - It updates from the last 0.x release with the same `config.sh`.
   - A real bash and a real zsh load the result.
 - The smoke test replaces only the menu's answers, package installs and vendor downloads with fakes.
-- The smoke test also checks parity with the last bash release, v1.0.0 (#175).
-  Each `run_menu` runs v1.0.0 and the Go version from the same `$HOME` and `/usr/local/bin`.
+- The smoke test also checks parity with the last bash release, v1.0.1 (#175).
+  Each `run_menu` runs v1.0.1 and the Go version from the same `$HOME` and `/usr/local/bin`.
   It compares the files and their modes, the log of the fakes, the screen output and the exit code.
   Any difference fails the test.
   Set `NO_PARITY=1` for a scenario only where the two versions differ on purpose, and say why in a comment.
-  A new feature differs from v1.0.0 on purpose.
+  A new feature differs from v1.0.1 on purpose.
   So remove the parity check once the parity release is out.
 - CI runs the smoke test offline.
   It uses cached copies of the few packages that it installs with real apt.
@@ -445,7 +445,7 @@ Examples are the package lists, `envsetup::pkg_install`, `envsetup::pkg_manager`
 With `SMOKE_CHOICES` set, envsetup answers its own menus (`internal/ui/script.go`).
 It reads its answers from `$SMOKE_CHOICES` and `$SMOKE_CONFIRMS`.
 It logs each call to `$SMOKE_LOG`, in the same lines as the fake gum, `tests/gum.sh`.
-The parity check runs v1.0.0 with that fake gum, so keep the two in step.
+The parity check runs v1.0.1 with that fake gum, so keep the two in step.
 
 The smoke test proves that the flows run.
 It does not prove every branch.

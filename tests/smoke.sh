@@ -109,7 +109,8 @@ OMZ
 		while [ "$1" != -o ]; do shift; done
 		printf '#!/bin/sh\necho smoke-kubectl\n' >"$2"
 		;;
-	*/hunterdw0007/envsetup/main/install.sh) cat /src/install.sh ;;
+	# The parity check's bash side gets the bash release's install.sh (see run_once).
+	*/hunterdw0007/envsetup/main/install.sh) cat "${SMOKE_INSTALL_SH:-/src/install.sh}" ;;
 	# The fake release server holds the binaries for install.sh, in /tmp/smoke/dl (DL below).
 	# A file that is not there fails, as curl -f does on a 404.
 	*https://releases.smoke.invalid/*)
@@ -135,39 +136,70 @@ chmod +x "$STUBS"/* "$OFFLINE"/* "$HOOKS"/*
 # Options for setup.sh go in SETUP_ARGS.
 # Answers to gum confirm go in CONFIRMS.
 # SETUP=curl_bash runs setup.sh through install.sh instead, as `curl ... | bash` does.
+# SETUP is a command, or a path under a folder that has a twin (see twin below).
 SETUP_ARGS=() CONFIRMS=()
 run_menu() {
 	local home=$1 rc=0 ref_rc=0
 	shift
 	# The parity check below runs the bash version first, from the same start.
-	if [[ -z "${SETUP:-}" && -d "$REF" && -z "${NO_PARITY:-}" ]]; then
+	if parity_on; then
 		parity_save "$home"
-		run_once "$REF/setup.sh" "$home" "$@" || ref_rc=$?
+		SIDE=ref run_once "${SETUP:-$CLONE/setup.sh}" "$home" "$@" || ref_rc=$?
 		parity_keep "$home"
 	fi
 	run_once "${SETUP:-$CLONE/setup.sh}" "$home" "$@" || rc=$?
-	if [[ -z "${SETUP:-}" && -d "$REF" && -z "${NO_PARITY:-}" ]]; then parity_check "$home" "$ref_rc" "$rc"; fi
+	if parity_on; then parity_check "$home" "$ref_rc" "$rc"; fi
 	return "$rc"
 }
 run_once() {
-	local setup=$1 home=$2
+	local setup home=$2
+	setup=$(side "$1")
 	shift 2
 	printf '%s\n' "$@" >"$SMOKE_CHOICES"
 	printf '%s\n' "${CONFIRMS[@]}" >"$SMOKE_CONFIRMS"
 	: >"$SMOKE_LOG"
-	HOME=$home PATH="$OFFLINE:$STUBS:$PATH" "$setup" "${SETUP_ARGS[@]}" >"$home/setup.out" 2>&1 </dev/tty
+	SMOKE_INSTALL_SH=$(side "$SRC/install.sh") HOME=$home PATH="$OFFLINE:$STUBS:$PATH" \
+		"$setup" "${SETUP_ARGS[@]}" >"$home/setup.out" 2>&1 </dev/tty
 }
 
 # The parity check proves that the Go version does what the bash version did (#175).
-# REF is a clone at the last bash release.
-# Each run_menu runs REF's setup.sh, then the Go version, from the same $HOME and /usr/local/bin.
+# REF is a clone at the last bash release: the newest tag that HEAD contains.
+# A merge of main into the Go branch then moves REF to the release that set the same pins.
+# Each run_menu runs both versions from the same $HOME and /usr/local/bin.
+# It runs the bash version with SIDE=ref, then the Go version.
 # It compares each file with its mode, the log of the fakes, the screen output and the exit code.
 # Any difference is a failure.
 # The bash version used gum, and the Go version logs the same "gum ..." lines (internal/ui/script.go).
 # NO_PARITY=1 skips the check for a scenario where the two versions differ on purpose.
+# parity_out (below) does the same for a command that only prints.
 REF=$W/ref
-REF_VERSION=v1.0.1
 PARITY=$W/parity
+# TWIN maps a folder of the Go version to the same folder of the bash version.
+# side <path> prints the path for the side that runs: the bash version's path when SIDE=ref.
+# A path outside every folder in TWIN, or a command name, stays the same.
+declare -A TWIN=(["$SRC"]=$REF ["$CLONE"]=$REF)
+side() {
+	local p=$1 d
+	if [[ "${SIDE:-}" == ref ]]; then
+		for d in "${!TWIN[@]}"; do
+			if [[ "$p" == "$d"/* ]]; then
+				p=${TWIN[$d]}${p#"$d"}
+				break
+			fi
+		done
+	fi
+	echo "$p"
+}
+# twin <dir> copies the clone to <dir>, and the bash version to <dir>.ref.
+# A scenario changes both copies the same way, then runs <dir>/setup.sh.
+twin() {
+	cp -a "$CLONE" "$1"
+	if [[ -d "$REF" ]]; then
+		cp -a "$REF" "$1.ref"
+		TWIN[$1]=$1.ref
+	fi
+}
+parity_on() { [[ -d "$REF" && -z "${NO_PARITY:-}" ]]; }
 parity_save() {
 	rm -rf "$PARITY" && mkdir -p "$PARITY"
 	cp -a "$1" "$PARITY/home.pre"
@@ -179,11 +211,17 @@ parity_keep() {
 	cp -a "$PARITY/home.pre" "$1"
 	rm -rf /usr/local/bin && cp -a "$PARITY/bin.pre" /usr/local/bin
 }
-# parity_norm replaces the two versions and the two clones with one name each, so they compare equal.
+# parity_norm replaces the two versions and each folder's twin with one name each, so they compare equal.
+# install.sh names the Go side's version by UNDER_TEST, and setup.sh --version by git describe.
+# Each random name from mktemp, in /tmp or in TMP, becomes one name.
+# The test's homes live in $W, so their names stay apart from these.
 parity_norm() {
-	local go_version
-	go_version=$(git -C "$CLONE" describe --tags --match 'v[0-9]*' --always --dirty)
-	sed -e "s|$REF/|$CLONE/|g" -e "s|$go_version|VERSION|g" -e "s|$REF_VERSION|VERSION|g"
+	local d args=()
+	for d in "${!TWIN[@]}"; do
+		if [[ "$d" != "$SRC" ]]; then args+=(-e "s|${TWIN[$d]}|$d|g"); fi
+	done
+	sed "${args[@]}" -e "s|/tmp/tmp\.[A-Za-z0-9]*|/tmp/tmp.X|g" \
+		-e "s|$GO_VERSION|VERSION|g" -e "s|$UNDER_TEST|VERSION|g" -e "s|$REF_VERSION|VERSION|g"
 }
 # parity_tree prints each path under a home with its type, its mode, its link target and a hash of its text.
 parity_tree() {
@@ -195,12 +233,16 @@ parity_tree() {
 			while IFS= read -r -d '' f; do printf '%s %s\n' "$f" "$(parity_norm <"$f" | md5sum)"; done
 	)
 }
+# The log check leaves out "gum style" lines, because gum style only prints.
+# The screen check compares all that reaches the screen.
+# bash sometimes sent a gum style call to /dev/null, and the Go version makes no call there.
+# One case: envsetup::status loaded config.sh without its warnings.
 parity_check() {
 	local home=$1 what
 	for what in exit log screen files; do
 		case $what in
 		exit) diff <(echo "exit $2") <(echo "exit $3") ;;
-		log) diff <(parity_norm <"$PARITY/log.ref") <(parity_norm <"$SMOKE_LOG") ;;
+		log) diff <(grep -v '^gum style ' "$PARITY/log.ref" | parity_norm) <(grep -v '^gum style ' "$SMOKE_LOG" | parity_norm) ;;
 		screen) diff <(parity_norm <"$PARITY/home.ref/setup.out") <(parity_norm <"$home/setup.out") ;;
 		files) diff <(parity_tree "$PARITY/home.ref") <(parity_tree "$home") ;;
 		esac >"$PARITY/$what.diff" || {
@@ -209,21 +251,48 @@ parity_check() {
 		}
 	done
 }
+# parity_out <desc> <file> <cmd...> runs cmd for the bash version, then for the Go version.
+# cmd writes its output to <file> and must change nothing else.
+# The check compares the two outputs and exit codes.
+# It returns the Go version's exit code, and <file> keeps the Go version's output.
+parity_out() {
+	local desc=$1 file=$2 rc=0 ref_rc=0
+	shift 2
+	if parity_on; then
+		SIDE=ref "$@" || ref_rc=$?
+		cp "$file" "$PARITY.out.ref"
+	fi
+	"$@" || rc=$?
+	if parity_on && ! diff <(echo "exit $ref_rc" && parity_norm <"$PARITY.out.ref") <(echo "exit $rc" && parity_norm <"$file") >"$PARITY.out.diff"; then
+		fail "parity: $desc differs from $REF_VERSION (< bash, > Go)"
+		head -n 40 "$PARITY.out.diff" | show /dev/stdin
+	fi
+	return "$rc"
+}
 # install.sh downloads into TMP (mktemp -d).
 # TMP must be empty after install.sh ends.
 TMP=$W/tmp
 mkdir -p "$TMP"
 # shellcheck disable=SC2120 # run_menu passes it SETUP_ARGS
-curl_bash() { ENVSETUP_VERSION=$UNDER_TEST ENVSETUP_REPO_URL=$SRC TMPDIR=$TMP bash "$SRC/install.sh" "$@"; }
+# The bash side runs the bash release's install.sh and asks for that release.
+curl_bash() {
+	local version=$UNDER_TEST
+	if [[ "${SIDE:-}" == ref ]]; then version=$REF_VERSION; fi
+	ENVSETUP_VERSION=$version ENVSETUP_REPO_URL=$SRC TMPDIR=$TMP bash "$(side "$SRC/install.sh")" "$@"
+}
 left_nothing() { [ -z "$(ls -A "$TMP")" ]; }
 # envsetup_in <bash|zsh> <args> runs the envsetup command in a real interactive shell.
 # Unlike in_shell, the shell keeps the terminal, because install.sh reads from /dev/tty.
 # config.sh sets ENVSETUP_REPO_URL, so the test does not set it here.
 # An empty ENVSETUP_VERSION stays empty, so envsetup picks the release itself.
+# The bash side always asks for the bash release.
+# Otherwise it would pick the release in the version file, which the Go side wrote.
+# shell/ is the same in both versions, so the Go side alone tests that pick.
 envsetup_in() {
-	local sh=$1
+	local sh=$1 version=${ENVSETUP_VERSION-$UNDER_TEST}
 	shift
-	ENVSETUP_VERSION=${ENVSETUP_VERSION-$UNDER_TEST} TMPDIR=$TMP "$sh" -ic 'envsetup "$@"' envsetup "$@"
+	if [[ "${SIDE:-}" == ref ]]; then version=$REF_VERSION; fi
+	ENVSETUP_VERSION=$version TMPDIR=$TMP "$sh" -ic 'envsetup "$@"' envsetup "$@"
 }
 envsetup_bash() { envsetup_in bash "$@"; }
 envsetup_zsh() { envsetup_in zsh "$@"; }
@@ -236,9 +305,10 @@ snapshot() {
 		find . -type f ! -name setup.out ! -name 'shell.*' -exec md5sum {} + | sort
 	) | md5sum
 }
+# Each home lives in $W, so parity_norm can tell it apart from a temporary folder.
 new_home() {
 	local h
-	h=$(mktemp -d)
+	h=$(mktemp -d "$W/home.XXXXXX")
 	cp -rT /etc/skel "$h"
 	echo "$h"
 }
@@ -254,10 +324,10 @@ n_installers() {
 # described <count> <text> passes when the count behind a label is real and the menu shows the text.
 described() { [ "$1" -gt 0 ] && grep -qF -- "$2" "$SMOKE_LOG"; }
 # Both checks run without gum on PATH, so they fail if they call gum.
-help_ok() { HOME=$1 PATH=/usr/bin:/bin "$CLONE/setup.sh" --help >"$1/help.out" 2>&1 && grep -q '^Usage: ' "$1/help.out"; }
+help_ok() { HOME=$1 PATH=/usr/bin:/bin "$(side "$CLONE/setup.sh")" --help >"$1/help.out" 2>&1 && grep -q '^Usage: ' "$1/help.out"; }
 rejects_unknown() {
 	local rc=0
-	HOME=$1 PATH=/usr/bin:/bin "$CLONE/setup.sh" --bogus >"$1/bogus.out" 2>&1 || rc=$?
+	HOME=$1 PATH=/usr/bin:/bin "$(side "$CLONE/setup.sh")" --bogus >"$1/bogus.out" 2>&1 || rc=$?
 	[ "$rc" = 2 ] && grep -qF 'unknown option: --bogus' "$1/bogus.out"
 }
 includes() { git config --file "$1/.gitconfig" --get-all include.path || true; }
@@ -305,7 +375,7 @@ check "  ...installed no git" not has git
 check "  ...and downloaded nothing" left_nothing
 # Each folder on PATH holds one fake package manager and nothing else.
 # So install.sh finds only that package manager.
-only_pm() { PATH=$W/pm/$1 "$BASH" "$SRC/install.sh" >"$W/no-git-$1.out" 2>&1; }
+only_pm() { PATH=$W/pm/$1 "$BASH" "$(side "$SRC/install.sh")" >"$W/no-git-$1.out" 2>&1; }
 fake() { # fake <dir> <command>... adds empty commands to a folder
 	local dir=$1
 	shift
@@ -325,7 +395,7 @@ check "no package manager: exited non-zero" not only_pm none
 check "  ...and linked to git's download page" grep -qF 'https://git-scm.com/downloads' "$W/no-git-none.out"
 # A user who is not root gets sudo or doas in front of the command.
 # Without either one, the hint says to run the command as root.
-as_user() { setpriv --reuid=65534 --regid=65534 --clear-groups env PATH="$W/pm/$1" "$BASH" "$SRC/install.sh" >"$W/no-git-$1.out" 2>&1; }
+as_user() { setpriv --reuid=65534 --regid=65534 --clear-groups env PATH="$W/pm/$1" "$BASH" "$(side "$SRC/install.sh")" >"$W/no-git-$1.out" 2>&1; }
 fake "$W/pm/sudo" apt-get sudo
 fake "$W/pm/doas" apt-get doas
 check "not root, with sudo: exited non-zero" not as_user sudo
@@ -370,12 +440,25 @@ git clone -q "$SRC" "$CLONE"
 git -C "$CLONE" checkout -q --detach "$(git -C "$SRC" rev-parse HEAD)"
 check "(the checkout is at the commit under test)" same_commit "$SRC" "$CLONE"
 # The parity check runs the last bash release from its own clone.
+# CI fetches every tag (fetch-depth: 0 in ci.yml).
+GO_VERSION=$(git -C "$CLONE" describe --tags --match 'v[0-9]*' --always --dirty)
+REF_VERSION=$(git -C "$CLONE" describe --tags --abbrev=0 --match 'v[0-9]*' --exclude '*-*' HEAD)
 git clone -q "$SRC" "$REF"
 git -C "$REF" checkout -q --detach "$REF_VERSION"
-check "(the parity check has the bash version)" [ -f "$REF/lib/zsh.sh" ]
-mac_setup() { OSTYPE=darwin24 "$CLONE/setup.sh" --help >$W/mac-setup.out 2>&1; }
-check "setup.sh in a clone on macOS: exited non-zero" not mac_setup
+check "(the parity check has the bash version: $REF_VERSION)" [ -f "$REF/lib/zsh.sh" ]
+mac_setup() { OSTYPE=darwin24 "$(side "$CLONE/setup.sh")" --help >$W/mac-setup.out 2>&1; }
+check "setup.sh in a clone on macOS: exited non-zero" not parity_out "setup.sh on macOS" $W/mac-setup.out mac_setup
 check "  ...and named the last release for macOS" grep -qF 'git checkout v0.3.0 && ./setup.sh --uninstall' $W/mac-setup.out
+# The scenarios for install.sh's early stops ran before the clone of the bash version existed.
+# So they run here again, for the parity check only.
+# Their PATH holds no git, except on macOS, where install.sh stops before it looks for git.
+parity_out "install.sh on macOS" $W/mac.out mac || true
+for pm in apt-get dnf zypper pacman apk nix-env none; do
+	parity_out "install.sh with only $pm" "$W/no-git-$pm.out" only_pm "$pm" || true
+done
+for pm in sudo doas apt-get; do
+	parity_out "install.sh as a user, with $pm" "$W/no-git-$pm.out" as_user "$pm" || true
+done
 
 # Install a real zsh, so the test checks the shell config in a real zsh.
 # Install a real jq, because "Move dotfiles to XDG dirs" reads xdg-ninja's notes with it.
@@ -573,13 +656,13 @@ for sh in bash zsh; do
 done
 # status runs setup.sh --status (#97).
 # PATH has no gum, and the repo for the newest release is out of reach, as offline.
-status() { HOME=$h ENVSETUP_REPO_URL=$W/no-repo PATH="$OFFLINE:/usr/bin:/bin" "$CLONE/setup.sh" --status >$W/status.out 2>&1; }
+status() { HOME=$h ENVSETUP_REPO_URL=$W/no-repo PATH="$OFFLINE:/usr/bin:/bin" "$(side "$CLONE/setup.sh")" --status >$W/status.out 2>&1; }
 all_ok() { [ "$(grep -c '^ok ' $W/status.out)" = 7 ] && [ "$(wc -l <$W/status.out)" = 7 ]; }
-check "--status exited 0" status
+check "--status exited 0" parity_out --status $W/status.out status
 check "  ...printed 7 lines, each one ok" all_ok
 ((failures)) && show $W/status.out
 mv "$OFFLINE/aws" $W/aws
-check "--status without aws: exited 1" not status
+check "--status without aws: exited 1" not parity_out "--status without aws" $W/status.out status
 mv $W/aws "$OFFLINE/aws"
 check "  ...and named aws, which awscli.sh checks" grep -qx 'missing  aws is not on PATH. Select Run installers' $W/status.out
 check "re-run exited 0" run_menu "$h" "Run everything" Quit
@@ -949,8 +1032,8 @@ check "  ...and the state folder" [ ! -e "$h/.config/envsetup" ]
 
 echo "== explaining itself"
 h=$(new_home)
-check "--help works with only /usr/bin and /bin on PATH" help_ok "$h"
-check "an unknown option is rejected, not ignored" rejects_unknown "$h"
+check "--help works with only /usr/bin and /bin on PATH" parity_out --help "$h/help.out" help_ok "$h"
+check "an unknown option is rejected, not ignored" parity_out "an unknown option" "$h/bogus.out" rejects_unknown "$h"
 check "  ...without writing anything" [ ! -e "$h/.config" ]
 run_menu "$h" Quit
 check "a first run shows a welcome" grep -qF 'Welcome to envsetup' "$SMOKE_LOG"
@@ -1059,9 +1142,10 @@ check "  ...and showed the changed setting" grep -qxF 'gum style Shell: +zsh -ba
 echo "== A renamed setting in config.sh: ask, then migrate (#124)"
 # The shipped ENVSETUP_RENAMED is empty, so a copy of the clone gets a test item.
 M=$W/renamed
-cp -a "$CLONE" "$M"
-sed -i 's/^ENVSETUP_RENAMED=()$/ENVSETUP_RENAMED=(ENVSETUP_OLD_SHELL=ENVSETUP_SHELL)/' "$M/lib/config.sh"
+twin "$M"
+sed -i 's/^ENVSETUP_RENAMED=()$/ENVSETUP_RENAMED=(ENVSETUP_OLD_SHELL=ENVSETUP_SHELL)/' "$M/lib/config.sh" "$M.ref/lib/config.sh"
 check "  ...(control: the copy has the test item)" grep -qxF 'ENVSETUP_RENAMED=(ENVSETUP_OLD_SHELL=ENVSETUP_SHELL)' "$M/lib/config.sh"
+check "  ...(control: so does the copy of the bash version)" grep -qxF 'ENVSETUP_RENAMED=(ENVSETUP_OLD_SHELL=ENVSETUP_SHELL)' "$M.ref/lib/config.sh"
 h=$(new_home)
 c=$h/.config/envsetup/config.sh
 mkdir -p "${c%/*}"
@@ -1190,11 +1274,12 @@ check "  ...and deletes its download" left_nothing
 # The copy of shell/ matches the release that linked it last.
 from_releases() { ENVSETUP_REPO_URL=$R TMPDIR=$TMP bash "$SRC/install.sh" "$@"; }
 h=$(new_home)
-ENVSETUP_VERSION=1.1.0 SETUP=from_releases check "Link shell config from v1.1.0: exits 0" run_menu "$h" "Link shell config" Quit
+# This origin holds only the Go version, so the two sides would run the same code.
+ENVSETUP_VERSION=1.1.0 NO_PARITY=1 SETUP=from_releases check "Link shell config from v1.1.0: exits 0" run_menu "$h" "Link shell config" Quit
 check "  ...records v1.1.0" [ "$(cat "$h/.local/share/envsetup/version" 2>/dev/null)" = v1.1.0 ]
 echo "alias smoke-release='v1.2.0'" >>"$R/shell/shared/aliases.sh"
 release "fix: fourth" v1.2.0
-SETUP=from_releases check "a new release upstream: exits 0" run_menu "$h" "Link shell config" Quit
+NO_PARITY=1 SETUP=from_releases check "a new release upstream: exits 0" run_menu "$h" "Link shell config" Quit
 check "  ...records it" [ "$(cat "$h/.local/share/envsetup/version" 2>/dev/null)" = v1.2.0 ]
 check "  ...and new shells get its shell config" [ "$(in_shell "$h" bash 'alias smoke-release')" = "alias smoke-release='v1.2.0'" ]
 check "  ...and deletes its download" left_nothing
@@ -1595,12 +1680,13 @@ echo "== work/full: Run installers updates only the tools that envsetup installe
 # The record says that envsetup installed kubectl 1.0.0 and the pinned helm.
 # envsetup did not install terraform, which the fakes put on PATH.
 c=$W/clone-96
-cp -a "$CLONE" "$c"
+twin "$c"
 pins=$c/installers/versions.txt
 k_pin=$(awk '$1 == "kubectl" { print $2 }' "$pins")
 helm_pin=$(awk '$1 == "helm" { print $2 }' "$pins")
 k_sha=$(printf '#!/bin/sh\necho smoke-kubectl\n' | sha256sum | cut -d' ' -f1)
-sed -i "s/^kubectl .*/kubectl $k_pin linux-amd64=$k_sha linux-arm64=$k_sha/" "$pins"
+sed -i "s/^kubectl .*/kubectl $k_pin linux-amd64=$k_sha linux-arm64=$k_sha/" "$pins" "$c.ref/installers/versions.txt"
+check "(control: both copies pin the same kubectl)" cmp -s <(grep '^kubectl ' "$pins") <(grep '^kubectl ' "$c.ref/installers/versions.txt")
 h=$(new_home)
 rec=$h/.local/state/envsetup/installed
 mkdir -p "${rec%/*}"
@@ -1633,7 +1719,7 @@ SETUP_ARGS=() CONFIRMS=()
 check "  ...deleted the record" none_exist "$rec" "${rec%/*}"
 check "  ...and kept the tool" [ -x /usr/local/bin/kubectl ]
 ((failures)) && show "$h/setup.out"
-rm -rf /usr/local/bin/kubectl "$c"
+rm -rf /usr/local/bin/kubectl "$c" "$c.ref"
 
 echo "== download verification (lib/common.sh), offline"
 # install_release gets a file:// URL from a fake curl that only copies local files.
@@ -1687,6 +1773,73 @@ for t in mktemp base64 rm; do ln -sf "$(command -v "$t")" "$v/nogpg/$t"; done
 VPATH=$v/nogpg check "  ...fails closed with neither gpgv nor gpg" not verify envsetup::gpg_verify "$fx/signed.txt" "$fx/signed.txt.sig" "$fx/smoke-key.asc" "$fpr"
 check "  ...saying what to install" grep -qF "to check the signature of signed.txt. Install gnupg." "$v/out"
 
+# The scenarios above test the cases that someone thought of.
+# These runs pick their inputs at random, to find differences that nobody thought of.
+# Each run gets a config.sh from SETTINGS, a profile, and 1 to 6 menu actions from ACTIONS.
+# It may run with --dry-run, and it gets random answers to gum confirm.
+# Only the parity check counts here, so a run may fail, as long as both versions fail the same way.
+# PARITY_SEED repeats the same runs, and a failure prints it.
+# PARITY_RUNS sets the number of runs: a few on each push, and more in a run from the Actions tab.
+# Paste config, Edit config and Move dotfiles to XDG dirs need test input, so the scenarios above cover them.
+PARITY_RUNS=${PARITY_RUNS:-25} PARITY_SEED=${PARITY_SEED:-$((RANDOM * 32768 + RANDOM))}
+# Both come from a manual CI run's inputs, and bash arithmetic would run code in them.
+if [[ ! "$PARITY_RUNS" =~ ^[0-9]+$ || ! "$PARITY_SEED" =~ ^[0-9]+$ ]]; then
+	echo "PARITY_RUNS and PARITY_SEED must be whole numbers." >&2
+	exit 2
+fi
+echo "== parity: $PARITY_RUNS random runs (PARITY_SEED=$PARITY_SEED)"
+SETTINGS=('ENVSETUP_SHELL=zsh' 'ENVSETUP_SKIP=(tig kubectl)' 'ENVSETUP_EXTRAS=(lazygit nope)'
+	'ENVSETUP_GIT_CONFIG+=("alias.smoke=status")' 'ENVSETUP_PACKAGES+=(smoke-conflict)'
+	'ENVSETUP_INSTALLER_DIRS=()' 'echo printed by config.sh' 'false')
+# shellcheck disable=SC2034 # pick reads ACTIONS, PROFILES and ANSWERS by name
+ACTIONS=("Select profile" "Link shell config" "Set up zsh + oh-my-zsh" "Configure git" "Set up SSH key"
+	"Install packages" "Run installers" "Preview everything" "Run everything" "Check status" "Uninstall")
+# shellcheck disable=SC2034 # pick reads them by name
+PROFILES=("home" "work full" "work lite") ANSWERS=(yes no)
+# pick <array name> sets PICKED to one random item of the array.
+# It draws in this shell, because a subshell's draws do not move this shell's sequence.
+# Then PARITY_SEED could not repeat a run.
+pick() {
+	local -n a=$1
+	PICKED=${a[RANDOM % ${#a[@]}]}
+}
+RANDOM=$PARITY_SEED
+reached=0
+for ((run = 1; run <= PARITY_RUNS; run++)); do
+	h=$(new_home) before=$failures steps=() CONFIRMS=() SETUP_ARGS=()
+	mkdir -p "$h/.config/envsetup"
+	for line in "${SETTINGS[@]}"; do
+		if ((RANDOM % 3 == 0)); then echo "$line" >>"$h/.config/envsetup/config.sh"; fi
+	done
+	pick PROFILES
+	read -ra profile <<<"$PICKED"
+	steps=("Select profile" "${profile[@]}")
+	for ((i = RANDOM % 6; i >= 0; i--)); do
+		pick ACTIONS
+		steps+=("$PICKED")
+		if [[ "$PICKED" == "Select profile" ]]; then
+			pick PROFILES
+			read -ra profile <<<"$PICKED"
+			steps+=("${profile[@]}")
+		fi
+	done
+	for i in 1 2 3 4 5 6; do
+		pick ANSWERS
+		CONFIRMS+=("$PICKED")
+	done
+	if ((RANDOM % 4 == 0)); then SETUP_ARGS=(--dry-run); fi
+	run_menu "$h" "${steps[@]}" Quit || true
+	if grep -q '^gum choose' "$SMOKE_LOG"; then reached=$((reached + 1)); fi
+	if ((failures > before)); then
+		printf '        | run %s of PARITY_SEED=%s\n' "$run" "$PARITY_SEED"
+		printf '        | %s\n' "options: ${SETUP_ARGS[*]}" "answers to gum confirm: ${CONFIRMS[*]}" "config.sh:"
+		show "$h/.config/envsetup/config.sh" 2>/dev/null || true
+		printf '        | menu: %s\n' "${steps[@]}"
+	fi
+done
+CONFIRMS=() SETUP_ARGS=()
+check "(control: every random run reached the menu)" [ "$reached" = "$PARITY_RUNS" ]
+
 echo "== cancelling"
 h=$(new_home)
 check "esc on the main menu quits cleanly" run_menu "$h" ESC
@@ -1697,7 +1850,7 @@ h=$(new_home)
 CONFIRMS=(no no) # no gh; no signing
 check "a key that envsetup created: exited 0" run_menu "$h" "Select profile" work lite "Set up SSH key" Quit
 SETUP_ARGS=(--uninstall) CONFIRMS=(yes ESC) # remove; cancel "Keep ~/.ssh/id_ed25519?"
-# v1.0.1 deleted the key on a cancel, so the two versions differ here on purpose.
+# The bash release deleted the key on a cancel, so the two versions differ here on purpose.
 NO_PARITY=1 check "esc on Keep ~/.ssh/id_ed25519? in uninstall: exited 0" run_menu "$h"
 SETUP_ARGS=() CONFIRMS=()
 check "  ...asked about the key" grep -qF 'gum confirm Keep ~/.ssh/id_ed25519?' "$SMOKE_LOG"

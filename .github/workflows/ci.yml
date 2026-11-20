@@ -4,6 +4,18 @@ on:
   push:
     branches: [main]
   pull_request:
+  # A manual run can ask the smoke test for more random parity runs (see "parity" in tests/smoke.sh).
+  # The release job runs only on a push, so a manual run releases nothing.
+  workflow_dispatch:
+    inputs:
+      parity_runs:
+        description: Random parity runs in the smoke test. Leave it empty for the default.
+        required: false
+        default: ""
+      parity_seed:
+        description: The seed of a run to repeat (PARITY_SEED from a failure). Leave it empty for a new one.
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -74,7 +86,9 @@ jobs:
     # Only gum's menus, package installs and vendor downloads are fakes.
     # See tests/smoke.sh.
     runs-on: ubuntu-24.04
-    timeout-minutes: 20 # a cache miss fetches from Ubuntu's archive; a hit takes seconds
+    # A cache miss fetches from Ubuntu's archive; a hit takes seconds.
+    # Each random parity run adds about 1 second, so 1000 runs need about 17 more minutes.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -117,8 +131,11 @@ jobs:
           cp /var/cache/apt/archives/*.deb /out/archives/; chmod -R a+rX /out'
 
       - name: smoke test (ubuntu:24.04, offline)
+        env:
+          PARITY_RUNS: ${{ inputs.parity_runs }}
+          PARITY_SEED: ${{ inputs.parity_seed }}
         run: >-
-          docker run --rm -t --network none -e SMOKE_APT_CACHE=/apt-cache
+          docker run --rm -t --network none -e SMOKE_APT_CACHE=/apt-cache -e PARITY_RUNS -e PARITY_SEED
           -v "$RUNNER_TEMP/smoke-apt:/apt-cache:ro" -v "$RUNNER_TEMP/envsetup-bin:/envsetup-bin:ro"
           -v "$PWD:/src:ro" ubuntu:24.04 bash /src/tests/smoke.sh
 

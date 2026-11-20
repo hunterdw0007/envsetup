@@ -38,9 +38,10 @@ Add them to `ENVSETUP_SKIP` in `config.sh`.
 envsetup runs root steps with `sudo`, or with `doas` if the machine has it.
 If you are already root, envsetup runs those steps directly.
 The menu itself does not need sudo.
-envsetup installs gum with Homebrew if the machine has it.
-Otherwise it downloads gum's pinned release into `~/.local/bin` and checks its checksum.
-If that fails and the machine has Go, it uses `go install`.
+`install.sh` downloads the envsetup binary that matches the machine (amd64 or arm64) and checks its sha256.
+Releases have no binary for other architectures, such as armv7.
+On those machines, `setup.sh` builds envsetup with [Go](https://go.dev/doc/install).
+So install Go 1.27.4 or newer first.
 Installers download the amd64 or arm64 build that matches the machine.
 
 `installers/versions.txt` sets the version and sha256 checksum of each download.

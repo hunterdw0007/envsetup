@@ -2,7 +2,8 @@
 # This script runs as root inside one distro container, after inside.sh.
 # It uses envsetup the way a tester would: as users with sudo who are not root.
 # It uses real package installs and downloads.
-# Only gum's menus are scripted, so the menu can run without a person.
+# Only the menu's answers are scripted, so the menu can run without a person.
+# run.sh builds envsetup on the host and mounts it at /envsetup-bin/envsetup, because the images have no Go.
 # Every phase writes a line to /report/<slug>/summary.tsv, and the logs go next to it.
 set -uo pipefail # no -e, so each phase reports its own result and the next phase still runs
 
@@ -35,13 +36,13 @@ as() {
 	shift
 	# shellcheck disable=SC2024 # root opens /dev/tty for the user's process on purpose
 	sudo -u "$user" -H env "PATH=$stubs:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
-		"SMOKE_LOG=/tmp/$user/gum.log" "SMOKE_CHOICES=/tmp/$user/choices" "SMOKE_CONFIRMS=/tmp/$user/confirms" \
+		"ENVSETUP_BIN=/envsetup-bin/envsetup" "SMOKE_LOG=/tmp/$user/gum.log" "SMOKE_CHOICES=/tmp/$user/choices" "SMOKE_CONFIRMS=/tmp/$user/confirms" \
 		bash -c "cd ~ && $*" </dev/tty
 }
 
-# answers <user> <confirm answers...> -- <menu choices...> saves the answers for gum.
+# answers <user> <confirm answers...> -- <menu choices...> saves the answers for the menu.
 # They go in a folder that the user owns.
-# The fake gum replaces the files as it reads them, and it cannot do that to root's files in /tmp.
+# envsetup replaces the files as it reads them, and it cannot do that to root's files in /tmp.
 answers() {
 	local user=$1 confirms=()
 	shift
@@ -57,10 +58,8 @@ answers() {
 	chown -R "$user:" "/tmp/$user"
 }
 
-# The fake gum answers choose and confirm from the lists above.
-# It fills in input and logs each call.
+# envsetup answers its own questions from the lists above, because SMOKE_CHOICES is set.
 mkdir -p "$stubs"
-install -m 755 /src/tests/gum.sh "$stubs/gum"
 # A real ssh-keygen would wait for a passphrase.
 # The test checks the real ssh from openssh-client below.
 install -m 755 /src/tests/ssh-keygen.sh "$stubs/ssh-keygen"
@@ -106,15 +105,6 @@ if as beta "$install --help" >"$out/bootstrap.log" 2>&1 &&
 	result bootstrap PASS "install.sh ran setup.sh --help from a download, and deleted it"
 else
 	result bootstrap FAIL "install.sh failed: $(tail -n 3 "$out/bootstrap.log")"
-fi
-
-# --- gum: the menu cannot start without it -------------------------------------------
-# as() starts from a clean environment, so pass ENVSETUP_ROOT.
-# envsetup reads gum's pinned version from the code.
-if as beta "PATH=\${PATH#$stubs:}; export ENVSETUP_ROOT=/srv/envsetup; source /srv/envsetup/lib/common.sh && envsetup::ensure_gum && command -v gum" >"$out/gum.log" 2>&1; then
-	result gum PASS "installed: $(tail -n 1 "$out/gum.log")"
-else
-	result gum FAIL "envsetup::ensure_gum couldn't install gum: $(tail -n 2 "$out/gum.log")"
 fi
 
 # --- each profile: Run everything, then check what a new shell gets -----------------

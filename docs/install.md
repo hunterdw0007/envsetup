@@ -12,6 +12,8 @@ Then it stops.
 The command does three things:
 
 1. It downloads the newest release into a temporary folder.
+   That includes the envsetup binary for your machine (amd64 or arm64).
+   The command checks the binary's sha256 against the release's `SHA256SUMS` before it runs it.
 2. It opens the menu.
 3. When you quit the menu, it deletes the temporary folder.
    It also deletes the folder after an error or Ctrl-C.
@@ -48,6 +50,7 @@ curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.
 ```
 
 - `ENVSETUP_VERSION` also accepts `1.0.0`, a branch name or a commit.
+  A branch or a commit has no binary, so it needs Go (see [Install without curl](#install-without-curl)).
 - `ENVSETUP_VERSION=main` gives you changes that are not in a release yet.
 - An unknown value shows the list of releases.
 - A run without `ENVSETUP_VERSION` selects the newest release again.
@@ -67,6 +70,7 @@ Then move your changes to `config.sh` (see [Customize](../README.md#customize)).
 ## Try it without changes
 
 ```sh
+# in a clone, which needs Go (see Install without curl)
 ./setup.sh --dry-run
 # or with curl, which deletes its download afterwards, as usual
 curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.sh | bash -s -- --dry-run
@@ -83,14 +87,6 @@ It does not run the text.
 It saves the text nowhere, not even for the session.
 With `--dry-run`, `--config <file>` also checks only the syntax of the file.
 
-The menu needs gum.
-If the machine does not have gum, the dry run asks before it installs gum.
-A dry run makes no other change.
-gum's download needs curl, tar and gzip.
-If one of them is missing, the dry run names it and stops.
-Install the missing tools first.
-Then start the dry run again.
-
 The **Preview everything** action is the same as a dry run of **Run everything**.
 
 ## Install without curl
@@ -102,7 +98,12 @@ cd ~/envsetup
 ```
 
 This method uses the newest commit on `main`.
-To use a release, run `git checkout v1.0.0` first.
+A clone has no built binary, so `setup.sh` builds one with [Go](https://go.dev/doc/install).
+Install Go 1.27.4 or newer first.
+A checkout of a release needs Go too.
+Only v1.0.1 and older releases need no Go, because they are bash.
+`ENVSETUP_VERSION` with a branch or a commit needs Go for the same reason.
+To use a release, run `git checkout <release>` first.
 `git tag` lists the releases.
 envsetup never deletes this folder.
 New shells load the copy of `shell/` that **Link shell config** makes.

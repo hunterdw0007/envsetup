@@ -17,7 +17,7 @@ curl -fsSL https://raw.githubusercontent.com/hunterdw0007/envsetup/main/install.
 envsetup sets up the shell on a new or wiped Linux machine.
 It adds aliases, environment variables, shell functions and common command-line tools.
 You choose what it does from a menu in the terminal.
-The menu uses [gum](https://github.com/charmbracelet/gum).
+The menu uses [BubbleTea](https://github.com/charmbracelet/bubbletea).
 
 ## Highlights
 
@@ -49,6 +49,7 @@ These variables change what the command does:
 | Variable | What it does |
 | --- | --- |
 | `ENVSETUP_REPO_URL` | Sets the repo URL, for example an SSH URL. |
+| `ENVSETUP_DOWNLOAD_URL` | Sets where the release binaries are, for a repo that is not on GitHub. |
 | `ENVSETUP_VERSION` | Selects a release. See [Select a release](docs/install.md#select-a-release). |
 | `ENVSETUP_CONFIG_REPO` | Gets `config.sh` from your own git repo. See [Use config.sh on other machines](docs/customizing.md#use-configsh-on-other-machines). |
 
@@ -58,7 +59,6 @@ These variables change what the command does:
 
 envsetup changes nothing until you select an action.
 Run `./setup.sh --help` to see an overview without the menu.
-`--help` works on a machine without gum.
 
 First, select a profile: `work` or `home`.
 For `work`, also select a mode:
@@ -101,7 +101,7 @@ Work lite skips **Install packages** and **Run installers**.
 - **Preview everything** shows what **Run everything** would do.
 - **Check status** checks what envsetup set up on this machine.
   It changes nothing.
-  `./setup.sh --status` runs the same check without the menu or gum.
+  `./setup.sh --status` runs the same check without the menu.
   Each line starts with "ok" or "missing".
   `--status` exits 1 if any line is "missing".
 - **Uninstall** removes what envsetup added.
@@ -157,7 +157,7 @@ An update replaces the copy of `shell/`.
 
 The fastest way is **Paste config** in the menu.
 Paste your settings or shell code into the text box.
-Save or cancel with the keys that gum shows under the box.
+Save or cancel with the keys that the menu shows under the box.
 Then pick where the text goes:
 
 - **settings** adds the text to the end of `config.sh`.
@@ -247,7 +247,7 @@ It keeps packages and tools.
 
 ## Related projects
 
-- [gum](https://github.com/charmbracelet/gum) draws envsetup's menu.
+- [BubbleTea](https://github.com/charmbracelet/bubbletea) and [huh](https://github.com/charmbracelet/huh) draw envsetup's menu.
 - [VHS](https://github.com/charmbracelet/vhs) records the demo above.
 - [oh-my-zsh](https://ohmyz.sh) is the zsh setup that **Set up zsh + oh-my-zsh** installs.
 - [xdg-ninja](https://github.com/b3nj5m1n/xdg-ninja) tells **Move dotfiles to XDG dirs** which moves are safe.

@@ -9,27 +9,12 @@ ENVSETUP_RC_END="# <<< envsetup <<<"
 ENVSETUP_CHSH_MARKER="$ENVSETUP_STATE/chsh"       # exists after envsetup changes your login shell to zsh
 ENVSETUP_SSH_KEY_MARKER="$ENVSETUP_STATE/ssh-key" # exists after envsetup creates ~/.ssh/id_ed25519
 ENVSETUP_SHELL_D="$ENVSETUP_STATE/shell.d"        # your own shell files, which shell/init.sh loads
-# New shells load this copy of shell/ (see envsetup::copy_shell).
+# New shells load this copy of shell/ (see copyShell in internal/setup/link.go).
 # The copy's release is recorded next to it.
 ENVSETUP_DATA=$HOME/.local/share/envsetup
 if [[ "${XDG_DATA_HOME:-}" == /* ]]; then ENVSETUP_DATA=$XDG_DATA_HOME/envsetup; fi
 
-# A dry run comes from --dry-run or "Preview everything".
-# Every step that changes the machine checks this first.
-# In a dry run, the step describes the change and does not make it.
-envsetup::dry_run() { [[ "${ENVSETUP_DRY_RUN:-0}" == 1 ]]; }
-envsetup::would() { gum style --foreground 6 "  would $*"; }
 envsetup::has_cmd() { command -v "$1" &>/dev/null; }
-
-# version prints the checked-out release, for example v1.2.0.
-# Three commits after that release, it prints "v1.2.0-3-gabc1234".
-# Before the first release, it prints only the commit.
-# It adds "-dirty" when tracked files have edits.
-# Outside a checkout, it prints the release that envsetup::copy_shell recorded.
-envsetup::version() {
-	git -C "$ENVSETUP_ROOT" describe --tags --match 'v[0-9]*' --always --dirty 2>/dev/null ||
-		cat "$ENVSETUP_DATA/version" 2>/dev/null || echo unknown
-}
 
 # as_root runs a command as root.
 # If the user is already root, it runs the command directly (containers, WSL).
@@ -259,103 +244,10 @@ envsetup::pkg_name() {
 	esac
 }
 
-# RHEL and similar systems ship fewer packages.
-# fzf, ripgrep, bat, htop, neovim and about ten more listed packages come from EPEL.
-# enable_epel asks before it adds EPEL.
-envsetup::enable_epel() {
-	local id version pkg=epel-release guide="To turn on EPEL yourself, see https://docs.fedoraproject.org/en-US/epel/getting-started/"
-	id=$(envsetup::os_release ID)
-	[[ "$id" =~ ^(rhel|ol)$ || " $(envsetup::os_release ID_LIKE) " == *" rhel "* ]] || return 0
-	rpm -q epel-release oracle-epel-release-el{8,9,10} &>/dev/null && return 0
-	# RHEL's own repos have no epel-release.
-	# envsetup does not install it from a URL, because the URL names no version.
-	if [[ "$id" == rhel ]]; then
-		gum style --foreground 3 "EPEL is off. envsetup installs what the repos of RHEL have." "$guide"
-		return 0
-	fi
-	if envsetup::dry_run; then
-		envsetup::would "ask to turn on EPEL, Fedora's extra packages for $id. About a third of the packages come from EPEL"
-		return 0
-	fi
-	gum confirm "Turn on EPEL? EPEL is Fedora's extra package repo for $id. About a third of the packages come from it." || return 0
-	version=$(envsetup::os_release VERSION_ID)
-	version=${version%%.*}
-	[[ "$id" == ol ]] && pkg=oracle-epel-release-el$version
-	if ! envsetup::as_root dnf install -y "$pkg"; then
-		gum style --foreground 3 "Couldn't turn on EPEL. envsetup installs what the repos of $id have." "$guide"
-		return 0
-	fi
-	# Some EPEL packages need the CodeReady Builder repo.
-	# The epel-release package includes the helper that turns it on.
-	if envsetup::has_cmd crb; then envsetup::as_root crb enable; fi
-}
-
 # fetch <url> <file> downloads with curl or wget.
 # Ubuntu's desktop install has only wget.
 envsetup::fetch() {
 	if envsetup::has_cmd curl; then curl -fsSL -o "$2" "$1"; else wget -qO "$2" "$1"; fi
-}
-
-# gum_release <dir> installs gum's pinned release binary into <dir>.
-# It checks the checksum first.
-envsetup::gum_release() {
-	local arch asset version sha tmp rc=1
-	[[ "$OSTYPE" == linux* ]] || return 1
-	case $HOSTTYPE in x86_64) arch=$HOSTTYPE ;; aarch64) arch=arm64 ;; armv7*) arch=armv7 ;; *) return 1 ;; esac
-	version=$(envsetup::pin gum) && sha=$(envsetup::pin gum "linux-${arch/x86_64/amd64}") || return 1
-	# versions.txt calls gum's Linux_x86_64 build linux-amd64.
-	asset=gum_${version}_Linux_$arch.tar.gz
-	tmp=$(mktemp -d)
-	if envsetup::fetch "https://github.com/charmbracelet/gum/releases/download/v$version/$asset" "$tmp/$asset" &&
-		echo "$sha  $tmp/$asset" | sha256sum -c >/dev/null &&
-		tar -xzf "$tmp/$asset" -C "$tmp" && mkdir -p "$1" &&
-		install -m 0755 "$tmp/${asset%.tar.gz}/gum" "$1/gum"; then
-		echo "Installed gum $version to $1" >&2
-		rc=0
-	fi
-	rm -rf "$tmp"
-	return "$rc"
-}
-
-# ensure_gum installs gum, because the menu needs it.
-# The release binary in ~/.local/bin needs no sudo and works on any distro.
-# ensure_gum uses Homebrew if the machine has it.
-# It uses Go only if the other ways fail.
-envsetup::ensure_gum() {
-	local bin=$HOME/.local/bin manager need=() list
-	[[ ":$PATH:" == *":$bin:"* || ! -x "$bin/gum" ]] || PATH=$bin:$PATH
-	envsetup::has_cmd gum && return 0
-	echo "gum is not installed. Installing gum..." >&2
-	if envsetup::has_cmd brew; then
-		brew install gum
-	else
-		# Minimal images (Amazon Linux, Leap) can miss tar or gzip.
-		# tar needs gzip to unpack a .tar.gz.
-		# Some images have neither curl nor wget.
-		envsetup::has_cmd curl || envsetup::has_cmd wget || need+=(curl)
-		envsetup::has_cmd tar || need+=(tar)
-		envsetup::has_cmd gzip || need+=(gzip)
-		if ((${#need[@]})); then
-			# setup.sh's dry-run question promises no change besides gum.
-			# So a dry run installs no system package (#155).
-			if envsetup::dry_run; then
-				printf -v list '%s, ' "${need[@]}"
-				echo "gum's download needs these tools: ${list%, }. A dry run installs no system package. Install them, then start the dry run again." >&2
-				return 1
-			fi
-			manager=$(envsetup::pkg_manager)
-			if [[ -n "$manager" ]]; then envsetup::pkg_install "$manager" "${need[@]}"; fi
-		fi
-		if envsetup::gum_release "$bin"; then
-			PATH=$bin:$PATH
-		elif envsetup::has_cmd go; then
-			go install "github.com/charmbracelet/gum@v$(envsetup::pin gum)"
-			PATH="$(go env GOPATH)/bin:$PATH"
-		fi
-	fi
-	envsetup::has_cmd gum && return 0
-	echo "Couldn't install gum. See https://github.com/charmbracelet/gum#installation" >&2
-	return 1
 }
 
 # pkg_install <manager> <package>... installs packages by their names in packages/*.txt.
@@ -367,7 +259,7 @@ envsetup::pkg_install() {
 	case "$manager" in
 	brew) install=(brew install) ;;
 	apt)
-		# This runs once in each setup.sh run.
+		# This runs once in each envsetup run.
 		# The steps and installers of one run share ENVSETUP_TMP.
 		if [[ ! -e "${ENVSETUP_TMP:-}/apt-updated" ]]; then
 			# One broken source, such as a removed PPA, makes the update exit non-zero.

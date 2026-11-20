@@ -36,8 +36,18 @@ jobs:
           # Every clone in the tests is local.
           persist-credentials: false
 
+      # The containers run this binary at /envsetup-bin/envsetup.
+      # run.sh mounts it from the path in ENVSETUP_BIN.
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Build envsetup (linux/amd64)
+        run: CGO_ENABLED=0 go build -trimpath -o "$RUNNER_TEMP/envsetup-bin/envsetup" ./cmd/envsetup
+
       - name: Run tests/distros/run.sh
         env:
+          ENVSETUP_BIN: ${{ runner.temp }}/envsetup-bin/envsetup
           IMAGES: ${{ inputs.images }}
           DISTROS_SKIP: ${{ inputs.skip }}
           DISTROS_OUT: ${{ runner.temp }}/distros-report

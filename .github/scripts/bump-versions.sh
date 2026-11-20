@@ -40,17 +40,6 @@ sha() {
 # Each name in the file has one pin_<name> function.
 # The function prints "<version> <key>=<sha256>...".
 # Each key is the platform that the installer asks envsetup::pin for.
-pin_gum() {
-	local v base arch
-	v=$(envsetup::github_latest charmbracelet/gum)
-	base=https://github.com/charmbracelet/gum/releases/download/v$v
-	printf %s "$v"
-	for arch in x86_64:amd64 arm64:arm64; do
-		sha "linux-${arch#*:}" "$base/checksums.txt" "gum_${v}_Linux_${arch%:*}.tar.gz"
-	done
-	sha linux-armv7 "$base/checksums.txt" "gum_${v}_Linux_armv7.tar.gz"
-}
-
 pin_ohmyzsh() {
 	local commit _
 	read -r commit _ < <(git ls-remote https://github.com/ohmyzsh/ohmyzsh refs/heads/master)

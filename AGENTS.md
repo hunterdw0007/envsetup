@@ -84,11 +84,17 @@ A release has three parts:
   This commit adds the version's entry to `CHANGELOG.md`.
 - An annotated `vX.Y.Z` tag marks that commit.
 - A GitHub release uses the same entry as its notes.
+  It also holds the binaries `envsetup-linux-amd64` and `envsetup-linux-arm64`, and their `SHA256SUMS`.
+  The publish step builds them from the tag with `-X main.version=<tag>`.
+  `tests/release.sh` checks the files and their checksums.
 
 The newest tag sets the current version (`version_provider = "scm"`).
 `install.sh` downloads the newest release, unless `ENVSETUP_VERSION` names another one.
 So users run a release, not `main`.
-`install.sh` runs `setup.sh` from a temporary folder and deletes the folder when it ends.
+`install.sh` clones the release into a temporary folder and downloads its binary there.
+It checks the binary's sha256 against `SHA256SUMS`, runs `setup.sh` and deletes the folder when it ends.
+A clone, a branch or a commit has no binary, so `setup.sh` builds one with Go.
+A machine that is not amd64 or arm64 also builds one with Go.
 "Link shell config" copies `shell/` to `$XDG_DATA_HOME/envsetup`.
 New shells load that copy.
 The file `version` next to the copy records the release.
@@ -153,35 +159,13 @@ The file `version` next to the copy records the release.
 - Quote variable expansions.
 - Use a bash builtin when one does the job, instead of an external tool.
   Examples are `readarray`, `[[ =~ ]]` and parameter expansion.
-- Name functions `envsetup::<name>` (see `lib/common.sh`, `lib/zsh.sh` and `lib/installers.sh`).
+- Name functions `envsetup::<name>` (see `lib/common.sh` and `lib/config.sh`).
   Bash has one flat set of function names and no real modules.
   So the prefix keeps names from clashing.
 - Variables that several files share use the prefix `ENVSETUP_`.
 - A sourced file runs inside the user's own shell.
   `shell/init.sh` is an example.
   Its temporary variables use the prefix `_envsetup_`, and the file `unset`s them at the end.
-- Each item in a picker says what it does.
-  Build that text from the resolved config.
-  Use `envsetup::resolved_packages` or `envsetup::resolved_installers` in `lib/config.sh`.
-  The actions run on the same functions.
-  Never write a count by hand, because it can get out of date.
-- Picker lines are `"<value>  <description>"`, and the caller keeps `${choice%% *}`.
-  `gum choose --label-delimiter` does the same, but only newer gum releases have it.
-  An older gum rejects the flag, and the picker breaks without an error.
-- A step changes the machine when it writes a file, installs, runs sudo or chsh, or uses the network.
-  Every such step checks `envsetup::dry_run` *before its first write*.
-  In a dry run, it describes the change with `envsetup::would` instead.
-  The smoke test's dry-run scenarios take a snapshot of `$HOME` and fail on any write.
-  So the smoke test catches a missing check.
-- envsetup may write something new outside this repo, such as a file, an rc-file line or a git setting.
-  `envsetup::uninstall` (`lib/uninstall.sh`) must also remove it.
-  The smoke test's uninstall scenarios must check the removal.
-- Uninstall removes only what envsetup created.
-  It asks about anything the user may own, such as their `config.sh` or their login shell.
-  The question reads "Keep …?", so the default answer is the safe one.
-- `setup.sh` parses options before `envsetup::ensure_gum`.
-  So options that need no menu work on a machine without gum.
-  `--help` and the error for an unknown option are examples.
 - Under `set -e`, a function may end with `[[ ... ]] && x`.
   When the test is false, the function returns non-zero.
   Then `var=$(that_function)` stops the script.
@@ -189,9 +173,6 @@ The file `version` next to the copy records the release.
 - Never run a step as `step || handle_failure`.
   Bash turns off `set -e` inside everything that `step` calls.
   A failure halfway through then goes unnoticed, and the step keeps running.
-  Menu actions go through `envsetup::run_step` (`setup.sh`).
-  It runs each action in a subshell with `set -e` still on.
-  It returns to the menu if the action fails.
 - Every shell script must pass `bash -n <file>` and `shellcheck <file>` before you commit it.
   CI (`.github/workflows/ci.yml`) runs shellcheck on every push and PR.
   shellcheck also fails on syntax errors.
@@ -214,6 +195,56 @@ The file `version` next to the copy records the release.
   A comment on the same line breaks the install.
   Put the comment on the line above instead.
 
+## Go standards
+
+envsetup is a Go program: `cmd/envsetup`, `internal/setup` and `internal/ui`.
+`setup.sh` runs it from a clone, and `install.sh` downloads a release's binary.
+
+- `gofmt` sets the format.
+  CI fails when `gofmt -l .` lists a file.
+- Every change must pass `go vet ./...` and `go test ./...`.
+  CI's `go` job runs both and builds for `amd64` and `arm64`.
+- Add a dependency only when the standard library or an installed module cannot do the job.
+  The menu uses huh, BubbleTea and lipgloss.
+- `internal/ui` draws every menu, question and message.
+  A caller names what a message means, such as `ui.Warn` or `ui.Step`, and `term.go` picks the look.
+  Change the look in the theme in `term.go`, never at a call site.
+  With `SMOKE_CHOICES` set, the scripted UI answers from the test's lists and logs each call (see Testing).
+  It is the only code that knows gum's flags, because the parity check compares its log with the last bash release's.
+- Each item in a picker says what it does.
+  Build that text from the resolved config: `Config.ResolvedPackages` and `Config.ResolvedInstallers`.
+  The actions use the same values.
+  Never write a count by hand, because it can get out of date.
+- A list item is a `ui.Option`.
+  `Choose` returns its `Value`, so a caller never parses the label.
+- A step changes the machine when it writes a file, installs, runs sudo or chsh, or uses the network.
+  Every such step checks `s.DryRun` *before its first write*.
+  In a dry run, it describes the change with `s.Would` instead.
+  The smoke test's dry-run scenarios take a snapshot of `$HOME` and fail on any write.
+  So the smoke test catches a missing check.
+- envsetup may write something new outside this repo, such as a file, an rc-file line or a git setting.
+  `Uninstall` (`internal/setup/uninstall.go`) must also remove it.
+  The smoke test's uninstall scenarios must check the removal.
+- Uninstall removes only what envsetup created.
+  It asks about anything the user may own, such as their `config.sh` or their login shell.
+  The question reads "Keep …?", so the default answer is the safe one.
+- Options that need no menu run before the menu opens.
+  `--help`, `--status` and the error for an unknown option are examples.
+- Menu actions go through `RunStep` (`internal/setup/main.go`).
+  It shows one message when a step fails, and the menu stays open.
+  A step that shows its own error returns `ErrFailed`.
+  A failed command already showed its error, so the step returns that error as it is.
+- config.sh is bash and can run any bash code.
+  So `Load` runs `envsetup::load_config` (`lib/config.sh`) in bash and reads the settings back.
+- Installers source `lib/common.sh`, and user installers can too.
+  So its helpers stay bash, and the Go code calls them with `s.Lib` instead of a copy.
+  Examples are `envsetup::pkg_install`, `envsetup::pin` and `envsetup::installed_version`.
+- The Go code never reads `ENVSETUP_ROOT`.
+  Each shell exports it as the copy of `shell/`.
+  `setup.sh` passes its clone in `ENVSETUP_FILES` instead.
+- Go tests use `t.TempDir()` for `HOME` and clear every `XDG_*` and `ENVSETUP_*` variable.
+  Otherwise a test can write to your real `~/.config/envsetup`.
+
 ## Installer scripts (`installers/<profile-or-common>/*.sh`)
 
 - An installer must be safe to run more than once.
@@ -231,7 +262,7 @@ The file `version` next to the copy records the release.
 - Each installer runs in its own `bash` process and is not sourced.
   To use the helpers in `lib/common.sh`, run `source "$ENVSETUP_ROOT/lib/common.sh"` in the script.
 - One failed installer must not stop the others.
-  `lib/installers.sh` already handles this.
+  **Run installers** (`internal/setup/installers.go`) already handles this.
   Do not add a workaround inside an installer that turns off `set -e`.
 - Every download that envsetup installs or runs has a pinned version.
   envsetup checks each download before it uses the file.
@@ -302,7 +333,7 @@ The file `version` next to the copy records the release.
   direnv and zoxide are examples.
   The hook runs only when the tool is installed.
 - A shared git setting or alias goes in `git/gitconfig`, unless it is about identity.
-  `lib/git.sh` merges this file with the user's `ENVSETUP_GIT_CONFIG` into `~/.config/envsetup/gitconfig`.
+  **Configure git** (`internal/setup/git.go`) merges this file with the user's `ENVSETUP_GIT_CONFIG` into `~/.config/envsetup/gitconfig`.
 - Identity means `user.name` and `user.email`.
   envsetup asks for them at runtime, or the user sets them in their own `config.sh`.
   Never commit them to this repo.
@@ -332,12 +363,12 @@ The file `version` next to the copy records the release.
   Lite mode does not assume sudo.
   So do not add something to either one that lite mode needs.
   Put it in `shell/shared/` or `shell/profiles/work/` instead.
-- Lite mode still runs `lib/git.sh`.
-  That file writes only to `$HOME/.gitconfig`, so it needs no sudo.
+- Lite mode still runs **Configure git** (`internal/setup/git.go`).
+  It writes only to `$HOME/.gitconfig`, so it needs no sudo.
 
 ## Testing
 
-CI (`.github/workflows/ci.yml`) runs two jobs on every push and PR.
+CI (`.github/workflows/ci.yml`) runs three jobs on every push and PR.
 On pushes to `main`, it also runs `release` after those jobs pass (see Releases).
 `.github/workflows/commits.yml` checks the commit messages and the PR title on every PR.
 
@@ -349,7 +380,9 @@ On pushes to `main`, it also runs `release` after those jobs pass (see Releases)
   That script tests `drop-eol-distros.sh` and its PR step against fixed data and a local test remote.
   It also runs `tests/distros-report.sh`.
   That script tests the report and the exit status of `tests/distros/run.sh` with a fake docker.
+- `go` checks the format with `gofmt`, runs `go vet` and `go test`, and builds for `amd64` and `arm64`.
 - `smoke` runs `tests/smoke.sh` in a bare `ubuntu:24.04` container.
+  The container has no Go, so the job builds the binary and mounts it at `/envsetup-bin/envsetup`.
   It runs these scenarios in order:
   - `install.sh` stops on macOS.
   - `install.sh` stops on a machine without git.
@@ -357,12 +390,39 @@ On pushes to `main`, it also runs `release` after those jobs pass (see Releases)
   - It runs "Run everything" for every profile.
   - It updates from the last 0.x release with the same `config.sh`.
   - A real bash and a real zsh load the result.
-- The smoke test replaces only gum's menus, package installs and vendor downloads with fakes.
-  So it takes about 15 seconds.
+- The smoke test replaces only the menu's answers, package installs and vendor downloads with fakes.
+- The smoke test also checks parity with the last bash release (#175).
+  That release is the newest tag that HEAD contains, so a merge of `main` moves it.
+  Each `run_menu` runs the bash release and the Go version from the same `$HOME` and `/usr/local/bin`.
+  It compares the files and their modes, the log of the fakes, the screen output and the exit code.
+  The log check leaves out `gum style` lines, because the screen check already covers them.
+  Any difference fails the test.
+- Every way into envsetup goes through the parity check.
+  A launcher in `SETUP`, such as `curl_bash`, reads `SIDE` to pick the version that it runs.
+  `side <path>` turns a path of the Go version into the same path of the bash release.
+  `twin <dir>` copies both versions, for a scenario that changes a copy of the clone.
+  `parity_out` checks a command that only prints, such as `--help` or `--status`.
+- The smoke test also makes random runs with random settings, profiles, menu actions and answers.
+  `PARITY_RUNS` sets their number, and the default is 25.
+  A failure prints `PARITY_SEED`, so `-e PARITY_SEED=<seed>` repeats the same runs.
+  A manual CI run (Actions > CI > Run workflow) takes both as inputs.
+- Set `NO_PARITY=1` for a scenario only where the two versions differ on purpose, and say why in a comment.
+  A new feature differs from the bash release on purpose.
+  So remove the parity check once the parity release is out.
+- The parity release needs two results on the Go branch.
+  First, the smoke test passes with every parity check.
+  Second, a manual CI run with `parity_runs` set to 1000 passes.
 - CI runs the smoke test offline.
   It uses cached copies of the few packages that it installs with real apt.
   Ubuntu's package servers are often slow from CI.
-- To run the smoke test locally, run `docker run --rm -t -v "$PWD:/src:ro" ubuntu:24.04 bash /src/tests/smoke.sh`.
+- To run the smoke test locally, build the binary, then run the container:
+
+  ```sh
+  CGO_ENABLED=0 go build -trimpath -o bin/envsetup ./cmd/envsetup
+  docker run --rm -t -v "$PWD:/src:ro" -v "$PWD/bin:/envsetup-bin:ro" ubuntu:24.04 bash /src/tests/smoke.sh
+  ```
+
+  The test clones the commit that `/src` has checked out, so commit your changes first.
 - A new menu action, profile or mode needs a scenario in the smoke test.
 - Every check must be able to fail.
   Compare against an expected value that is not empty.
@@ -380,12 +440,12 @@ Run these commands from the repo root:
 ```sh
 release=$(mktemp -d) && chmod 755 "$release"
 git clone --quiet --depth 1 --branch "$(git describe --tags --abbrev=0 origin/main)" "file://$PWD" "$release"
-docker run --rm --hostname demo -v "$PWD:/vhs" -v "$release:/release:ro" -v "$(command -v gum):/usr/local/bin/gum:ro" ghcr.io/charmbracelet/vhs:v0.10.0 docs/tapes/demo.tape
+(cd "$release" && CGO_ENABLED=0 go build -trimpath -o bin/envsetup ./cmd/envsetup)
+docker run --rm --hostname demo -v "$PWD:/vhs" -v "$release:/release:ro" ghcr.io/charmbracelet/vhs:v0.10.0 docs/tapes/demo.tape
 rm -rf "$release"
 ```
 
-The commands need a gum binary that runs on Linux without other files.
-The release binary that envsetup installs works.
+The VHS image has no Go, so the commands build the binary first.
 The tape runs a dry run in the container, so it changes nothing on your machine.
 The hostname `demo` and the user `me` keep your own names out of the GIF.
 
@@ -396,10 +456,10 @@ You can also start it from the Actions tab.
 Run it after you change anything that depends on the distro.
 Examples are the package lists, `envsetup::pkg_install`, `envsetup::pkg_manager`, the installers and `install.sh`.
 
-The smoke test and the distros test share one fake gum, `tests/gum.sh`.
+With `SMOKE_CHOICES` set, envsetup answers its own menus (`internal/ui/script.go`).
 It reads its answers from `$SMOKE_CHOICES` and `$SMOKE_CONFIRMS`.
-It logs each call to `$SMOKE_LOG`.
-Extend this file instead of writing a new fake.
+It logs each call to `$SMOKE_LOG`, in the same lines as the fake gum, `tests/gum.sh`.
+The parity check runs the last bash release with that fake gum, so keep the two in step.
 
 The smoke test proves that the flows run.
 It does not prove every branch.
@@ -407,14 +467,14 @@ So you still check the behavior yourself and describe it in the PR:
 
 - Run `bash -n` and `shellcheck` on every script you change or add.
   CI checks this again, but catch problems before you push.
-- Run the functions themselves (`source` them, do not just read them).
-  Use fake versions of external commands: `curl`, `sudo`, `gum`, `git` and package managers.
+- Run the code itself: Go tests for Go code, and `source` for bash functions.
+  Use fake versions of external commands: `curl`, `sudo`, `git` and package managers.
   Use a separate `$HOME`.
 - Do not use real networks, install real system packages, or change the real shell or system during a test.
 - Some steps are safe to run more than once.
   For each one, test the path where the work is already done.
   Also test the path where the step has work to do.
-- If you change `setup.sh` or the menu, also run `tests/smoke.sh` locally (see the command above).
+- If you change `setup.sh`, the Go code or the menu, also run `tests/smoke.sh` locally (see the command above).
   It drives the real `./setup.sh` from start to end, each time from a fresh `$HOME`.
   Function tests alone once missed a bug: `setup.sh` exited before the menu on every first run.
 - Testing is local, and you throw it away afterwards.

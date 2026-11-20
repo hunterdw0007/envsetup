@@ -193,6 +193,7 @@ tests/release.sh                       # needs commitizen's cz on PATH
 ```
 
 The Testing section of `AGENTS.md` has the details.
+[Test layers](AGENTS.md#test-layers) says which layer tests what.
 
 One more test runs real installs.
 It takes too long for CI, so you run it yourself.

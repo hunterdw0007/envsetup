@@ -2,7 +2,6 @@
 //
 // Callers say what a message means (a Kind), and the terminal UI picks its look.
 // The scripted UI for the tests turns each call into the line that the fake gum logged (script.go).
-// So the parity check with the bash version does not limit how the terminal UI looks.
 package ui
 
 import (

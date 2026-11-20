@@ -210,7 +210,8 @@ envsetup is a Go program: `cmd/envsetup`, `internal/setup` and `internal/ui`.
   A caller names what a message means, such as `ui.Warn` or `ui.Step`, and `term.go` picks the look.
   Change the look in the theme in `term.go`, never at a call site.
   With `SMOKE_CHOICES` set, the scripted UI answers from the test's lists and logs each call (see Testing).
-  It is the only code that knows gum's flags, because the parity check compares its log with the last bash release's.
+  It is the only code that knows gum's flags.
+  It logs each call in the same lines as the fake gum, `tests/gum.sh`.
 - Each item in a picker says what it does.
   Build that text from the resolved config: `Config.ResolvedPackages` and `Config.ResolvedInstallers`.
   The actions use the same values.
@@ -391,27 +392,6 @@ On pushes to `main`, it also runs `release` after those jobs pass (see Releases)
   - It updates from the last 0.x release with the same `config.sh`.
   - A real bash and a real zsh load the result.
 - The smoke test replaces only the menu's answers, package installs and vendor downloads with fakes.
-- The smoke test also checks parity with the last bash release (#175).
-  That release is the newest tag that HEAD contains, so a merge of `main` moves it.
-  Each `run_menu` runs the bash release and the Go version from the same `$HOME` and `/usr/local/bin`.
-  It compares the files and their modes, the log of the fakes, the screen output and the exit code.
-  The log check leaves out `gum style` lines, because the screen check already covers them.
-  Any difference fails the test.
-- Every way into envsetup goes through the parity check.
-  A launcher in `SETUP`, such as `curl_bash`, reads `SIDE` to pick the version that it runs.
-  `side <path>` turns a path of the Go version into the same path of the bash release.
-  `twin <dir>` copies both versions, for a scenario that changes a copy of the clone.
-  `parity_out` checks a command that only prints, such as `--help` or `--status`.
-- The smoke test also makes random runs with random settings, profiles, menu actions and answers.
-  `PARITY_RUNS` sets their number, and the default is 25.
-  A failure prints `PARITY_SEED`, so `-e PARITY_SEED=<seed>` repeats the same runs.
-  A manual CI run (Actions > CI > Run workflow) takes both as inputs.
-- Set `NO_PARITY=1` for a scenario only where the two versions differ on purpose, and say why in a comment.
-  A new feature differs from the bash release on purpose.
-  So remove the parity check once the parity release is out.
-- The parity release needs two results on the Go branch.
-  First, the smoke test passes with every parity check.
-  Second, a manual CI run with `parity_runs` set to 1000 passes.
 - CI runs the smoke test offline.
   It uses cached copies of the few packages that it installs with real apt.
   Ubuntu's package servers are often slow from CI.
@@ -459,7 +439,9 @@ Examples are the package lists, `envsetup::pkg_install`, `envsetup::pkg_manager`
 With `SMOKE_CHOICES` set, envsetup answers its own menus (`internal/ui/script.go`).
 It reads its answers from `$SMOKE_CHOICES` and `$SMOKE_CONFIRMS`.
 It logs each call to `$SMOKE_LOG`, in the same lines as the fake gum, `tests/gum.sh`.
-The parity check runs the last bash release with that fake gum, so keep the two in step.
+The smoke test still runs old bash releases with that fake gum.
+The update from the last 0.x release is an example.
+So keep the two in step.
 
 The smoke test proves that the flows run.
 It does not prove every branch.

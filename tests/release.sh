@@ -13,6 +13,8 @@
 # It runs in a temporary folder and changes nothing else.
 # shellcheck disable=SC2016 # code in single quotes expands later, in the fake
 set -uo pipefail # no -e, so one failed check does not stop the rest
+# sort orders lines by the locale's rules, and the checks expect the C locale, as in CI (#181).
+export LC_ALL=C
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 T=$(mktemp -d)

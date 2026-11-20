@@ -16,7 +16,7 @@
 #
 # This file is a bash script.
 # envsetup sources it after the repo defaults, in two places:
-#   - setup.sh sources it and acts on the ENVSETUP_* settings below.
+#   - envsetup loads it in bash and acts on the ENVSETUP_* settings below.
 #   - Every new shell sources it through shell/init.sh, so your aliases, exports and functions load too.
 # Every line is commented out, so this template changes nothing.
 #
@@ -24,7 +24,7 @@
 # If you set up zsh, zsh also runs this file.
 # So write code that works in bash and zsh.
 # Or wrap bash-only code in [[ -n $BASH_VERSION ]].
-# setup.sh also sources this file in a non-interactive shell.
+# envsetup also loads this file in a non-interactive shell.
 # So wrap code for interactive shells only in [[ $- == *i* ]].
 # Prompt frameworks and completions are examples.
 #
@@ -33,11 +33,11 @@
 # Files that end in .sh load in bash and zsh, .bash only in bash, and .zsh only in zsh.
 # docs/shell.md explains the folder.
 #
-# setup.sh sources this file in its own process.
-# So `exit` in this file stops setup.sh.
-# And `cd` in this file changes setup.sh's folder.
-# A syntax error or a failed command in this file makes setup.sh show a warning.
-# setup.sh then continues with the settings that loaded.
+# envsetup loads this file in a new bash process each time.
+# `exit` in this file stops envsetup with the same exit code.
+# `cd` in this file changes only the folder of that bash process.
+# A syntax error or a failed command in this file makes envsetup show a warning.
+# envsetup then continues with the settings that loaded.
 
 # --- Packages ---------------------------------------------------------------------
 # The defaults are packages/common.txt and packages/$ENVSETUP_PROFILE.txt.

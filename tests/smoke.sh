@@ -88,7 +88,8 @@ cp "$SRC/tests/gum.sh" "$STUBS/gum"
 printf '#!/bin/sh\nexec "$@"\n' >"$STUBS/sudo"
 
 # The fake apt-get refuses any install that includes smoke-conflict, like a real package conflict.
-printf '#!/bin/sh\necho "apt-get $*" >>"$SMOKE_LOG"\ncase "$*" in *smoke-conflict*) exit 100 ;; esac\n' >"$OFFLINE/apt-get"
+# Like the real apt-get, it fails for a user who is not root, and then it logs nothing.
+printf '#!/bin/sh\n[ "$(id -u)" = 0 ] || { echo "apt-get: are you root?" >&2; exit 100; }\necho "apt-get $*" >>"$SMOKE_LOG"\ncase "$*" in *smoke-conflict*) exit 100 ;; esac\n' >"$OFFLINE/apt-get"
 printf '#!/bin/sh\necho "chsh $*" >>"$SMOKE_LOG"\n' >"$OFFLINE/chsh"
 # --status asks dpkg-query about each package, and the fake apt-get installs none.
 # So the fake dpkg-query reports every package as installed.
@@ -1618,6 +1619,55 @@ mkdir -p "$v/nogpg"
 for t in mktemp base64 rm; do ln -sf "$(command -v "$t")" "$v/nogpg/$t"; done
 VPATH=$v/nogpg check "  ...fails closed with neither gpgv nor gpg" not verify envsetup::gpg_verify "$fx/signed.txt" "$fx/signed.txt.sig" "$fx/smoke-key.asc" "$fpr"
 check "  ...saying what to install" grep -qF "to check the signature of signed.txt. Install gnupg." "$v/out"
+
+echo "== a normal user with sudo, then with doas: Run everything (#198)"
+# The other scenarios run as root, so envsetup::as_root never calls sudo or doas.
+# Here a normal user runs setup.sh.
+# The fake sudo and doas log each call, then run the command as root.
+# They use a setuid-root copy of setpriv, so a step through them really runs as root.
+# A step that skips sudo then fails at the fake apt-get.
+# A file that sudo writes belongs to root.
+useradd -m smoke
+cp /usr/bin/setpriv $W/rootpriv
+chmod 4755 $W/rootpriv
+for tool in sudo doas; do
+	mkdir -p "$W/$tool"
+	printf '#!/bin/sh\necho "%s $*" >>"$SMOKE_LOG"\nexec %s --reuid=0 --regid=0 --clear-groups "$@"\n' "$tool" "$W/rootpriv" >"$W/$tool/$tool"
+	chmod +x "$W/$tool/$tool"
+done
+# /root is closed to other users, so the user gets a clone of its own.
+cp -a "$CLONE" $W/user-clone
+chown -R smoke: $W/user-clone
+# envsetup and the fakes write to these files as the user.
+chmod 666 "$SMOKE_LOG" "$SMOKE_CHOICES" "$SMOKE_CONFIRMS"
+# as_smoke <sudo|doas> <home> <answers...> runs setup.sh as the user, with only that tool on PATH.
+as_smoke() {
+	local tool=$1 home=$2
+	shift 2
+	printf '%s\n' "$@" >"$SMOKE_CHOICES"
+	printf '%s\n' "${CONFIRMS[@]}" >"$SMOKE_CONFIRMS"
+	: >"$SMOKE_LOG"
+	setpriv --reuid=smoke --regid=smoke --init-groups env HOME="$home" SHELL=/bin/bash PATH="$OFFLINE:$W/$tool:/usr/bin:/bin" \
+		$W/user-clone/setup.sh >$W/user.out 2>&1 </dev/tty
+}
+for run in "sudo home" "sudo work full" "doas home"; do
+	read -r tool profile <<<"$run"
+	h=$(new_home)
+	mkdir -p "$h/.config/envsetup"
+	echo 'ENVSETUP_SHELL=zsh' >"$h/.config/envsetup/config.sh"
+	chown -R smoke: "$h"
+	CONFIRMS=(yes) # make zsh the login shell
+	# shellcheck disable=SC2086 # "work full" is two answers
+	check "$tool, $profile: exited 0" as_smoke "$tool" "$h" "Select profile" $profile "Run everything" Quit
+	CONFIRMS=()
+	check "  ...installed the profile's packages" same_list "$(expected "${profile% *}")" "$(installed)"
+	check "  ...each through $tool" same_list "$(grep -c "^$tool .*apt-get install " "$SMOKE_LOG" | grep -vx 0)" "$(grep -c '^apt-get install ' "$SMOKE_LOG")"
+	check "  ...ran chsh as the user" grep -q '^chsh -s ' "$SMOKE_LOG"
+	check "  ...not through $tool" not_grep "^$tool .*chsh" "$SMOKE_LOG"
+	check "  ...installed oh-my-zsh" [ -d "$h/.oh-my-zsh" ]
+	check "  ...and left no file in \$HOME that belongs to root" [ -z "$(find "$h" -user root)" ]
+	((failures)) && show $W/user.out
+done
 
 echo "== cancelling"
 h=$(new_home)

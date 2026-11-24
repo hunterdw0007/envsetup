@@ -37,7 +37,9 @@ func runFake(dir, name string, args []string) int {
 		fmt.Fprintln(os.Stderr, "fake:", err)
 		return 127
 	}
-	fmt.Fprintln(f, strings.Join(append([]string{name}, args...), " "))
+	// One JSON array for each call keeps an argument with a newline in one call.
+	line, _ := json.Marshal(append([]string{name}, args...))
+	fmt.Fprintf(f, "%s\n", line)
 	f.Close()
 	var cmds map[string]fakeCmd
 	data, _ := os.ReadFile(filepath.Join(dir, "fakes.json"))
@@ -61,7 +63,9 @@ func runFake(dir, name string, args []string) int {
 // A call to a guarded command that the test did not set fails the test.
 var guarded = []string{
 	"apt-get", "apt", "dnf", "yum", "zypper", "pacman", "apk", "brew", "nix-env", "rpm",
-	"sudo", "doas", "chsh", "curl", "wget", "git", "gh", "ssh-keygen", "ssh", "zsh", "gpg",
+	"dpkg", "snap", "flatpak", "docker",
+	"sudo", "sudoedit", "doas", "pkexec", "su", "run0", "chsh",
+	"curl", "wget", "git", "gh", "ssh-keygen", "ssh", "zsh", "gpg",
 }
 
 // fakeCmd is what a fake command prints to stdout and the exit code it returns.
@@ -173,23 +177,48 @@ func (f *fakes) remove(name string) {
 	}
 }
 
-// calls returns each call to a fake, in order, as "<name> <args...>".
-func (f *fakes) calls() []string {
+// rawCalls returns each call to a fake, in order, as its name and arguments.
+func (f *fakes) rawCalls() [][]string {
+	f.t.Helper()
 	data, _ := os.ReadFile(filepath.Join(f.dir, "calls"))
-	return slices.DeleteFunc(strings.Split(string(data), "\n"), func(l string) bool { return l == "" })
+	var calls [][]string
+	for _, line := range strings.Split(strings.TrimSuffix(string(data), "\n"), "\n") {
+		if line == "" {
+			continue
+		}
+		var call []string
+		if err := json.Unmarshal([]byte(line), &call); err != nil {
+			f.t.Fatalf("call log line %q: %v", line, err)
+		}
+		calls = append(calls, call)
+	}
+	return calls
 }
 
-// unexpected returns the calls to fakes that the test did not set.
+// calls returns each call to a fake, in order, as "<name> <args...>".
+func (f *fakes) calls() []string {
+	var out []string
+	for _, c := range f.rawCalls() {
+		out = append(out, strings.Join(c, " "))
+	}
+	return out
+}
+
+// unexpected returns the calls to fakes that the test did not set, as calls does.
 func (f *fakes) unexpected() []string {
-	return slices.DeleteFunc(f.calls(), func(l string) bool {
-		_, ok := f.cmds[strings.Fields(l)[0]]
-		return ok
-	})
+	var out []string
+	for _, c := range f.rawCalls() {
+		if _, ok := f.cmds[c[0]]; !ok {
+			out = append(out, strings.Join(c, " "))
+		}
+	}
+	return out
 }
 
 // cancel is an answer that cancels a question, like Esc.
 const cancel = "<cancel>"
 
+// kindNames names each Kind in fakeUI.log, such as "note" in "note:   would ...".
 var kindNames = map[ui.Kind]string{
 	ui.Plain: "plain", ui.Success: "success", ui.Warn: "warn", ui.Fail: "fail", ui.Note: "note",
 	ui.Ask: "ask", ui.Step: "step", ui.Heading: "heading", ui.Title: "title", ui.Welcome: "welcome",
@@ -373,6 +402,14 @@ func TestFakeCommands(t *testing.T) {
 	}
 	if got := f.unexpected(); !slices.Equal(got, []string{"sudo true"}) {
 		t.Errorf("unexpected = %q, want the sudo call", got)
+	}
+	// An argument with a newline or only spaces stays in its call (review finding).
+	f.set("gh", fakeCmd{})
+	if err := s.Quiet("gh", "a\n  \nb", " "); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.rawCalls(); len(got) != 4 || !slices.Equal(got[3], []string{"gh", "a\n  \nb", " "}) {
+		t.Errorf("rawCalls = %q, want the gh call with its 2 arguments last", got)
 	}
 	f.cmds["sudo"] = fakeCmd{} // the call above was on purpose, so the cleanup passes
 	if !HasCmd("bash") || !HasCmd("zsh") {

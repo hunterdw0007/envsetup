@@ -9,14 +9,16 @@ import (
 	"testing"
 )
 
-// confirmUI records the default of each question, on top of the fake UI.
+// confirmUI records each question and its default, on top of the fake UI.
 type confirmUI struct {
 	*fakeUI
-	defaultNo map[string]bool
+	prompts   []string
+	defaultNo []bool
 }
 
 func (c *confirmUI) Confirm(prompt string, defaultNo bool) (bool, bool) {
-	c.defaultNo[prompt] = defaultNo
+	c.prompts = append(c.prompts, prompt)
+	c.defaultNo = append(c.defaultNo, defaultNo)
 	return c.fakeUI.Confirm(prompt, defaultNo)
 }
 
@@ -29,25 +31,13 @@ func uninstallTest(t *testing.T) (*Setup, *fakeUI, *fakes) {
 	return s, u, f
 }
 
-// sshKeygen makes ssh-keygen a fake that writes a key, like the real one.
-// Its arguments are -t ed25519 -C <comment> -f <key>.
-func sshKeygen(t *testing.T, f *fakes) {
-	t.Helper()
-	script := filepath.Join(t.TempDir(), "ssh-keygen")
-	writeTestFile(t, script, "#!/bin/sh\necho private >\"$6\"\necho \"ssh-ed25519 AAAA $4\" >\"$6.pub\"\n")
-	if err := os.Chmod(script, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	f.set("ssh-keygen", fakeCmd{Real: script})
-}
-
 // TestUninstallAfterRunEverything checks that Uninstall undoes Run everything.
 // Only the tools, the git identity and empty folders stay.
 func TestUninstallAfterRunEverything(t *testing.T) {
 	s, u, f := uninstallTest(t)
 	f.set("brew", fakeCmd{})
 	f.remove("gh")
-	sshKeygen(t, f)
+	fakeKeygen(t, f)
 	// One installer stands in for all of them.
 	// It installs a tool and records it, like a pinned installer.
 	installer := filepath.Join(t.TempDir(), "tool.sh")
@@ -163,7 +153,7 @@ var keepQuestions = []string{
 // TestUninstallKeepsByDefault checks that each "Keep …?" question keeps the item on its default and on a cancel.
 func TestUninstallKeepsByDefault(t *testing.T) {
 	s, u, f := uninstallTest(t)
-	c := &confirmUI{fakeUI: u, defaultNo: map[string]bool{}}
+	c := &confirmUI{fakeUI: u}
 	s.UI = c
 	userFiles(t, s)
 	before := snapshotHome(t)
@@ -172,16 +162,16 @@ func TestUninstallKeepsByDefault(t *testing.T) {
 		t.Fatal(err)
 	}
 	asked := 0
-	for prompt, defaultNo := range c.defaultNo {
+	for i, prompt := range c.prompts {
 		if strings.HasPrefix(prompt, "Keep ") {
 			asked++
-			if defaultNo {
+			if c.defaultNo[i] {
 				t.Errorf("%q starts on No", prompt)
 			}
 		}
 	}
 	if asked != len(keepQuestions) {
-		t.Errorf("asked %d Keep questions, want %d: %v", asked, len(keepQuestions), c.defaultNo)
+		t.Errorf("asked %d Keep questions, want %d: %q", asked, len(keepQuestions), c.prompts)
 	}
 	after := snapshotHome(t)
 	for _, p := range []string{s.Clone + "/config.sh", s.UserConfig, s.ShellD + "/mine.sh", s.Home + "/.ssh/id_ed25519", s.State + "/config.sh.bak"} {
@@ -290,18 +280,6 @@ func TestUninstallDryRun(t *testing.T) {
 	}
 }
 
-// brokenGit makes git exit 4 when its arguments contain part.
-// Every other call runs the real git.
-func brokenGit(t *testing.T, f *fakes, part string) {
-	t.Helper()
-	script := filepath.Join(t.TempDir(), "git")
-	writeTestFile(t, script, "#!/bin/sh\ncase \"$*\" in *'"+part+"'*) exit 4;; esac\nexec '"+f.cmds["git"].Real+"' \"$@\"\n")
-	if err := os.Chmod(script, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	f.set("git", fakeCmd{Real: script})
-}
-
 // TestUninstallFailures checks that a failed step shows its error, and the other steps still run.
 func TestUninstallFailures(t *testing.T) {
 	for _, tc := range []struct {
@@ -311,16 +289,18 @@ func TestUninstallFailures(t *testing.T) {
 	}{
 		{"startup file", "fail: Couldn't edit %s/.bashrc", []string{"yes"}, func(t *testing.T, s *Setup, f *fakes) {
 			writeTestFile(t, s.Home+"/.bashrc", RCBegin+"\n"+RCEnd+"\n")
-			os.Chmod(s.Home+"/.bashrc", 0o444)
+			if err := os.Chmod(s.Home+"/.bashrc", 0o444); err != nil {
+				t.Fatal(err)
+			}
 		}},
 		{"include", "fail: Couldn't edit ~/.gitconfig", []string{"yes"}, func(t *testing.T, s *Setup, f *fakes) {
 			writeTestFile(t, s.Home+"/.gitconfig", "[include]\n\tpath = "+s.GitFile+"\n")
-			brokenGit(t, f, "--unset-all include.path")
+			failingGit(t, f, "--unset-all include.path", 4)
 		}},
 		{"signing", "fail: Couldn't remove the settings that sign your commits from ~/.gitconfig", []string{"yes"}, func(t *testing.T, s *Setup, f *fakes) {
 			writeTestFile(t, s.SSHMarker, "")
 			writeTestFile(t, s.Home+"/.gitconfig", "[user]\n\tsigningkey = "+s.Home+"/.ssh/id_ed25519.pub\n")
-			brokenGit(t, f, "--unset-all gpg.format")
+			failingGit(t, f, "--unset-all gpg.format", 4)
 		}},
 		{"chsh", "fail: Couldn't change your login shell", []string{"yes", "no"}, func(t *testing.T, s *Setup, f *fakes) {
 			writeTestFile(t, s.ChshMarker, "")
@@ -329,7 +309,9 @@ func TestUninstallFailures(t *testing.T) {
 		}},
 		{"copy out of the clone", "fail: Couldn't copy %s/.config/envsetup/config.sh out of %s/.config/envsetup/repo, so uninstall keeps the clone", []string{"yes", "no", "yes"}, func(t *testing.T, s *Setup, f *fakes) {
 			writeTestFile(t, s.Clone+"/config.sh", "")
-			os.Symlink(s.Clone+"/config.sh", s.UserConfig)
+			if err := os.Symlink(s.Clone+"/config.sh", s.UserConfig); err != nil {
+				t.Fatal(err)
+			}
 			f.set("cp", fakeCmd{Code: 1})
 		}},
 	} {

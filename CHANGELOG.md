@@ -4,6 +4,12 @@ Every release of envsetup, newest first, with what changed in it. CI writes each
 from the commits on `main` when it releases them (see "Releases" in AGENTS.md), so
 don't edit this file by hand.
 
+## v2.0.2 (2026-11-24)
+
+### Fixes
+
+- **setup**: add fuzz tests for the parsers and fix a panic in parseDump (#207)
+
 ## v2.0.1 (2026-11-24)
 
 ### Fixes

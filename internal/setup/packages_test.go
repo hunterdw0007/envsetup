@@ -57,9 +57,9 @@ func fakeOSRelease(t *testing.T, s *Setup, fields map[string]string) {
 	s.Root = dir
 }
 
-// callsOf returns the calls to these commands only.
+// pkgCalls returns the calls to these commands only.
 // The bash helpers call sudo only when the test runs as a normal user, so the tests leave sudo out.
-func callsOf(f *fakes, names ...string) []string {
+func pkgCalls(f *fakes, names ...string) []string {
 	var out []string
 	for _, c := range f.rawCalls() {
 		if slices.Contains(names, c[0]) {
@@ -69,7 +69,7 @@ func callsOf(f *fakes, names ...string) []string {
 	return out
 }
 
-func logHas(u *fakeUI, line string) bool {
+func pkgLogged(u *fakeUI, line string) bool {
 	return slices.ContainsFunc(u.log, func(l string) bool { return strings.Contains(l, line) })
 }
 
@@ -141,7 +141,7 @@ func TestPackageManagers(t *testing.T) {
 			if err := s.PkgInstall(tt.manager, pkgs...); err != nil {
 				t.Fatal(err)
 			}
-			if got := callsOf(f, managerCmds[tt.manager]); !slices.Contains(got, tt.install) {
+			if got := pkgCalls(f, managerCmds[tt.manager]); !slices.Contains(got, tt.install) {
 				t.Errorf("calls = %q, want %q", got, tt.install)
 			}
 		})
@@ -155,7 +155,7 @@ func TestPackageManagers(t *testing.T) {
 		if err := s.PkgInstall("nix", "vim"); err != nil {
 			t.Fatal(err)
 		}
-		if got := callsOf(f, "nix"); !slices.Contains(got, "nix profile install nixpkgs#vim") {
+		if got := pkgCalls(f, "nix"); !slices.Contains(got, "nix profile install nixpkgs#vim") {
 			t.Errorf("calls = %q, want nix profile install nixpkgs#vim", got)
 		}
 	})
@@ -227,7 +227,7 @@ func TestInstallPackages(t *testing.T) {
 	if d := diffSnapshots(before, snapshotHome(t)); len(d) > 0 {
 		t.Errorf("the dry run changed HOME: %q", d)
 	}
-	if c := callsOf(f, "apt-get"); len(c) > 0 {
+	if c := pkgCalls(f, "apt-get"); len(c) > 0 {
 		t.Errorf("the dry run ran %q", c)
 	}
 
@@ -236,14 +236,14 @@ func TestInstallPackages(t *testing.T) {
 	if err := s.InstallPackages(); err != nil {
 		t.Fatal(err)
 	}
-	if got := callsOf(f, "apt-get"); !slices.Equal(got, []string{"apt-get update", install}) {
+	if got := pkgCalls(f, "apt-get"); !slices.Equal(got, []string{"apt-get update", install}) {
 		t.Errorf("first run: calls = %q, want update, then %q", got, install)
 	}
 	// Second run: the same run does not update again, and apt-get skips what it has.
 	if err := s.InstallPackages(); err != nil {
 		t.Fatal(err)
 	}
-	if got := callsOf(f, "apt-get"); !slices.Equal(got, []string{"apt-get update", install, install}) {
+	if got := pkgCalls(f, "apt-get"); !slices.Equal(got, []string{"apt-get update", install, install}) {
 		t.Errorf("second run: calls = %q, want no second update", got)
 	}
 }
@@ -269,7 +269,7 @@ func TestInstallPackagesSkip(t *testing.T) {
 	if err := s.InstallPackages(); err != nil {
 		t.Fatal(err)
 	}
-	got := callsOf(f, "brew")
+	got := pkgCalls(f, "brew")
 	if len(got) != 1 || !strings.HasPrefix(got[0], "brew install ") || slices.Contains(strings.Fields(got[0]), "vim") {
 		t.Errorf("calls = %q, want one brew install without vim", got)
 	}
@@ -284,7 +284,7 @@ func TestInstallPackagesLite(t *testing.T) {
 	if err := s.RunInstallers(); err != nil {
 		t.Fatal(err)
 	}
-	if !logHas(u, "installs no packages") || !logHas(u, "runs no installers") {
+	if !pkgLogged(u, "installs no packages") || !pkgLogged(u, "runs no installers") {
 		t.Errorf("lite log = %q", u.log)
 	}
 	if c := f.calls(); len(c) > 0 {
@@ -298,17 +298,17 @@ func TestInstallPackagesNoManager(t *testing.T) {
 	for _, c := range managerCmds {
 		f.remove(c)
 	}
-	if err := s.InstallPackages(); !errors.Is(err, ErrFailed) || !logHas(u, "No supported package manager found.") {
+	if err := s.InstallPackages(); !errors.Is(err, ErrFailed) || !pkgLogged(u, "No supported package manager found.") {
 		t.Errorf("no manager: %v, log %q", err, u.log)
 	}
 
 	// brew needs none of these packages.
 	onlyManager(f, "brew")
 	s.Cfg.ResolvedPackages = []string{"openssh-client", "npm"}
-	if err := s.InstallPackages(); err != nil || !logHas(u, "No packages listed for home.") {
+	if err := s.InstallPackages(); err != nil || !pkgLogged(u, "No packages listed for home.") {
 		t.Errorf("no names: %v, log %q", err, u.log)
 	}
-	if c := callsOf(f, "brew"); len(c) > 0 {
+	if c := pkgCalls(f, "brew"); len(c) > 0 {
 		t.Errorf("brew ran %q", c)
 	}
 }
@@ -322,14 +322,14 @@ func TestInstallPackagesDNF(t *testing.T) {
 	if err := s.InstallPackages(); err != nil {
 		t.Fatal(err)
 	}
-	if !logHas(u, "with dnf (as root)") {
+	if !pkgLogged(u, "with dnf (as root)") {
 		t.Errorf("log = %q", u.log)
 	}
 	s.DryRun = false
 	if err := s.InstallPackages(); err != nil {
 		t.Fatal(err)
 	}
-	got := callsOf(f, "dnf", "rpm")
+	got := pkgCalls(f, "dnf", "rpm")
 	if len(got) != 1 || !strings.HasPrefix(got[0], "dnf install -y ") || !slices.Contains(strings.Fields(got[0]), "vim-enhanced") {
 		t.Errorf("calls = %q, want one dnf install with vim-enhanced and no EPEL check on Fedora", got)
 	}
@@ -376,18 +376,18 @@ func TestEnableEPEL(t *testing.T) {
 			if err := s.enableEPEL(); err != nil {
 				t.Fatal(err)
 			}
-			if got := callsOf(f, "rpm", "dnf", "crb"); !slices.Equal(got, tt.calls) {
+			if got := pkgCalls(f, "rpm", "dnf", "crb"); !slices.Equal(got, tt.calls) {
 				t.Errorf("calls = %q, want %q", got, tt.calls)
 			}
-			if tt.log != "" && !logHas(u, tt.log) {
+			if tt.log != "" && !pkgLogged(u, tt.log) {
 				t.Errorf("log = %q, want %q", u.log, tt.log)
 			}
 		})
 	}
 }
 
-// installer writes a script that records its run in the file ran, then exits with code.
-func installer(t *testing.T, dir, name string, code int) string {
+// fakeInstaller writes a script that records its run in the file ran, then exits with code.
+func fakeInstaller(t *testing.T, dir, name string, code int) string {
 	t.Helper()
 	p := filepath.Join(dir, name)
 	text := fmt.Sprintf("#!/usr/bin/env bash\necho %s >>%q\nexit %d\n", name, dir+"/ran", code)
@@ -400,7 +400,7 @@ func installer(t *testing.T, dir, name string, code int) string {
 func TestRunInstallers(t *testing.T) {
 	s, u, _ := newTestSetup(t, "home", "full")
 	dir := t.TempDir()
-	s.Cfg.ResolvedInstallers = []string{installer(t, dir, "bad.sh", 1), installer(t, dir, "good.sh", 0)}
+	s.Cfg.ResolvedInstallers = []string{fakeInstaller(t, dir, "bad.sh", 1), fakeInstaller(t, dir, "good.sh", 0)}
 	s.Cfg.InstallersErr = "envsetup: an installer folder is missing"
 
 	// Dry run: no installer runs.
@@ -408,7 +408,7 @@ func TestRunInstallers(t *testing.T) {
 	if err := s.RunInstallers(); err != nil {
 		t.Fatal(err)
 	}
-	if !logHas(u, "would run 2 installer scripts") || isFile(dir+"/ran") {
+	if !pkgLogged(u, "would run 2 installer scripts") || isFile(dir+"/ran") {
 		t.Errorf("dry run: log %q, ran %v", u.log, isFile(dir+"/ran"))
 	}
 
@@ -420,12 +420,12 @@ func TestRunInstallers(t *testing.T) {
 	if b, _ := os.ReadFile(dir + "/ran"); string(b) != "bad.sh\ngood.sh\n" {
 		t.Errorf("ran %q, want both installers", b)
 	}
-	if !logHas(u, "fail: Installers failed: bad.sh") {
+	if !pkgLogged(u, "fail: Installers failed: bad.sh") {
 		t.Errorf("log = %q", u.log)
 	}
 
 	s.Cfg.ResolvedInstallers = nil
-	if err := s.RunInstallers(); err != nil || !logHas(u, "No installers for home.") {
+	if err := s.RunInstallers(); err != nil || !pkgLogged(u, "No installers for home.") {
 		t.Errorf("no installers: %v, log %q", err, u.log)
 	}
 }
@@ -458,7 +458,7 @@ func TestRunInstallersPinned(t *testing.T) {
 	if err := s.RunInstallers(); err != nil {
 		t.Fatal(err)
 	}
-	if logHas(u, "Updates:") {
+	if pkgLogged(u, "Updates:") {
 		t.Errorf("an installer at its pin is listed as an update: %q", u.log)
 	}
 
@@ -470,7 +470,7 @@ func TestRunInstallersPinned(t *testing.T) {
 	if err := s.RunInstallers(); err != nil {
 		t.Fatal(err)
 	}
-	if !logHas(u, "note:   would update kubectl 0.0.1 → "+pin) {
+	if !pkgLogged(u, "note:   would update kubectl 0.0.1 → "+pin) {
 		t.Errorf("dry run log = %q, want the update", u.log)
 	}
 	s.DryRun = false
@@ -478,7 +478,7 @@ func TestRunInstallersPinned(t *testing.T) {
 	if err := s.RunInstallers(); !errors.Is(err, ErrFailed) {
 		t.Errorf("RunInstallers with a failed download = %v, want ErrFailed", err)
 	}
-	if !logHas(u, "note: Updates:") || !logHas(u, "kubectl 0.0.1 → "+pin) {
+	if !pkgLogged(u, "note: Updates:") || !pkgLogged(u, "kubectl 0.0.1 → "+pin) {
 		t.Errorf("log = %q, want the update listed", u.log)
 	}
 	if !slices.ContainsFunc(f.calls(), func(c string) bool { return strings.HasPrefix(c, "curl ") }) {

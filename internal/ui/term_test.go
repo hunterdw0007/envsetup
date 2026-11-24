@@ -139,3 +139,47 @@ func TestInputAndWrite(t *testing.T) {
 		t.Errorf("Write cancelled: got (%q, %v)", got, ok)
 	}
 }
+
+// drawn returns a term that reads the keys, and the buffer that its forms draw into.
+func drawn(s string) (term, *bytes.Buffer) {
+	var out bytes.Buffer
+	return term{in: strings.NewReader(s), out: &out}, &out
+}
+
+// TestFormsDrawTheirText checks that the header and each description show (gremlins, #202).
+// With TERM=dumb, huh asks in plain text, so the text shows before the answer.
+func TestFormsDrawTheirText(t *testing.T) {
+	t.Setenv("TERM", "dumb")
+	tm, out := drawn("1\n")
+	if _, ok := tm.Choose("Pick a fruit", Option{Value: "a", Desc: "crunchy apple"}, Option{Value: "b"}); !ok {
+		t.Fatal("Choose was cancelled")
+	}
+	text := ansi.ReplaceAllString(out.String(), "")
+	if !strings.Contains(text, "Pick a fruit") || !strings.Contains(text, "crunchy apple") {
+		t.Errorf("Choose drew no header or no description:\n%s", text)
+	}
+	tm, out = drawn("x\n")
+	if _, ok := tm.Input("placeholder", "Your name here"); !ok {
+		t.Fatal("Input was cancelled")
+	}
+	if text := ansi.ReplaceAllString(out.String(), ""); !strings.Contains(text, "Your name here") {
+		t.Errorf("Input drew no header:\n%s", text)
+	}
+}
+
+// TestFormsPrintNoErrorOnSuccess checks that an answer and a cancel print nothing to stderr (gremlins, #202).
+func TestFormsPrintNoErrorOnSuccess(t *testing.T) {
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := os.Stderr
+	os.Stderr = w
+	keys("\r").Confirm("Sure?", false)
+	keys("\x1b").Confirm("Sure?", false)
+	os.Stderr = old
+	w.Close()
+	if got, _ := io.ReadAll(r); len(got) > 0 {
+		t.Errorf("the forms printed %q to stderr", got)
+	}
+}

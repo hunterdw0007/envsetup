@@ -1,0 +1,2 @@
+go test fuzz v1
+string("Text:\n\n```bash\nexport FOO=${XDG_DATA_HOME}/foo/bar.d\n```\n")

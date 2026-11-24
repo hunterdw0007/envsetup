@@ -1,0 +1,2 @@
+go test fuzz v1
+string("ENVSETUP_OLD=1\n")

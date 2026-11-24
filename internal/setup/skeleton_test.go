@@ -10,7 +10,7 @@ import (
 
 // sandbox gives a test its own HOME and no XDG or ENVSETUP variables.
 // So no test can reach the real ~/.config/envsetup.
-func sandbox(t *testing.T) string {
+func sandbox(t testing.TB) string {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("HOME", home)

@@ -1,0 +1,2 @@
+go test fuzz v1
+string("Text:\n\n```bash\nexport DOCKER_CONFIG=\"$XDG_CONFIG_HOME\"/docker\n```\n")

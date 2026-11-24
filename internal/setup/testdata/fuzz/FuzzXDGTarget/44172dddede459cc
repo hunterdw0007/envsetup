@@ -1,0 +1,2 @@
+go test fuzz v1
+string("Text:\n\n```bash\nexport LD_PRELOAD=\"$XDG_DATA_HOME\"/lib.so\n```\n")

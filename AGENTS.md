@@ -406,6 +406,14 @@ On pushes to `main`, it also runs `release` after those jobs pass (see Releases)
 - Every check must be able to fail.
   Compare against an expected value that is not empty.
   Never compare two values that could both be empty.
+- `internal/setup/fuzz_test.go` holds fuzz tests for the functions that edit user files or read text from bash.
+  A fuzz test feeds random input to a function to find crashes and broken rules.
+  `go test` runs each fuzz test only with its seed inputs in `internal/setup/testdata/fuzz/`.
+  CI does not run long fuzz sessions.
+  Fuzz a function locally before you change it:
+  `go test ./internal/setup -run '^$' -fuzz=FuzzX -fuzztime=60s`.
+  Go saves each failing input as a new seed file.
+  Commit that file, so the failure stays tested.
 
 The CI badge in `README.md` names `ci.yml` in its image URL and in its link URL.
 If you rename `ci.yml`, update both URLs.

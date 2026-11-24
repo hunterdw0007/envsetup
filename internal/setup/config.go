@@ -171,7 +171,8 @@ func parseDump(data []byte) map[string][]string {
 	for i := 0; i+1 < len(f); {
 		name := string(f[i])
 		n, err := strconv.Atoi(string(f[i+1]))
-		if err != nil || i+2+n > len(f) {
+		// A count below 0 would panic in make, and i+2+n can overflow.
+		if err != nil || n < 0 || n > len(f)-i-2 {
 			break
 		}
 		items := make([]string, n)

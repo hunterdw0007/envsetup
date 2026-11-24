@@ -4,6 +4,12 @@ Every release of envsetup, newest first, with what changed in it. CI writes each
 from the commits on `main` when it releases them (see "Releases" in AGENTS.md), so
 don't edit this file by hand.
 
+## v2.0.3 (2026-11-24)
+
+### Fixes
+
+- **setup**: stop the signal handler when Main returns, and test Main (#209)
+
 ## v2.0.2 (2026-11-24)
 
 ### Fixes

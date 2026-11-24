@@ -31,10 +31,16 @@ func addCleanup(dir string) {
 	cleanup = append(cleanup, dir)
 }
 
+// osExit and executable are os.Exit and os.Executable, so a test can replace them.
+var (
+	osExit     = os.Exit
+	executable = os.Executable
+)
+
 // Exit deletes the temporary folders and ends envsetup with the code.
 func (s *Setup) Exit(code int) {
 	removeTemp()
-	os.Exit(code)
+	osExit(code)
 }
 
 func removeTemp() {
@@ -50,12 +56,21 @@ func Main(args []string, version string) int {
 	// A signal (Ctrl-C, a closed terminal, kill) deletes the temporary folders too.
 	// Then envsetup ends by the same signal, so its parent sees 128+n, as with setup.sh.
 	sigs := make(chan os.Signal, 1)
+	done := make(chan struct{})
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	go func() {
-		sig := <-sigs
-		removeTemp()
-		signal.Reset()
-		_ = syscall.Kill(os.Getpid(), sig.(syscall.Signal))
+		select {
+		case sig := <-sigs:
+			removeTemp()
+			signal.Reset()
+			_ = syscall.Kill(os.Getpid(), sig.(syscall.Signal))
+		case <-done:
+		}
+	}()
+	// The handler stops when Main returns, so each call in a test leaks nothing.
+	defer func() {
+		signal.Stop(sigs)
+		close(done)
 	}()
 	defer removeTemp()
 
@@ -188,7 +203,7 @@ func (s *Setup) root() (string, error) {
 	if dir := os.Getenv("ENVSETUP_FILES"); dir != "" {
 		return filepath.Abs(dir)
 	}
-	if exe, err := os.Executable(); err == nil {
+	if exe, err := executable(); err == nil {
 		if dir := filepath.Dir(filepath.Dir(exe)); isFile(dir + "/lib/common.sh") {
 			return dir, nil
 		}

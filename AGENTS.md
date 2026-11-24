@@ -456,6 +456,13 @@ So you still check the behavior yourself and describe it in the PR:
 - Run the code itself: Go tests for Go code, and `source` for bash functions.
   Use fake versions of external commands: `curl`, `sudo`, `git` and package managers.
   Use a separate `$HOME`.
+- Go tests of an action use the helpers in `internal/setup/harness_test.go`.
+  `newTestSetup` builds a `Setup` in a separate `$HOME`, with a fake UI and fake commands.
+  The fake UI answers each question from the test's list and logs each call.
+  The test binary acts as each fake command, and each fake logs its call.
+  A call to `sudo`, `curl`, `git` or a package manager that the test did not set fails the test.
+  `snapshotHome` and `diffSnapshots` prove that a dry run wrote nothing.
+  `TestSetUpZshDryRun` shows how to use them.
 - Do not use real networks, install real system packages, or change the real shell or system during a test.
 - Some steps are safe to run more than once.
   For each one, test the path where the work is already done.

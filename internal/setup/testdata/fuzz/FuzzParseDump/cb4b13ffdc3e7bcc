@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("ENVSETUP_PROFILE\x001\x00home\x00ENVSETUP_EXTRAS\x002\x00a\x00b\x00_ENV_AFTER\x000\x00")

@@ -1,0 +1,2 @@
+go test fuzz v1
+string("Text:\n\n```bash\nexport A=\"$XDG_CONFIG_HOME\"/a\n```\nsince 1.0")

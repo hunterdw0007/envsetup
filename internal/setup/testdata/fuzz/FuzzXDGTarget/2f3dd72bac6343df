@@ -1,0 +1,2 @@
+go test fuzz v1
+string("move the directory to _${XDG_DATA_HOME}/app_")

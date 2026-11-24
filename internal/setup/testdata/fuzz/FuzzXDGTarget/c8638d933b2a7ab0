@@ -1,0 +1,2 @@
+go test fuzz v1
+string("Text:\n\n```bash\nexport BASH_ENV=\"$XDG_CONFIG_HOME\"/envrc\n```\n")

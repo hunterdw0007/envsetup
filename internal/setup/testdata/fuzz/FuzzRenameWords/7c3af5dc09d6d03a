@@ -1,0 +1,2 @@
+go test fuzz v1
+string("x=$ENVSETUP_OLD # ENVSETUP_OLDER ENVSETUP_OLD_X\n")

@@ -1,0 +1,2 @@
+go test fuzz v1
+string("move the file to _$XDG_CONFIG_HOME/a_ or move the file to _$XDG_DATA_HOME/b_")

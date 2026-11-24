@@ -1,0 +1,2 @@
+go test fuzz v1
+string("Text:\n\n```bash\nexport LESSHISTFILE=\"$XDG_STATE_HOME\"/less/history\n```\n")

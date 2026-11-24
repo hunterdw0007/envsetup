@@ -1,0 +1,2 @@
+go test fuzz v1
+string("Text:\n\n```bash\nexport X_1=\"$XDG_CACHE_HOME\"/x\n```\n")

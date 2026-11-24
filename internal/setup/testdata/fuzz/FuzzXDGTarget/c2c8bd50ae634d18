@@ -1,0 +1,2 @@
+go test fuzz v1
+string("move the folder to _$XDG_CONFIG_HOME/my_app_.")

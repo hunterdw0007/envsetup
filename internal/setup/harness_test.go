@@ -101,7 +101,8 @@ func fakeCommands(t *testing.T) *fakes {
 	for _, d := range filepath.SplitList(os.Getenv("PATH")) {
 		entries, _ := os.ReadDir(d)
 		for _, e := range entries {
-			if !slices.Contains(guarded, e.Name()) {
+			// Like a PATH lookup, this skips a file that is not executable, such as uv's ~/.local/bin/env.
+			if fi, err := os.Stat(filepath.Join(d, e.Name())); err == nil && !fi.IsDir() && fi.Mode()&0o111 != 0 && !slices.Contains(guarded, e.Name()) {
 				// The first folder on PATH wins, so a later link of the same name fails, as it should.
 				_ = os.Symlink(filepath.Join(d, e.Name()), filepath.Join(f.real, e.Name()))
 			}

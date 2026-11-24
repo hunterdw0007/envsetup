@@ -181,12 +181,15 @@ func (s *Setup) environ(base []string) []string {
 	return append(slices.Clip(base), "ENVSETUP_ROOT="+s.Root, "ENVSETUP_TMP="+s.Tmp)
 }
 
+// geteuid is os.Geteuid, so a test can act as root or as a normal user.
+var geteuid = os.Geteuid
+
 // AsRoot runs a command as root (envsetup::as_root).
 // A user who is already root runs it directly (containers, WSL).
 // Otherwise it uses sudo, or doas (Alpine).
 func (s *Setup) AsRoot(args ...string) error {
 	switch {
-	case os.Geteuid() == 0:
+	case geteuid() == 0:
 		return s.Run(args[0], args[1:]...)
 	case HasCmd("sudo"):
 		return s.Run("sudo", args...)

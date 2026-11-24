@@ -90,7 +90,8 @@ func TestLinkShellConfigRuns(t *testing.T) {
 }
 
 // TestLinkRCNoFinalNewline checks that a .bashrc without a final newline keeps all of its lines.
-// Today linkRC adds the block to the end of the last line, and Uninstall cannot find it.
+// Today linkRC adds the block to the end of the last line.
+// Uninstall then cannot find the block.
 func TestLinkRCNoFinalNewline(t *testing.T) {
 	t.Skip("bug: linkRC adds the block to a last line without a newline (no issue yet)")
 	s, u, f := newTestSetup(t, "home", "full")
@@ -304,20 +305,20 @@ func TestCopyShellErrors(t *testing.T) {
 func TestLinkShellConfigErrors(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
-		setUp func(s *Setup, f *fakes)
+		setUp func(t *testing.T, s *Setup, f *fakes)
 		run   func(s *Setup) error
 	}{
-		{"shell.d", func(s *Setup, f *fakes) { writeTestFile(t, s.State, "") }, (*Setup).LinkShellConfig},
-		{".bashrc", func(s *Setup, f *fakes) { os.MkdirAll(s.Home+"/.bashrc", 0o755) }, (*Setup).LinkShellConfig},
-		{".zshrc of the login shell", func(s *Setup, f *fakes) {
+		{"shell.d", func(t *testing.T, s *Setup, f *fakes) { writeTestFile(t, s.State, "") }, (*Setup).LinkShellConfig},
+		{".bashrc", func(t *testing.T, s *Setup, f *fakes) { mkdirTest(t, s.Home+"/.bashrc") }, (*Setup).LinkShellConfig},
+		{".zshrc of the login shell", func(t *testing.T, s *Setup, f *fakes) {
 			t.Setenv("SHELL", "/bin/zsh")
-			os.MkdirAll(s.Home+"/.zshrc", 0o755)
+			mkdirTest(t, s.Home+"/.zshrc")
 		}, (*Setup).LinkShellConfig},
-		{"zsh install", func(s *Setup, f *fakes) {
+		{"zsh install", func(t *testing.T, s *Setup, f *fakes) {
 			s.Cfg.Shell, s.Cfg.Profile, s.Cfg.Mode = "zsh", "work", "lite"
 			f.remove("zsh")
 		}, (*Setup).LinkShellConfig},
-		{"copy in SetUpZsh", func(s *Setup, f *fakes) {
+		{"copy in SetUpZsh", func(t *testing.T, s *Setup, f *fakes) {
 			t.Setenv("SHELL", "/bin/zsh")
 			writeTestFile(t, s.Home+"/.oh-my-zsh/oh-my-zsh.sh", "")
 			writeTestFile(t, filepath.Dir(s.Data), "")
@@ -325,11 +326,19 @@ func TestLinkShellConfigErrors(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s, _, f := newTestSetup(t, "home", "full")
-			tc.setUp(s, f)
+			tc.setUp(t, s, f)
 			if err := tc.run(s); err == nil {
 				t.Error("no error")
 			}
 		})
+	}
+}
+
+// mkdirTest creates a folder where the action expects a file.
+func mkdirTest(t *testing.T, dir string) {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
 	}
 }
 

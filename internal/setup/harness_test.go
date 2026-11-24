@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -111,6 +112,7 @@ func fakeCommands(t *testing.T) *fakes {
 	}
 	f.save()
 	t.Setenv("ENVSETUP_FAKE_BIN", f.bin)
+	t.Setenv("GORACE", "atexit_sleep_ms=0") // a race-built fake otherwise sleeps 1s when it exits
 	t.Setenv("PATH", f.bin+":"+f.real)
 	t.Cleanup(func() {
 		if u := f.unexpected(); len(u) > 0 {
@@ -416,6 +418,31 @@ func checkUILog(t *testing.T, got, want []string) {
 	if !slices.Equal(got, want) {
 		t.Errorf("UI log:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
+}
+
+// fakeScript makes name a fake that logs each call and then runs the shell script text.
+func fakeScript(t *testing.T, f *fakes, name, text string) {
+	t.Helper()
+	script := filepath.Join(t.TempDir(), name)
+	writeTestFile(t, script, "#!/bin/sh\n"+text)
+	if err := os.Chmod(script, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f.set(name, fakeCmd{Real: script})
+}
+
+// fakeKeygen makes ssh-keygen a fake that writes a key, like the real one.
+// envsetup calls it with -t ed25519 -C <comment> -f <key>.
+func fakeKeygen(t *testing.T, f *fakes) {
+	t.Helper()
+	fakeScript(t, f, "ssh-keygen", "echo private >\"$6\"\necho \"ssh-ed25519 AAAA $4\" >\"$6.pub\"\n")
+}
+
+// failingGit makes git exit with code when its arguments contain part.
+// Every other call runs the real git, so call it after realGit.
+func failingGit(t *testing.T, f *fakes, part string, code int) {
+	t.Helper()
+	fakeScript(t, f, "git", "case \"$*\" in *'"+part+"'*) exit "+strconv.Itoa(code)+";; esac\nexec '"+f.cmds["git"].Real+"' \"$@\"\n")
 }
 
 func TestFakeCommands(t *testing.T) {

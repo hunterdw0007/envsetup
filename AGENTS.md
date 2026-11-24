@@ -202,8 +202,13 @@ envsetup is a Go program: `cmd/envsetup`, `internal/setup` and `internal/ui`.
 
 - `gofmt` sets the format.
   CI fails when `gofmt -l .` lists a file.
-- Every change must pass `go vet ./...` and `go test ./...`.
-  CI's `go` job runs both and builds for `amd64` and `arm64`.
+- Every change must pass `go vet ./...` and `go test -race -shuffle=on -count=1 ./...`.
+  `-race` finds data races.
+  In a data race, two goroutines use the same memory at once, and one of them writes.
+  `-shuffle=on` runs the tests in a random order and prints the seed.
+  `-shuffle=<seed>` repeats that order.
+  `-count=1` turns off the test cache.
+  CI's `go` job runs both commands and builds for `amd64` and `arm64`.
 - Add a dependency only when the standard library or an installed module cannot do the job.
   The menu uses huh, BubbleTea and lipgloss.
 - `internal/ui` draws every menu, question and message.

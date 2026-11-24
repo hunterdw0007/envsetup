@@ -5,6 +5,7 @@ package setup
 // snapshotHome lists everything under HOME, so a test can prove that a dry run wrote nothing.
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -28,11 +29,7 @@ func TestMain(m *testing.M) {
 			os.Exit(runFake(filepath.Dir(bin), name, os.Args[1:]))
 		}
 	}
-	code := m.Run()
-	for _, dir := range realDirs {
-		os.RemoveAll(dir)
-	}
-	os.Exit(code)
+	os.Exit(m.Run())
 }
 
 // runFake logs the call and answers with the output and exit code that the test set.
@@ -116,7 +113,9 @@ func fakeCommands(t *testing.T) *fakes {
 }
 
 // realDirs maps a PATH to a folder of links to its commands, except the guarded ones.
-// The folder takes thousands of links, so the tests share one for each PATH.
+// The folder takes thousands of links, so all test runs share one for each PATH.
+// Its name comes from PATH, the guarded list and the change time of each PATH folder.
+// So a new tool on PATH gives a new folder, and a test that panics leaks nothing.
 // Tests never run in parallel here, because they use t.Setenv.
 var realDirs = map[string]string{}
 
@@ -125,17 +124,33 @@ func realDir(t *testing.T, path string) string {
 	if dir, ok := realDirs[path]; ok {
 		return dir
 	}
-	dir, err := os.MkdirTemp("", "envsetup-real.")
-	if err != nil {
-		t.Fatal(err)
-	}
+	key := path + "\n" + strings.Join(guarded, " ")
 	for _, d := range filepath.SplitList(path) {
-		entries, _ := os.ReadDir(d)
-		for _, e := range entries {
-			// Like a PATH lookup, this skips a file that is not executable, such as uv's ~/.local/bin/env.
-			if fi, err := os.Stat(filepath.Join(d, e.Name())); err == nil && !fi.IsDir() && fi.Mode()&0o111 != 0 && !slices.Contains(guarded, e.Name()) {
-				// The first folder on PATH wins, so a later link of the same name fails, as it should.
-				_ = os.Symlink(filepath.Join(d, e.Name()), filepath.Join(dir, e.Name()))
+		if fi, err := os.Stat(d); err == nil {
+			key += "\n" + fi.ModTime().String()
+		}
+	}
+	dir := filepath.Join(os.TempDir(), fmt.Sprintf("envsetup-real-%x", sha256.Sum256([]byte(key)))[:len("envsetup-real-")+16])
+	if !isDir(dir) {
+		// Build the folder under another name, then rename it, so no run sees half a folder.
+		tmp, err := os.MkdirTemp("", "envsetup-real-new.")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, d := range filepath.SplitList(path) {
+			entries, _ := os.ReadDir(d)
+			for _, e := range entries {
+				// Like a PATH lookup, this skips a file that is not executable, such as uv's ~/.local/bin/env.
+				if fi, err := os.Stat(filepath.Join(d, e.Name())); err == nil && !fi.IsDir() && fi.Mode()&0o111 != 0 && !slices.Contains(guarded, e.Name()) {
+					// The first folder on PATH wins, so a later link of the same name fails, as it should.
+					_ = os.Symlink(filepath.Join(d, e.Name()), filepath.Join(tmp, e.Name()))
+				}
+			}
+		}
+		if err := os.Rename(tmp, dir); err != nil {
+			os.RemoveAll(tmp) // another run made the folder first
+			if !isDir(dir) {
+				t.Fatal(err)
 			}
 		}
 	}

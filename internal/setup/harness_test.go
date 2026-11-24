@@ -380,6 +380,44 @@ func diffSnapshots(before, after map[string]string) []string {
 	return d
 }
 
+// realGit makes git a fake that runs the real git, for a test of git settings.
+// git then reads and writes only the sandbox's ~/.gitconfig, and no system config.
+func (f *fakes) realGit() {
+	f.t.Helper()
+	f.t.Setenv("GIT_CONFIG_GLOBAL", os.Getenv("HOME")+"/.gitconfig")
+	f.t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	f.passThrough("git")
+}
+
+// writeTestFile writes a file and its folders.
+func writeTestFile(t *testing.T, file, text string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, []byte(text), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// readTestFile returns the text of a file that must exist.
+func readTestFile(t *testing.T, file string) string {
+	t.Helper()
+	data, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
+}
+
+// checkUILog compares the fake UI's log with want, line for line.
+func checkUILog(t *testing.T, got, want []string) {
+	t.Helper()
+	if !slices.Equal(got, want) {
+		t.Errorf("UI log:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
 func TestFakeCommands(t *testing.T) {
 	sandbox(t)
 	f := fakeCommands(t)

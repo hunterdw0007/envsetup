@@ -254,6 +254,8 @@ func TestPickValue(t *testing.T) {
 		"work  (as gum returns it)":      "work",
 		"Select profile":                 "Select profile",
 		"Select profile (current: home)": "Select profile",
+		"Select profile (current: work)": "Select profile",   // the label changed since the menu drew it
+		"Paste config now":               "Paste config now", // a prefix matches only an item with a label
 		"Paste config":                   "Paste config",
 		"Paste":                          "Paste", // bash matched menu items exactly
 		"Quit":                           "Quit",

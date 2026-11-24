@@ -434,6 +434,27 @@ On pushes to `main`, it also runs `release` after `shell-checks`, `smoke` and `g
   `go test ./internal/setup -run '^$' -fuzz=FuzzX -fuzztime=60s`.
   Go saves each failing input as a new seed file.
   Commit that file, so the failure stays tested.
+- Mutation testing checks that the tests check results, not only that they run the code.
+  [gremlins](https://github.com/go-gremlins/gremlins) makes one small change to the code, such as `<` to `<=`.
+  Each changed copy is a "mutant".
+  gremlins runs `go test` against each mutant.
+  A failed test "kills" the mutant.
+  A mutant that passes every test "lives".
+  CI does not run gremlins.
+  A newer version of gremlins can add mutators and change the numbers.
+  So install the pinned version, then run it from the repo root:
+
+  ```sh
+  go install github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0
+  gremlins unleash --workers 4 --timeout-coefficient 10 .
+  ```
+
+  A full run takes about 20 minutes.
+  Each mutant runs the tests of its whole package.
+  Keep the test efficacy at 95% or more (killed mutants ÷ covered mutants).
+  A live mutant needs a test that kills it.
+  Some mutants change no behavior, such as `<` to `<=` where the two values are never equal.
+  List each one in the PR with a reason, and do not test it.
 
 The CI badge in `README.md` names `ci.yml` in its image URL and in its link URL.
 If you rename `ci.yml`, update both URLs.

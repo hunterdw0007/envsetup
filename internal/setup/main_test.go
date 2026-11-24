@@ -183,7 +183,7 @@ func TestMainDryRun(t *testing.T) {
 	tmpLeft()
 }
 
-func TestMainStatus(t *testing.T) {
+func TestMainStatusOption(t *testing.T) {
 	_, f, tmpLeft := mainTest(t)
 	scriptUI(t, nil, nil)
 	f.set("curl", fakeCmd{Code: 6}) // GitHub is out of reach

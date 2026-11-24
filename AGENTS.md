@@ -403,7 +403,6 @@ On pushes to `main`, it also runs `release` after those jobs pass (see Releases)
   ```
 
   The test clones the commit that `/src` has checked out, so commit your changes first.
-- A new menu action, profile or mode needs a scenario in the smoke test.
 - Every check must be able to fail.
   Compare against an expected value that is not empty.
   Never compare two values that could both be empty.
@@ -461,3 +460,36 @@ So you still check the behavior yourself and describe it in the PR:
   Function tests alone once missed a bug: `setup.sh` exited before the menu on every first run.
 - Testing is local, and you throw it away afterwards.
   So a test must never change a PR or a commit, and it must never call the GitHub API.
+
+### Test layers
+
+envsetup has three layers of tests.
+Each layer tests a different size of code.
+Put each new check in the smallest layer that can test it.
+
+| Layer | Where | What it tests |
+| --- | --- | --- |
+| Unit | `*_test.go` next to the code | One function: parsing, comparing, building text |
+| Integration | `internal/setup/*_test.go` with the action helpers | One action: the four cases, error paths, each package manager |
+| End to end | `tests/smoke.sh`, `tests/distros/run.sh` | The whole flow from `install.sh` to a real shell |
+
+The action helpers give a test a fake `ui.UI`, fake commands and a snapshot of `$HOME`.
+[#186](https://github.com/hunterdw0007/envsetup/issues/186) will add them.
+An integration test checks these four cases for each action:
+
+1. Dry run: the snapshot of `$HOME` does not change.
+   The action describes each change with `s.Would`.
+2. First run: the action makes the change.
+   The fake commands log the expected calls.
+3. Second run: the action changes nothing more.
+4. Uninstall: `Uninstall` removes what the action created.
+   It keeps what the user owns.
+
+A branch is one path through the code, such as one side of an `if`.
+The smoke test is slow and needs Docker.
+So it is not the place for a check of one branch.
+Follow these rules:
+
+- A new branch in an action gets an integration test.
+- A new menu action, profile or mode still needs a scenario in the smoke test.
+- A check in the smoke test that tests only one branch moves to an integration test.

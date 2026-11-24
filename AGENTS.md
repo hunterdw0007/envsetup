@@ -209,6 +209,9 @@ envsetup is a Go program: `cmd/envsetup`, `internal/setup` and `internal/ui`.
   `-shuffle=<seed>` repeats that order.
   `-count=1` turns off the test cache.
   CI's `go` job runs both commands and builds for `amd64` and `arm64`.
+  It adds `-cover -coverpkg=./...` to `go test` for the `coverage` job (see Testing).
+  With `-race`, the coverage data uses the `atomic` mode.
+  So the smoke job builds its binary with `-covermode=atomic` too.
 - Add a dependency only when the standard library or an installed module cannot do the job.
   The menu uses huh, BubbleTea and lipgloss.
 - `internal/ui` draws every menu, question and message.
@@ -374,8 +377,8 @@ envsetup is a Go program: `cmd/envsetup`, `internal/setup` and `internal/ui`.
 
 ## Testing
 
-CI (`.github/workflows/ci.yml`) runs three jobs on every push and PR.
-On pushes to `main`, it also runs `release` after those jobs pass (see Releases).
+CI (`.github/workflows/ci.yml`) runs four jobs on every push and PR.
+On pushes to `main`, it also runs `release` after `shell-checks`, `smoke` and `go` pass (see Releases).
 `.github/workflows/commits.yml` checks the commit messages and the PR title on every PR.
 
 - `shell-checks` runs `shellcheck` and `shfmt` on every `*.sh` file.
@@ -396,6 +399,18 @@ On pushes to `main`, it also runs `release` after those jobs pass (see Releases)
   - It runs "Run everything" for every profile.
   - It updates from the last 0.x release with the same `config.sh`.
   - A real bash and a real zsh load the result.
+- `coverage` merges the coverage data of `go test` and the smoke test.
+  The smoke job's binary writes that data, because the job builds it with `-cover`.
+  The release builds without `-cover`.
+  The job writes the coverage of each package to the job summary.
+  The summary also shows `go test` alone, without a floor.
+  That number shows the progress of the unit and integration tests.
+  The job fails when the merged total is below the floor.
+  `.github/coverage-floor` holds the floor as one number, in percent.
+  A PR that raises the coverage may raise the floor.
+  A PR that lowers the floor gives the reason in its description.
+  The job uses no outside coverage service, so CI needs no token for it.
+  After this job passes on 5 PRs, an admin adds it to the `main` ruleset.
 - The smoke test replaces only the menu's answers, package installs and vendor downloads with fakes.
 - CI runs the smoke test offline.
   It uses cached copies of the few packages that it installs with real apt.

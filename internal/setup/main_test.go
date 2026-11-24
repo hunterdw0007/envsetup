@@ -159,7 +159,17 @@ func mainTest(t *testing.T) (home string, f *fakes, tmpLeft func()) {
 	t.Setenv("SHELL", "/bin/bash")
 	f = fakeCommands(t)
 	// Main reads its version from the clone, and lib/config.sh reads git/gitconfig.
-	f.passThrough("git")
+	f.realGit()
+	// --status looks up the newest release with git ls-remote.
+	// A folder that is not there keeps that call on this machine.
+	t.Setenv("ENVSETUP_REPO_URL", filepath.Join(t.TempDir(), "no-repo"))
+	t.Cleanup(func() {
+		for _, c := range f.calls() {
+			if strings.Contains(c, "://") || strings.Contains(c, "github.com") {
+				t.Errorf("a call names a remote URL: %s", c)
+			}
+		}
+	})
 	tmp := t.TempDir()
 	t.Setenv("TMPDIR", tmp)
 	return home, f, func() {

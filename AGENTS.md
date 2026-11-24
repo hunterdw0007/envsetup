@@ -479,13 +479,7 @@ So you still check the behavior yourself and describe it in the PR:
 - Run the code itself: Go tests for Go code, and `source` for bash functions.
   Use fake versions of external commands: `curl`, `sudo`, `git` and package managers.
   Use a separate `$HOME`.
-- Go tests of an action use the helpers in `internal/setup/harness_test.go`.
-  `newTestSetup` builds a `Setup` in a separate `$HOME`, with a fake UI and fake commands.
-  The fake UI answers each question from the test's list and logs each call.
-  The test binary acts as each fake command, and each fake logs its call.
-  A call to `sudo`, `curl`, `git` or a package manager that the test did not set fails the test.
-  `snapshotHome` and `diffSnapshots` prove that a dry run wrote nothing.
-  `TestSetUpZshDryRun` shows how to use them.
+- Go tests of an action use the helpers in `internal/setup/harness_test.go` (see Test layers).
 - Do not use real networks, install real system packages, or change the real shell or system during a test.
 - Some steps are safe to run more than once.
   For each one, test the path where the work is already done.
@@ -505,11 +499,31 @@ Put each new check in the smallest layer that can test it.
 | Layer | Where | What it tests |
 | --- | --- | --- |
 | Unit | `*_test.go` next to the code | One function: parsing, comparing, building text |
-| Integration | `internal/setup/*_test.go` with the action helpers | One action: the four cases, error paths, each package manager |
+| Integration | `internal/setup/*_test.go` with the helpers in `harness_test.go` | One action: the four cases, error paths, each package manager |
 | End to end | `tests/smoke.sh`, `tests/distros/run.sh` | The whole flow from `install.sh` to a real shell |
 
-The action helpers give a test a fake `ui.UI`, fake commands and a snapshot of `$HOME`.
-[#186](https://github.com/hunterdw0007/envsetup/issues/186) will add them.
+The helpers in `internal/setup/harness_test.go` give an integration test a fake UI, fake commands and a snapshot of `$HOME`:
+
+- `newTestSetup(t, profile, mode)` returns a `Setup` in a separate `$HOME`, a `fakeUI` and the `fakes`.
+  Call it only once in each test.
+  Do not call it in a subtest of a test that already called it.
+  A second call makes the git fakes start each other without end.
+- `fakeUI.answer` adds the answers to the questions, in order.
+  `fakeUI.log` holds each message and each question.
+  A question with no answer left fails the test.
+  An answer that is left at the end also fails the test.
+- The test binary acts as each fake command, and each fake logs its call.
+  `fakes.set` gives a fake its output and exit code.
+  `remove` takes a command off `PATH`.
+  `calls` returns the calls in order.
+  A call to `sudo`, `curl`, `git` or a package manager that the test did not set fails the test.
+- `passThrough` logs each call and runs the real command.
+  `realGit` does this for git, and keeps git on the separate `~/.gitconfig`.
+- `fakeScript`, `fakeKeygen` and `failingGit` make fakes that act more like the real commands.
+- `snapshotHome` and `diffSnapshots` prove that a dry run wrote nothing.
+- `writeTestFile`, `readTestFile` and `checkUILog` keep the tests short.
+- `TestSetUpZshDryRun` shows how to use the helpers.
+
 An integration test checks these four cases for each action:
 
 1. Dry run: the snapshot of `$HOME` does not change.
